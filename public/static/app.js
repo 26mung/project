@@ -1954,8 +1954,14 @@ async function regeneratePRD() {
         return true;
       } catch (error) {
         console.error('Failed to regenerate PRD:', error);
+        console.error('Error details:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         hideToast(loadingToast);
-        showToast('PRD 재생성에 실패했습니다', 'error');
+        const errorMsg = error.response?.data?.message || error.message || '알 수 없는 오류';
+        showToast(`PRD 재생성에 실패했습니다: ${errorMsg}`, 'error');
         return false;
       }
     }
