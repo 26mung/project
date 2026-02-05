@@ -1941,10 +1941,12 @@ async function regeneratePRD() {
     confirmText: 'PRD 다시 생성',
     cancelText: '취소',
     onConfirm: async () => {
-      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요...');
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 5분 소요)', 'info', 0);
       
       try {
-        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`);
+        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
+          timeout: 300000 // 300초 (5분)
+        });
         
         hideToast(loadingToast);
         showToast('PRD가 재생성되었습니다!', 'success');
