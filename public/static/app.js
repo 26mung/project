@@ -1607,6 +1607,10 @@ async function renderPRD() {
               <i class="fas fa-sync-alt" style="margin-right: 6px;"></i>
               상태 새로고침
             </button>
+            <button onclick="cancelPRDGeneration()" class="btn-weak-error btn-medium">
+              <i class="fas fa-times" style="margin-right: 6px;"></i>
+              생성 취소
+            </button>
           </div>
         </div>
         
@@ -1631,8 +1635,14 @@ async function renderPRD() {
       `;
       
       // 🚀 타이머 시작 (경과 시간 표시)
-      let elapsedSeconds = 0;
+      // 세션 스토리지에서 시작 시간 복원
+      const startTimeStr = sessionStorage.getItem('prd_generation_start');
+      const startTime = startTimeStr ? parseInt(startTimeStr) : Date.now();
+      
+      let elapsedSeconds = startTimeStr ? Math.floor((Date.now() - startTime) / 1000) : 0;
+      
       const timerInterval = setInterval(() => {
+        elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
         elapsedSeconds++;
         const elapsedTimeEl = document.getElementById('elapsed-time');
         if (elapsedTimeEl) {
@@ -2100,7 +2110,7 @@ async function generatePRD() {
       try {
         console.log('[PRD] Calling API...');
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 5000 // 5초 타임아웃 (즉시 응답)
+          timeout: 10000 // 10초 타임아웃 (임시 PRD 생성 대기)
         });
         console.log('[PRD] API response:', response.data);
         
@@ -2130,8 +2140,12 @@ async function generatePRD() {
 
 // 🚀 PRD 생성 상태 폴링 (주기적 확인)
 async function pollPRDStatus(prdId) {
-  const maxAttempts = 120; // 최대 2분 (1초마다 확인)
+  const maxAttempts = 240; // 최대 4분 (1초마다 확인)
   let attempts = 0;
+  
+  // 🔥 폴링 시작 시간 저장 (세션 스토리지)
+  sessionStorage.setItem('prd_generation_start', Date.now().toString());
+  sessionStorage.setItem('prd_generation_id', prdId.toString());
   
   const checkStatus = async () => {
     try {
@@ -2155,11 +2169,22 @@ async function pollPRDStatus(prdId) {
       if (status === 'completed') {
         console.log('[PRD 폴링] PRD 생성 완료!');
         const generationTime = Math.round(metadata.generation_time_ms / 1000);
+        
+        // 🔥 세션 스토리지 정리
+        sessionStorage.removeItem('prd_generation_start');
+        sessionStorage.removeItem('prd_generation_id');
+        
         showToast(`PRD가 생성되었습니다! (${generationTime}초 소요) 🎉`, 'success');
         await renderPRD();
       } else if (status === 'failed') {
         console.error('[PRD 폴링] PRD 생성 실패');
+        
+        // 🔥 세션 스토리지 정리
+        sessionStorage.removeItem('prd_generation_start');
+        sessionStorage.removeItem('prd_generation_id');
+        
         showToast('PRD 생성에 실패했습니다. 다시 시도해주세요.', 'error');
+        await renderPRD();
       } else if (status === 'generating') {
         // 아직 생성 중
         if (attempts < maxAttempts) {
@@ -2182,6 +2207,49 @@ async function pollPRDStatus(prdId) {
   
   // 첫 확인은 3초 후 (AI가 시작할 시간 제공)
   setTimeout(checkStatus, 3000);
+}
+
+// 🚫 PRD 생성 취소
+function cancelPRDGeneration() {
+  showModal({
+    title: 'PRD 생성 취소',
+    content: `
+      <div style="padding: 16px 0;">
+        <p class="text-body2" style="color: var(--grey-700); margin-bottom: 12px;">
+          PRD 생성을 취소하시겠어요?
+        </p>
+        <p class="text-body3" style="color: var(--grey-600);">
+          생성 중이던 PRD가 삭제되며, 다시 처음부터 생성해야 합니다.
+        </p>
+      </div>
+    `,
+    confirmText: '취소하기',
+    confirmClass: 'btn-error',
+    onConfirm: async () => {
+      try {
+        const prdId = sessionStorage.getItem('prd_generation_id');
+        if (prdId) {
+          // PRD 삭제
+          await axios.delete(`${API_BASE}/prd/${prdId}`);
+        }
+        
+        // 세션 스토리지 정리
+        sessionStorage.removeItem('prd_generation_start');
+        sessionStorage.removeItem('prd_generation_id');
+        
+        showToast('PRD 생성이 취소되었습니다', 'info');
+        
+        // 요건 관리 탭으로 이동
+        switchTab('requirements');
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to cancel PRD:', error);
+        showToast('취소에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
 }
 
 function downloadPRD() {

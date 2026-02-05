@@ -735,6 +735,20 @@ api.get('/projects/:id/prd', async (c) => {
   return c.json(prd);
 });
 
+// PRD 삭제
+api.delete('/prd/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  try {
+    await DB.prepare('DELETE FROM prd_documents WHERE id = ?').bind(id).run();
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete PRD:', error);
+    return c.json({ error: 'Failed to delete PRD' }, 500);
+  }
+});
+
 // ============ 답변 수정 API ============
 
 // 답변 수정
