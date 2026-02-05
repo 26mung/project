@@ -4,6 +4,7 @@ let currentTab = 'overview';
 let projects = [];
 let requirements = [];
 let isAuthenticated = false;
+let uploadedImages = []; // 업로드된 이미지 (Base64)
 
 // 🚀 성능 최적화: 페이지네이션 상태
 let currentPage = 1;
@@ -12,6 +13,71 @@ let totalRequirements = 0;
 
 // API 기본 URL
 const API_BASE = window.location.origin + '/api';
+
+// ============ 이미지 업로드 처리 ============
+function handleImageUpload(event) {
+  const files = Array.from(event.target.files);
+  
+  // 최대 10장 제한
+  if (uploadedImages.length + files.length > 10) {
+    showToast('이미지는 최대 10장까지 업로드할 수 있습니다', 'error');
+    event.target.value = ''; // 파일 선택 초기화
+    return;
+  }
+  
+  files.forEach((file, index) => {
+    // 이미지 파일인지 확인
+    if (!file.type.startsWith('image/')) {
+      showToast('이미지 파일만 업로드할 수 있습니다', 'error');
+      return;
+    }
+    
+    // 파일 크기 제한 (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
+      return;
+    }
+    
+    // Base64로 변환
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedImages.push({
+        data: e.target.result,
+        name: file.name
+      });
+      renderImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  event.target.value = ''; // 파일 선택 초기화
+}
+
+function renderImagePreviews() {
+  const container = document.getElementById('image-preview-container');
+  if (!container) return;
+  
+  container.innerHTML = uploadedImages.map((img, index) => `
+    <div class="relative group">
+      <img src="${img.data}" class="w-full h-20 object-cover rounded-lg border-2 border-toss-gray-200">
+      <button 
+        onclick="removeImage(${index})" 
+        class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+      >
+        ✕
+      </button>
+      <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs px-1 py-0.5 truncate rounded-b-lg">
+        ${img.name}
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeImage(index) {
+  uploadedImages.splice(index, 1);
+  renderImagePreviews();
+  showToast('이미지가 제거되었습니다', 'info');
+}
 
 // ============ 초기화 ============
 document.addEventListener('DOMContentLoaded', async () => {
@@ -328,18 +394,30 @@ function createNewProject() {
       }
       
       try {
+        // 이미지 URL 배열 생성 (Base64 데이터)
+        const imageUrls = uploadedImages.map(img => img.data);
+        
         const response = await axios.post(`${API_BASE}/projects`, {
           title,
           description,
           input_content: inputContent,
+          image_urls: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null
         });
         
         currentProject = response.data;
         await loadProjects();
         
+        // 이미지 업로드 상태 초기화
+        uploadedImages = [];
+        
         // 프로젝트 생성 후 Overview로 이동 (자동 평가 제거)
         switchTab('overview');
-        showToast('프로젝트가 생성되었습니다! 개요에서 기획안을 평가해보세요', 'success');
+        
+        if (imageUrls.length > 0) {
+          showToast(`프로젝트가 생성되었습니다! (이미지 ${imageUrls.length}장 포함) 개요에서 기획안을 평가해보세요`, 'success');
+        } else {
+          showToast('프로젝트가 생성되었습니다! 개요에서 기획안을 평가해보세요', 'success');
+        }
         
         return true;
       } catch (error) {
