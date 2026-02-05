@@ -1556,143 +1556,7 @@ async function renderPRD() {
       console.error('Failed to parse metadata:', e);
     }
     
-    // 🚀 생성 중 상태 체크
-    if (metadata && metadata.status === 'generating') {
-      content.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px;">
-          <div style="width: 120px; height: 120px; background: linear-gradient(135deg, var(--blue-500), var(--blue-400)); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; position: relative; animation: pulse 2s ease-in-out infinite;">
-            <i class="fas fa-magic" style="font-size: 48px; color: white;"></i>
-            <!-- 회전하는 원형 진행바 -->
-            <svg style="position: absolute; top: -10px; left: -10px; width: 140px; height: 140px; transform: rotate(-90deg);">
-              <circle cx="70" cy="70" r="60" stroke="var(--blue-200)" stroke-width="4" fill="none" opacity="0.3"/>
-              <circle id="prd-progress-circle" cx="70" cy="70" r="60" stroke="var(--blue-500)" stroke-width="4" fill="none" 
-                      stroke-dasharray="377" stroke-dashoffset="377" stroke-linecap="round"
-                      style="transition: stroke-dashoffset 1s ease-in-out;"/>
-            </svg>
-          </div>
-          
-          <h2 class="text-title2" style="color: var(--grey-900); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-            <span>PRD 문서를 생성하고 있어요</span>
-            <span class="loading-dots"></span>
-          </h2>
-          
-          <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-12); padding: 20px; max-width: 500px; margin-bottom: 24px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <p class="text-body2" style="color: var(--grey-700); font-weight: 600;">예상 소요 시간</p>
-              <p class="text-body2" style="color: var(--blue-600); font-weight: 700;" id="estimated-time">약 2-3분</p>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <p class="text-body2" style="color: var(--grey-700); font-weight: 600;">경과 시간</p>
-              <p class="text-body2" style="color: var(--grey-900); font-weight: 700;" id="elapsed-time">0초</p>
-            </div>
-            
-            <!-- 프로그레스 바 -->
-            <div style="width: 100%; height: 8px; background: var(--grey-200); border-radius: 999px; overflow: hidden; margin-bottom: 16px;">
-              <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--blue-500), var(--blue-400)); transition: width 1s ease-in-out; border-radius: 999px;"></div>
-            </div>
-            
-            <p class="text-body3" style="color: var(--grey-600); text-align: center;">
-              <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
-              백그라운드에서 생성 중이므로 다른 작업을 계속하셔도 됩니다
-            </p>
-          </div>
-          
-          <div style="display: flex; gap: 12px;">
-            <button onclick="switchTab('requirements')" class="btn-secondary btn-medium">
-              <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
-              요건 관리로 돌아가기
-            </button>
-            <button onclick="renderPRD()" class="btn-weak-primary btn-medium">
-              <i class="fas fa-sync-alt" style="margin-right: 6px;"></i>
-              상태 새로고침
-            </button>
-            <button onclick="cancelPRDGeneration()" class="btn-weak-error btn-medium">
-              <i class="fas fa-times" style="margin-right: 6px;"></i>
-              생성 취소
-            </button>
-          </div>
-        </div>
-        
-        <style>
-          @keyframes pulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.9; }
-          }
-          
-          .loading-dots::after {
-            content: '';
-            animation: loading-dots 1.5s steps(4, end) infinite;
-          }
-          
-          @keyframes loading-dots {
-            0%, 20% { content: ''; }
-            40% { content: '.'; }
-            60% { content: '..'; }
-            80%, 100% { content: '...'; }
-          }
-        </style>
-      `;
-      
-      // 🚀 타이머 시작 (경과 시간 표시)
-      // 세션 스토리지에서 시작 시간 복원
-      const startTimeStr = sessionStorage.getItem('prd_generation_start');
-      const startTime = startTimeStr ? parseInt(startTimeStr) : Date.now();
-      
-      let elapsedSeconds = startTimeStr ? Math.floor((Date.now() - startTime) / 1000) : 0;
-      
-      const timerInterval = setInterval(() => {
-        elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-        elapsedSeconds++;
-        const elapsedTimeEl = document.getElementById('elapsed-time');
-        if (elapsedTimeEl) {
-          const minutes = Math.floor(elapsedSeconds / 60);
-          const seconds = elapsedSeconds % 60;
-          elapsedTimeEl.textContent = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
-          
-          // 진행률 표시 (최대 90%까지만, 마지막 10%는 완료 시)
-          const progressPercent = Math.min(90, (elapsedSeconds / 180) * 100);
-          const progressBar = document.getElementById('progress-bar');
-          if (progressBar) {
-            progressBar.style.width = `${progressPercent}%`;
-          }
-          
-          // 원형 진행바 업데이트
-          const circle = document.getElementById('prd-progress-circle');
-          if (circle) {
-            const circumference = 377;
-            const offset = circumference - (progressPercent / 100) * circumference;
-            circle.style.strokeDashoffset = offset;
-          }
-          
-          // 예상 시간 업데이트
-          const estimatedTimeEl = document.getElementById('estimated-time');
-          if (estimatedTimeEl && elapsedSeconds > 30) {
-            const remaining = Math.max(0, 180 - elapsedSeconds);
-            const remainingMinutes = Math.ceil(remaining / 60);
-            estimatedTimeEl.textContent = `약 ${remainingMinutes}분 남음`;
-          }
-        } else {
-          clearInterval(timerInterval);
-        }
-      }, 1000);
-      
-      // 컴포넌트가 언마운트될 때 타이머 정리
-      window.prdTimerInterval = timerInterval;
-      
-      return;
-    }
-    
-    // 기존 타이머 정리
-    if (window.prdTimerInterval) {
-      clearInterval(window.prdTimerInterval);
-      window.prdTimerInterval = null;
-    }
-    
-    // 세션 스토리지 정리
-    const startTimeKey = `prd_start_time_${currentProject.id}`;
-    sessionStorage.removeItem(startTimeKey);
-    
+    // PRD 내용 렌더링
     content.innerHTML = `
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
@@ -2100,38 +1964,43 @@ async function generatePRD() {
           <i class="fas fa-file-alt text-2xl text-green-600"></i>
         </div>
         <p class="text-toss-gray-900 font-semibold mb-2">PRD 문서를 생성하시겠어요?</p>
-        <p class="text-sm text-toss-gray-600">모든 요건과 답변을 종합하여 완전한 기획 문서를 만들어드려요</p>
+        <p class="text-sm text-toss-gray-600 mb-3">모든 요건과 답변을 종합하여 완전한 기획 문서를 만들어드려요</p>
+        <p class="text-xs text-orange-600">
+          <i class="fas fa-clock mr-1"></i>
+          약 2-3분 소요됩니다. 완료될 때까지 기다려주세요.
+        </p>
       </div>
     `,
-    confirmText: 'PRD 생성하기',
+    confirmText: 'PRD 생성',
     onConfirm: async () => {
-      console.log('[PRD] Starting PRD generation...');
+      // 모달 닫기
+      closeAllModals();
+      
+      // 로딩 토스트 표시
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 3분 소요)', 'info', 0);
       
       try {
-        console.log('[PRD] Calling API...');
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 10000 // 10초 타임아웃 (임시 PRD 생성 대기)
+          timeout: 200000 // 200초 (3분 20초)
         });
-        console.log('[PRD] API response:', response.data);
         
-        // 모달 닫기
-        closeAllModals();
+        hideToast(loadingToast);
         
-        // 생성 중 메시지
-        showToast('PRD 생성을 시작했습니다! 백그라운드에서 생성 중이에요 ⚡', 'success');
+        // 성공 메시지
+        showToast('PRD가 생성되었습니다! 🎉', 'success');
         
-        // PRD 탭으로 즉시 전환
+        // 프로젝트 정보 새로고침
+        await selectProject(currentProject.id);
+        
+        // PRD 탭으로 전환
         switchTab('prd');
-        
-        // 폴링 시작 (주기적으로 상태 확인)
-        const prdId = response.data.prd_id;
-        pollPRDStatus(prdId);
         
         return true;
       } catch (error) {
-        console.error('[PRD] Failed to generate PRD:', error);
+        console.error('Failed to generate PRD:', error);
+        hideToast(loadingToast);
         const errorMessage = error.response?.data?.message || error.message;
-        showToast(`PRD 생성 요청에 실패했습니다: ${errorMessage}`, 'error');
+        showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
         return false;
       }
     }
@@ -2139,118 +2008,6 @@ async function generatePRD() {
 }
 
 // 🚀 PRD 생성 상태 폴링 (주기적 확인)
-async function pollPRDStatus(prdId) {
-  const maxAttempts = 240; // 최대 4분 (1초마다 확인)
-  let attempts = 0;
-  
-  // 🔥 폴링 시작 시간 저장 (세션 스토리지)
-  sessionStorage.setItem('prd_generation_start', Date.now().toString());
-  sessionStorage.setItem('prd_generation_id', prdId.toString());
-  
-  const checkStatus = async () => {
-    try {
-      attempts++;
-      console.log(`[PRD 폴링] 상태 확인 중... (${attempts}/${maxAttempts})`);
-      
-      const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
-      const prd = response.data;
-      
-      if (!prd.metadata) {
-        // 메타데이터가 없으면 이전 버전 PRD
-        console.log('[PRD 폴링] PRD 완료 (이전 버전)');
-        showToast('PRD가 생성되었습니다! 🎉', 'success');
-        await renderPRD();
-        return;
-      }
-      
-      const metadata = typeof prd.metadata === 'string' ? JSON.parse(prd.metadata) : prd.metadata;
-      const status = metadata.status;
-      
-      if (status === 'completed') {
-        console.log('[PRD 폴링] PRD 생성 완료!');
-        const generationTime = Math.round(metadata.generation_time_ms / 1000);
-        
-        // 🔥 세션 스토리지 정리
-        sessionStorage.removeItem('prd_generation_start');
-        sessionStorage.removeItem('prd_generation_id');
-        
-        showToast(`PRD가 생성되었습니다! (${generationTime}초 소요) 🎉`, 'success');
-        await renderPRD();
-      } else if (status === 'failed') {
-        console.error('[PRD 폴링] PRD 생성 실패');
-        
-        // 🔥 세션 스토리지 정리
-        sessionStorage.removeItem('prd_generation_start');
-        sessionStorage.removeItem('prd_generation_id');
-        
-        showToast('PRD 생성에 실패했습니다. 다시 시도해주세요.', 'error');
-        await renderPRD();
-      } else if (status === 'generating') {
-        // 아직 생성 중
-        if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 1000); // 1초 후 재확인
-        } else {
-          console.warn('[PRD 폴링] 타임아웃 - 최대 시도 횟수 초과');
-          showToast('PRD 생성이 예상보다 오래 걸립니다. 잠시 후 새로고침해주세요.', 'warning');
-        }
-      }
-    } catch (error) {
-      console.error('[PRD 폴링] 상태 확인 실패:', error);
-      
-      if (attempts < maxAttempts) {
-        setTimeout(checkStatus, 2000); // 에러 시 2초 후 재시도
-      } else {
-        showToast('PRD 상태 확인에 실패했습니다. 페이지를 새로고침해주세요.', 'error');
-      }
-    }
-  };
-  
-  // 첫 확인은 3초 후 (AI가 시작할 시간 제공)
-  setTimeout(checkStatus, 3000);
-}
-
-// 🚫 PRD 생성 취소
-function cancelPRDGeneration() {
-  showModal({
-    title: 'PRD 생성 취소',
-    content: `
-      <div style="padding: 16px 0;">
-        <p class="text-body2" style="color: var(--grey-700); margin-bottom: 12px;">
-          PRD 생성을 취소하시겠어요?
-        </p>
-        <p class="text-body3" style="color: var(--grey-600);">
-          생성 중이던 PRD가 삭제되며, 다시 처음부터 생성해야 합니다.
-        </p>
-      </div>
-    `,
-    confirmText: '취소하기',
-    confirmClass: 'btn-error',
-    onConfirm: async () => {
-      try {
-        const prdId = sessionStorage.getItem('prd_generation_id');
-        if (prdId) {
-          // PRD 삭제
-          await axios.delete(`${API_BASE}/prd/${prdId}`);
-        }
-        
-        // 세션 스토리지 정리
-        sessionStorage.removeItem('prd_generation_start');
-        sessionStorage.removeItem('prd_generation_id');
-        
-        showToast('PRD 생성이 취소되었습니다', 'info');
-        
-        // 요건 관리 탭으로 이동
-        switchTab('requirements');
-        
-        return true;
-      } catch (error) {
-        console.error('Failed to cancel PRD:', error);
-        showToast('취소에 실패했습니다', 'error');
-        return false;
-      }
-    }
-  });
-}
 
 function downloadPRD() {
   showToast('다운로드 기능은 곧 추가될 예정이에요', 'info');
