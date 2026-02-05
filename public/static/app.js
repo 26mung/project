@@ -1969,45 +1969,92 @@ async function generatePRD() {
     confirmText: 'PRD 생성하기',
     onConfirm: async () => {
       console.log('[PRD] Starting PRD generation...');
-      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요... (최대 3분 소요)');
       
       try {
         console.log('[PRD] Calling API...');
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 200000 // 200초 타임아웃 (서버 180초 + 버퍼 20초)
+          timeout: 5000 // 5초 타임아웃 (즉시 응답)
         });
-        console.log('[PRD] API response:', response.status);
+        console.log('[PRD] API response:', response.data);
         
-        hideToast(loadingToast);
-        
-        // 모달을 먼저 닫음
-        console.log('[PRD] Closing modal...');
+        // 모달 닫기
         closeAllModals();
         
-        // 성공 토스트 표시
-        console.log('[PRD] Showing success toast...');
-        showToast('PRD가 생성되었습니다!', 'success');
+        // 생성 중 메시지
+        showToast('PRD 생성을 시작했습니다! 백그라운드에서 생성 중이에요 ⚡', 'success');
         
-        // 프로젝트 데이터 새로고침
-        console.log('[PRD] Refreshing project data...');
-        await selectProject(currentProject.id);
-        
-        // PRD 탭으로 전환
-        console.log('[PRD] Switching to PRD tab...');
+        // PRD 탭으로 즉시 전환
         switchTab('prd');
         
-        console.log('[PRD] Completed successfully!');
-        return true; // 모달 닫기 (이미 닫혔지만 일관성 유지)
+        // 폴링 시작 (주기적으로 상태 확인)
+        const prdId = response.data.prd_id;
+        pollPRDStatus(prdId);
+        
+        return true;
       } catch (error) {
         console.error('[PRD] Failed to generate PRD:', error);
-        hideToast(loadingToast);
         const errorMessage = error.response?.data?.message || error.message;
-        showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
-        console.log('[PRD] Returning false to keep modal open...');
-        return false; // 모달 열어두기
+        showToast(`PRD 생성 요청에 실패했습니다: ${errorMessage}`, 'error');
+        return false;
       }
     }
   });
+}
+
+// 🚀 PRD 생성 상태 폴링 (주기적 확인)
+async function pollPRDStatus(prdId) {
+  const maxAttempts = 120; // 최대 2분 (1초마다 확인)
+  let attempts = 0;
+  
+  const checkStatus = async () => {
+    try {
+      attempts++;
+      console.log(`[PRD 폴링] 상태 확인 중... (${attempts}/${maxAttempts})`);
+      
+      const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
+      const prd = response.data;
+      
+      if (!prd.metadata) {
+        // 메타데이터가 없으면 이전 버전 PRD
+        console.log('[PRD 폴링] PRD 완료 (이전 버전)');
+        showToast('PRD가 생성되었습니다! 🎉', 'success');
+        await renderPRD();
+        return;
+      }
+      
+      const metadata = typeof prd.metadata === 'string' ? JSON.parse(prd.metadata) : prd.metadata;
+      const status = metadata.status;
+      
+      if (status === 'completed') {
+        console.log('[PRD 폴링] PRD 생성 완료!');
+        const generationTime = Math.round(metadata.generation_time_ms / 1000);
+        showToast(`PRD가 생성되었습니다! (${generationTime}초 소요) 🎉`, 'success');
+        await renderPRD();
+      } else if (status === 'failed') {
+        console.error('[PRD 폴링] PRD 생성 실패');
+        showToast('PRD 생성에 실패했습니다. 다시 시도해주세요.', 'error');
+      } else if (status === 'generating') {
+        // 아직 생성 중
+        if (attempts < maxAttempts) {
+          setTimeout(checkStatus, 1000); // 1초 후 재확인
+        } else {
+          console.warn('[PRD 폴링] 타임아웃 - 최대 시도 횟수 초과');
+          showToast('PRD 생성이 예상보다 오래 걸립니다. 잠시 후 새로고침해주세요.', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('[PRD 폴링] 상태 확인 실패:', error);
+      
+      if (attempts < maxAttempts) {
+        setTimeout(checkStatus, 2000); // 에러 시 2초 후 재시도
+      } else {
+        showToast('PRD 상태 확인에 실패했습니다. 페이지를 새로고침해주세요.', 'error');
+      }
+    }
+  };
+  
+  // 첫 확인은 3초 후 (AI가 시작할 시간 제공)
+  setTimeout(checkStatus, 3000);
 }
 
 function downloadPRD() {
