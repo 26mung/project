@@ -1,0 +1,370 @@
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD } from './ai-service';
+
+const api = new Hono<{ Bindings: Bindings }>();
+
+// CORS 설정
+api.use('/*', cors());
+
+// ============ 프로젝트 API ============
+
+// 모든 프로젝트 조회
+api.get('/projects', async (c) => {
+  const { DB } = c.env;
+  const { results } = await DB.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
+  return c.json(results);
+});
+
+// 프로젝트 상세 조회
+api.get('/projects/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
+  
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+  
+  return c.json(project);
+});
+
+// 프로젝트 생성
+api.post('/projects', async (c) => {
+  const { DB } = c.env;
+  const body: CreateProjectRequest = await c.req.json();
+  
+  const result = await DB.prepare(
+    'INSERT INTO projects (title, description, input_content, status) VALUES (?, ?, ?, ?)'
+  ).bind(body.title, body.description || null, body.input_content || null, 'draft').run();
+  
+  return c.json({ id: result.meta.last_row_id, ...body, status: 'draft' }, 201);
+});
+
+// 프로젝트 업데이트
+api.put('/projects/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  
+  await DB.prepare(
+    'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+  ).bind(body.title, body.description, body.input_content, body.status, id).run();
+  
+  return c.json({ success: true });
+});
+
+// 프로젝트 삭제
+api.delete('/projects/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  await DB.prepare('DELETE FROM projects WHERE id = ?').bind(id).run();
+  
+  return c.json({ success: true });
+});
+
+// ============ AI 분석 API ============
+
+// 프로젝트 기획안 AI 분석 및 요건 생성
+api.post('/projects/:id/analyze', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body: AnalyzeProjectRequest = await c.req.json();
+  
+  // 환경 변수에서 OpenAI 설정 가져오기
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    // 프로젝트 상태 업데이트
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('analyzing', id).run();
+    
+    // AI 분석 실행
+    const analysis = await analyzeProjectRequirements(body.input_content, apiKey, baseURL);
+    
+    // 요건 및 질문 저장
+    for (const req of analysis.requirements) {
+      const reqResult = await DB.prepare(
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(id, req.title, req.description, req.requirement_type, req.priority, 'pending').run();
+      
+      const reqId = reqResult.meta.last_row_id;
+      
+      // 질문 저장
+      for (let i = 0; i < req.questions.length; i++) {
+        const q = req.questions[i];
+        await DB.prepare(
+          'INSERT INTO questions (requirement_id, question_text, question_type, options, order_index) VALUES (?, ?, ?, ?, ?)'
+        ).bind(
+          reqId,
+          q.question_text,
+          q.question_type,
+          q.options ? JSON.stringify(q.options) : null,
+          i
+        ).run();
+      }
+    }
+    
+    // 프로젝트 상태를 in_progress로 변경
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('in_progress', id).run();
+    
+    return c.json({ success: true, requirements_count: analysis.requirements.length });
+  } catch (error) {
+    console.error('Analysis error:', error);
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('draft', id).run();
+    
+    return c.json({ error: 'Analysis failed', message: String(error) }, 500);
+  }
+});
+
+// ============ 요건 API ============
+
+// 프로젝트의 모든 요건 조회 (계층 구조)
+api.get('/projects/:id/requirements', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  const { results } = await DB.prepare(
+    'SELECT * FROM requirements WHERE project_id = ? ORDER BY parent_id, order_index'
+  ).bind(id).all();
+  
+  return c.json(results);
+});
+
+// 요건 상세 조회 (질문 및 답변 포함)
+api.get('/requirements/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(id).first();
+  
+  if (!requirement) {
+    return c.json({ error: 'Requirement not found' }, 404);
+  }
+  
+  const { results: questions } = await DB.prepare(
+    'SELECT * FROM questions WHERE requirement_id = ? ORDER BY order_index'
+  ).bind(id).all();
+  
+  // 각 질문의 답변 가져오기
+  for (const question of questions as any[]) {
+    const answer = await DB.prepare(
+      'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC LIMIT 1'
+    ).bind(question.id).first();
+    
+    question.answer = answer;
+  }
+  
+  return c.json({ ...requirement, questions });
+});
+
+// 요건 생성
+api.post('/requirements', async (c) => {
+  const { DB } = c.env;
+  const body: CreateRequirementRequest = await c.req.json();
+  
+  const result = await DB.prepare(
+    'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).bind(
+    body.project_id,
+    body.parent_id || null,
+    body.title,
+    body.description || null,
+    body.requirement_type,
+    body.priority || 'medium',
+    'pending'
+  ).run();
+  
+  return c.json({ id: result.meta.last_row_id, ...body }, 201);
+});
+
+// 요건 업데이트
+api.put('/requirements/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body = await c.req.json();
+  
+  await DB.prepare(
+    'UPDATE requirements SET title = ?, description = ?, status = ?, priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+  ).bind(body.title, body.description, body.status, body.priority, id).run();
+  
+  return c.json({ success: true });
+});
+
+// 요건 삭제
+api.delete('/requirements/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  await DB.prepare('DELETE FROM requirements WHERE id = ?').bind(id).run();
+  
+  return c.json({ success: true });
+});
+
+// ============ 질문/답변 API ============
+
+// 질문에 답변하기
+api.post('/questions/:id/answer', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body: AnswerQuestionRequest = await c.req.json();
+  
+  // 기존 답변이 있으면 업데이트, 없으면 생성
+  const existingAnswer = await DB.prepare(
+    'SELECT * FROM answers WHERE question_id = ?'
+  ).bind(id).first();
+  
+  if (existingAnswer) {
+    await DB.prepare(
+      'UPDATE answers SET answer_text = ?, updated_at = CURRENT_TIMESTAMP WHERE question_id = ?'
+    ).bind(body.answer_text, id).run();
+  } else {
+    await DB.prepare(
+      'INSERT INTO answers (question_id, answer_text) VALUES (?, ?)'
+    ).bind(id, body.answer_text).run();
+  }
+  
+  // 파생 질문 생성 (선택적)
+  const question = await DB.prepare('SELECT * FROM questions WHERE id = ?').bind(id).first() as any;
+  const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(question.requirement_id).first() as any;
+  
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (apiKey && question && requirement) {
+    try {
+      const followUpQuestions = await generateFollowUpQuestions(
+        requirement.title,
+        question.question_text,
+        body.answer_text,
+        apiKey,
+        baseURL
+      );
+      
+      // 파생 질문 저장
+      for (const fq of followUpQuestions) {
+        await DB.prepare(
+          'INSERT INTO questions (requirement_id, question_text, question_type) VALUES (?, ?, ?)'
+        ).bind(question.requirement_id, fq.question_text, fq.question_type).run();
+      }
+      
+      return c.json({ success: true, follow_up_count: followUpQuestions.length });
+    } catch (error) {
+      console.error('Follow-up generation error:', error);
+    }
+  }
+  
+  return c.json({ success: true, follow_up_count: 0 });
+});
+
+// ============ PRD 생성 API ============
+
+// PRD 문서 생성
+api.post('/projects/:id/generate-prd', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  const apiKey = process.env.OPENAI_API_KEY || '';
+  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    // 프로젝트 정보 가져오기
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    // 모든 요건과 질문/답변 가져오기
+    const { results: requirements } = await DB.prepare(
+      'SELECT * FROM requirements WHERE project_id = ?'
+    ).bind(id).all();
+    
+    const requirementsData = [];
+    
+    for (const req of requirements as any[]) {
+      const { results: questions } = await DB.prepare(
+        'SELECT * FROM questions WHERE requirement_id = ?'
+      ).bind(req.id).all();
+      
+      const questionsWithAnswers = [];
+      
+      for (const q of questions as any[]) {
+        const answer = await DB.prepare(
+          'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC LIMIT 1'
+        ).bind(q.id).first() as any;
+        
+        if (answer) {
+          questionsWithAnswers.push({
+            question: q.question_text,
+            answer: answer.answer_text,
+          });
+        }
+      }
+      
+      requirementsData.push({
+        title: req.title,
+        description: req.description || '',
+        questions: questionsWithAnswers,
+      });
+    }
+    
+    // PRD 생성
+    const prd = await generatePRD(
+      project.title,
+      project.description || '',
+      requirementsData,
+      apiKey,
+      baseURL
+    );
+    
+    // PRD 저장
+    const result = await DB.prepare(
+      'INSERT INTO prd_documents (project_id, content) VALUES (?, ?)'
+    ).bind(id, prd.content).run();
+    
+    // 프로젝트 상태 업데이트
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('completed', id).run();
+    
+    return c.json({ success: true, prd_id: result.meta.last_row_id, content: prd.content });
+  } catch (error) {
+    console.error('PRD generation error:', error);
+    return c.json({ error: 'PRD generation failed', message: String(error) }, 500);
+  }
+});
+
+// PRD 문서 조회
+api.get('/projects/:id/prd', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  const prd = await DB.prepare(
+    'SELECT * FROM prd_documents WHERE project_id = ? ORDER BY created_at DESC LIMIT 1'
+  ).bind(id).first();
+  
+  if (!prd) {
+    return c.json({ error: 'PRD not found' }, 404);
+  }
+  
+  return c.json(prd);
+});
+
+export default api;
