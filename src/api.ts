@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
-import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD } from './ai-service';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness } from './ai-service';
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -63,6 +63,40 @@ api.delete('/projects/:id', async (c) => {
   await DB.prepare('DELETE FROM projects WHERE id = ?').bind(id).run();
   
   return c.json({ success: true });
+});
+
+// 프로젝트 기획안 평가 (분석 전 실행)
+api.post('/projects/:id/evaluate', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    const evaluation = await evaluateProjectCompleteness(
+      project.title,
+      project.description || '',
+      project.input_content || '',
+      apiKey,
+      baseURL
+    );
+    
+    return c.json(evaluation);
+  } catch (error) {
+    console.error('Evaluation error:', error);
+    return c.json({ error: 'Evaluation failed', message: String(error) }, 500);
+  }
 });
 
 // ============ AI 분석 API ============
@@ -267,6 +301,89 @@ api.post('/questions/:id/answer', async (c) => {
   }
   
   return c.json({ success: true, follow_up_count: 0 });
+});
+
+// 답변 기반 파생 요건 자동 생성
+api.post('/requirements/:id/generate-derived', async (c) => {
+  const { DB } = c.env;
+  const requirementId = c.req.param('id');
+  
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    // 요건 정보 가져오기
+    const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(requirementId).first() as any;
+    
+    if (!requirement) {
+      return c.json({ error: 'Requirement not found' }, 404);
+    }
+    
+    // 프로젝트 정보 가져오기
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(requirement.project_id).first() as any;
+    
+    // 해당 요건의 모든 질문/답변 가져오기
+    const { results: questions } = await DB.prepare(
+      'SELECT * FROM questions WHERE requirement_id = ?'
+    ).bind(requirementId).all();
+    
+    const answersContext = [];
+    
+    for (const q of questions as any[]) {
+      const answer = await DB.prepare(
+        'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC LIMIT 1'
+      ).bind(q.id).first() as any;
+      
+      if (answer) {
+        answersContext.push({
+          question: q.question_text,
+          answer: answer.answer_text,
+        });
+      }
+    }
+    
+    // 답변이 없으면 파생 요건 생성 불가
+    if (answersContext.length === 0) {
+      return c.json({ success: false, message: '답변이 없어 파생 요건을 생성할 수 없습니다.' });
+    }
+    
+    // AI로 파생 요건 생성
+    const derivedResult = await generateDerivedRequirements(
+      project.input_content || project.description || '',
+      requirement.title,
+      answersContext,
+      apiKey,
+      baseURL
+    );
+    
+    // 파생 요건 저장
+    for (const req of derivedResult.requirements) {
+      await DB.prepare(
+        'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        requirement.project_id,
+        requirementId, // 원래 요건을 부모로 설정
+        req.title,
+        req.description,
+        req.requirement_type,
+        req.priority,
+        'pending'
+      ).run();
+    }
+    
+    return c.json({ 
+      success: true, 
+      derived_count: derivedResult.requirements.length,
+      requirements: derivedResult.requirements
+    });
+  } catch (error) {
+    console.error('Derived requirements generation error:', error);
+    return c.json({ error: 'Failed to generate derived requirements', message: String(error) }, 500);
+  }
 });
 
 // ============ PRD 생성 API ============

@@ -27,25 +27,49 @@ async function chatCompletion(
   apiKey: string,
   baseURL: string
 ): Promise<string> {
-  const response = await fetch(`${baseURL}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'gpt-5',
-      messages,
-      temperature: 0.7,
-    }),
-  });
+  console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
+  console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
+  console.log(`[AI Service] Using model: gpt-5-mini (faster)`);
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
+  
+  try {
+    const response = await fetch(`${baseURL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'gpt-5-mini', // 더 빠른 모델 사용
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000, // 토큰 제한으로 응답 속도 향상
+      }),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    throw new Error(`OpenAI API error: ${response.statusText}`);
+    clearTimeout(timeoutId);
+    
+    console.log(`[AI Service] Response status: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[AI Service] Error response: ${errorText}`);
+      throw new Error(`OpenAI API error (${response.status}): ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log(`[AI Service] Response received, content length: ${data.choices?.[0]?.message?.content?.length || 0}`);
+    return data.choices[0].message.content;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('AI 응답 시간이 초과되었습니다 (60초). 더 짧은 기획안을 입력해주세요.');
+    }
+    throw error;
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 /**
@@ -56,39 +80,56 @@ export async function analyzeProjectRequirements(
   apiKey: string,
   baseURL: string
 ): Promise<AIAnalysisResult> {
-  const systemPrompt = `당신은 전문 기획자(Product Manager)입니다. 
-상위 기획안을 분석하여 구현에 필요한 세부 기능 요건들을 도출하고, 
-각 요건을 확인하기 위한 질문들을 생성합니다.
+  const systemPrompt = `당신은 전문 기획자이자 테크니컬 PM입니다. 상위 기획안을 분석하여 **구현 가능한 세부 요건**을 도출하세요.
 
-응답은 반드시 다음 JSON 형식으로 제공해야 합니다:
+## 요건 도출 범위
+1. **기능 요건** (functional): 핵심 기능 명세, 사용자 시나리오, 데이터 흐름
+2. **비기능 요건** (non_functional): 성능, 보안, 확장성, 호환성, 개발 정책
+3. **제약사항** (constraint): 기술 스택, 외부 시스템 연동, 법적/규제 요건, 개발 현황
+
+## 필수 확인 사항
+- 🏗️ **개발 구조**: 사용할 기술 스택, 아키텍처 패턴, 데이터베이스 설계
+- 🔌 **외부 연동**: 필요한 API, 외부 서비스, 인증 방식
+- 📋 **개발 정책**: 기존 개발 표준, 코딩 컨벤션, 배포 프로세스
+- 🔄 **시퀀스/플로우**: 주요 사용자 시나리오의 단계별 흐름
+- ⚠️ **리스크**: 기술적 제약, 일정 리스크, 외부 의존성
+
+## 출력 형식 (반드시 유효한 JSON)
 {
   "requirements": [
     {
-      "title": "요건 제목",
-      "description": "요건 상세 설명",
+      "title": "요건 제목 (간결하게)",
+      "description": "구체적인 구현 설명 (100자 이내)",
       "requirement_type": "functional|non_functional|constraint",
-      "priority": "low|medium|high|critical",
+      "priority": "critical|high|medium|low",
       "questions": [
         {
           "question_text": "확인이 필요한 질문",
           "question_type": "open|choice|boolean",
-          "options": ["선택지1", "선택지2"] // choice 타입인 경우에만
+          "options": ["선택지1", "선택지2"] // choice일 때만
         }
       ]
     }
   ]
-}`;
+}
 
-  const userPrompt = `다음 상위 기획안을 분석하여 세부 요건들을 도출해주세요:
+**중요**: 5-8개의 핵심 요건을 도출하되, 각 요건마다 2-3개의 확인 질문을 생성하세요. 응답은 반드시 유효한 JSON만 반환하세요.`;
 
+  const userPrompt = `## 상위 기획안
 ${inputContent}
 
-요구사항:
-1. 기능적 요건(functional), 비기능적 요건(non_functional), 제약사항(constraint)으로 분류
-2. 각 요건의 우선순위를 설정 (critical > high > medium > low)
-3. 각 요건마다 구체화에 필요한 질문 2-4개를 생성
-4. 질문 유형은 개방형(open), 선택형(choice), 예/아니오(boolean) 중 선택
-5. JSON 형식으로만 응답`;
+## 분석 요청
+위 기획안을 분석하여:
+1. 핵심 기능 요건 (우선순위 높음)
+2. 개발 구조 및 기술적 확인 사항
+3. 외부 시스템 연동 여부
+4. 기존 개발 정책/현황 확인 필요 사항
+5. 주요 사용자 시퀀스/플로우
+6. 리스크 및 제약사항
+
+**5-8개의 세부 요건**을 도출하고, 각 요건마다 **2-3개의 확인 질문**을 생성하세요.
+
+유효한 JSON만 반환:`;
 
   const content = await chatCompletion(
     [
@@ -120,27 +161,37 @@ export async function generateFollowUpQuestions(
   apiKey: string,
   baseURL: string
 ): Promise<{ question_text: string; question_type: string }[]> {
-  const systemPrompt = `당신은 전문 기획자입니다. 
-사용자의 답변을 분석하여 더 구체적인 정보가 필요한 경우 추가 질문을 생성합니다.
+  const systemPrompt = `당신은 전문 기획자입니다. 사용자의 답변을 분석하여 **추가 확인이 필요한 파생 질문**을 생성하세요.
 
-응답은 반드시 다음 JSON 형식으로 제공해야 합니다:
+## 파생 질문 생성 기준
+- ✅ 답변에서 새로운 확인 사항이 발견된 경우
+- ✅ 구체적인 구현 방법을 결정해야 하는 경우
+- ✅ 기술적 제약이나 외부 의존성이 언급된 경우
+- ❌ 답변이 명확하고 추가 확인이 불필요한 경우
+
+## 출력 형식 (유효한 JSON만)
 {
   "questions": [
     {
-      "question_text": "추가 질문 내용",
+      "question_text": "파생 질문 (구체적으로)",
       "question_type": "open|choice|boolean"
     }
   ]
 }
 
-추가 질문이 필요 없다면 빈 배열을 반환하세요: {"questions": []}`;
+**중요**: 최대 2개의 파생 질문만 생성하세요. 추가 확인이 불필요하면 빈 배열을 반환하세요.`;
 
-  const userPrompt = `요건: ${requirementTitle}
-질문: ${questionText}
-답변: ${answerText}
+  const userPrompt = `## 요건
+${requirementTitle}
 
-위 답변을 바탕으로 더 구체적인 정보를 얻기 위한 추가 질문이 필요한지 판단하고, 
-필요하다면 1-3개의 추가 질문을 생성해주세요. JSON 형식으로만 응답하세요.`;
+## 질문
+${questionText}
+
+## 사용자 답변
+${answerText}
+
+위 답변을 분석하여 추가 확인이 필요한 파생 질문을 생성하세요 (최대 2개).
+유효한 JSON만 반환:`;
 
   const content = await chatCompletion(
     [
@@ -163,6 +214,157 @@ export async function generateFollowUpQuestions(
 }
 
 /**
+ * 답변 내용을 분석하여 새로운 파생 요건 생성
+ * (사용자 답변에서 추가 요건이 필요하다고 판단될 때 호출)
+ */
+export async function generateDerivedRequirements(
+  projectContext: string,
+  requirementTitle: string,
+  answersContext: { question: string; answer: string }[],
+  apiKey: string,
+  baseURL: string
+): Promise<{
+  requirements: {
+    title: string;
+    description: string;
+    requirement_type: 'functional' | 'non_functional' | 'constraint';
+    priority: 'low' | 'medium' | 'high' | 'critical';
+  }[];
+}> {
+  const systemPrompt = `당신은 전문 기획자입니다. 사용자의 답변들을 분석하여 **추가로 필요한 파생 요건**을 도출하세요.
+
+## 파생 요건 도출 기준
+- 답변에서 새로운 기능이나 제약사항이 발견된 경우
+- 외부 시스템 연동이 필요한 경우
+- 추가 개발 정책이나 기술적 확인이 필요한 경우
+- 보안, 성능 등 비기능 요구사항이 추가된 경우
+
+## 출력 형식 (유효한 JSON만)
+{
+  "requirements": [
+    {
+      "title": "파생 요건 제목",
+      "description": "구체적인 설명 (100자 이내)",
+      "requirement_type": "functional|non_functional|constraint",
+      "priority": "critical|high|medium|low"
+    }
+  ]
+}
+
+**중요**: 최대 3개의 파생 요건만 생성하세요. 추가 요건이 불필요하면 빈 배열을 반환하세요.`;
+
+  const answersText = answersContext
+    .map((qa) => `Q: ${qa.question}\nA: ${qa.answer}`)
+    .join('\n\n');
+
+  const userPrompt = `## 프로젝트 맥락
+${projectContext}
+
+## 현재 요건
+${requirementTitle}
+
+## 사용자 답변들
+${answersText}
+
+위 답변들을 분석하여 추가로 필요한 파생 요건을 도출하세요 (최대 3개).
+유효한 JSON만 반환:`;
+
+  const content = await chatCompletion(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    apiKey,
+    baseURL
+  );
+
+  let jsonContent = content.trim();
+  if (jsonContent.startsWith('```json')) {
+    jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  } else if (jsonContent.startsWith('```')) {
+    jsonContent = jsonContent.replace(/```\n?/g, '');
+  }
+
+  const result = JSON.parse(jsonContent);
+  return result;
+}
+
+/**
+ * 프로젝트 기획안의 완성도를 평가하고 개선 가이드 제공
+ */
+export async function evaluateProjectCompleteness(
+  projectTitle: string,
+  projectDescription: string,
+  inputContent: string,
+  apiKey: string,
+  baseURL: string
+): Promise<{
+  completeness_score: number; // 0-100점
+  project_type: string; // 프로젝트 성격 (예: "웹 애플리케이션", "모바일 앱", "API 서비스")
+  missing_items: string[]; // 부족한 항목들
+  suggestions: string[]; // 개선 제안
+  is_ready: boolean; // 분석 진행 가능 여부
+}> {
+  const systemPrompt = `당신은 전문 기획자입니다. 프로젝트 기획안을 평가하고 개선 가이드를 제공하세요.
+
+## 평가 기준
+1. **프로젝트 성격 파악** (10점): 어떤 종류의 프로젝트인지 명확한가?
+2. **목표 및 배경** (15점): 왜 만드는지, 해결하려는 문제가 명확한가?
+3. **사용자/고객** (15점): 타겟 사용자가 누구인지 정의되었는가?
+4. **핵심 기능** (20점): 주요 기능들이 구체적으로 나열되었는가?
+5. **시퀀스/플로우** (15점): 주요 사용자 시나리오가 설명되었는가?
+6. **기술적 제약** (10점): 사용할 기술 스택이나 제약사항이 언급되었는가?
+7. **외부 연동** (10점): 필요한 외부 시스템/API가 언급되었는가?
+8. **일정/범위** (5점): 대략적인 일정이나 MVP 범위가 언급되었는가?
+
+## 출력 형식 (유효한 JSON만)
+{
+  "completeness_score": 85,
+  "project_type": "웹 애플리케이션",
+  "missing_items": ["타겟 사용자 정의", "시퀀스 다이어그램"],
+  "suggestions": [
+    "주요 사용자 시나리오를 단계별로 작성해주세요",
+    "사용할 기술 스택이 있다면 명시해주세요"
+  ],
+  "is_ready": true
+}
+
+**중요**: 
+- completeness_score가 60점 이상이면 is_ready=true
+- missing_items는 최대 5개까지만
+- suggestions는 구체적이고 실행 가능한 조언으로 최대 5개`;
+
+  const userPrompt = `## 프로젝트 정보
+제목: ${projectTitle}
+설명: ${projectDescription}
+
+## 상위 기획안
+${inputContent}
+
+위 기획안을 평가하고 개선 가이드를 제공하세요.
+유효한 JSON만 반환:`;
+
+  const content = await chatCompletion(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    apiKey,
+    baseURL
+  );
+
+  let jsonContent = content.trim();
+  if (jsonContent.startsWith('```json')) {
+    jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+  } else if (jsonContent.startsWith('```')) {
+    jsonContent = jsonContent.replace(/```\n?/g, '');
+  }
+
+  const result = JSON.parse(jsonContent);
+  return result;
+}
+
+/**
  * 프로젝트 정보와 모든 요건/답변을 기반으로 PRD 문서 생성
  */
 export async function generatePRD(
@@ -176,19 +378,12 @@ export async function generatePRD(
   apiKey: string,
   baseURL: string
 ): Promise<PRDGenerationResult> {
-  const systemPrompt = `당신은 전문 기획자(Product Manager)입니다. 
-수집된 모든 정보를 바탕으로 완전하고 구조화된 PRD(Product Requirements Document)를 작성합니다.
-
-PRD는 다음 섹션을 포함해야 합니다:
-1. 개요 (프로젝트 목적, 배경)
-2. 핵심 가치 (해결하려는 문제, 사용자 니즈)
-3. 목표 사용자
-4. 기능 명세
-5. 비기능 요건
-6. 제약사항
-7. 일정 및 마일스톤 제안
-
-Markdown 형식으로 작성하세요.`;
+  const systemPrompt = `You are a Product Manager. Generate a PRD document in markdown format with these sections:
+1. Overview
+2. Goals
+3. Features
+4. Requirements
+5. Timeline suggestion`;
 
   const requirementsText = requirementsData
     .map(
@@ -196,19 +391,18 @@ Markdown 형식으로 작성하세요.`;
 ### ${req.title}
 ${req.description}
 
-**확인된 정보:**
 ${req.questions.map((q) => `- ${q.question}: ${q.answer}`).join('\n')}
 `
     )
     .join('\n');
 
-  const userPrompt = `프로젝트: ${projectTitle}
-설명: ${projectDescription}
+  const userPrompt = `Project: ${projectTitle}
+Description: ${projectDescription}
 
-세부 요건 정보:
+Requirements:
 ${requirementsText}
 
-위 정보를 바탕으로 완전한 PRD 문서를 작성해주세요.`;
+Generate concise PRD in markdown:`;
 
   const content = await chatCompletion(
     [

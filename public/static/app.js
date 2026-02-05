@@ -109,11 +109,18 @@ function createNewProject() {
               <i class="fas fa-lightbulb text-toss-blue text-lg"></i>
               <div class="flex-1">
                 <p class="text-sm font-semibold text-toss-gray-900 mb-1">AI가 기획안을 분석해드려요</p>
-                <p class="text-xs text-toss-gray-600">기획안을 입력하시면 AI가 자동으로 세부 요건과 확인 질문을 만들어드립니다.</p>
+                <p class="text-xs text-toss-gray-600 mb-2">기획안을 입력하시면 AI가 자동으로 세부 요건과 확인 질문을 만들어드립니다.</p>
+                <p class="text-xs text-toss-gray-600 font-semibold">💡 포함하면 좋은 내용:</p>
+                <ul class="text-xs text-toss-gray-600 mt-1 ml-4 space-y-1">
+                  <li>• 프로젝트 목표 및 해결하려는 문제</li>
+                  <li>• 타겟 사용자 및 주요 기능</li>
+                  <li>• 사용자 시나리오/플로우</li>
+                  <li>• 기술적 제약이나 외부 시스템 연동</li>
+                </ul>
               </div>
             </div>
           </div>
-          <textarea id="project-input" rows="6" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors" placeholder="프로젝트의 목표, 주요 기능, 사용자 등을 자유롭게 작성해주세요..."></textarea>
+          <textarea id="project-input" rows="8" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors" placeholder="프로젝트의 목표, 주요 기능, 사용자 시나리오, 기술 스택 등을 자유롭게 작성해주세요..."></textarea>
         </div>
       </div>
     `,
@@ -139,8 +146,9 @@ function createNewProject() {
         await loadProjects();
         
         if (inputContent) {
-          showToast('프로젝트가 생성되었습니다! AI 분석을 시작합니다', 'success');
-          setTimeout(() => analyzeProject(), 500);
+          showToast('프로젝트가 생성되었습니다! 기획안을 평가합니다', 'success');
+          // 먼저 기획안 평가 실행
+          setTimeout(() => evaluateProject(), 500);
         } else {
           switchTab('overview');
           showToast('프로젝트가 생성되었습니다', 'success');
@@ -192,6 +200,122 @@ async function deleteProject(projectId, event) {
       }
     }
   });
+}
+
+// 기획안 평가 (분석 전에 실행)
+async function evaluateProject() {
+  if (!currentProject) return;
+  
+  const loadingToast = showLoadingToast('기획안을 평가하고 있어요...');
+  
+  try {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`);
+    const evaluation = response.data;
+    
+    hideToast(loadingToast);
+    
+    // 평가 결과 표시
+    showModal({
+      title: `기획안 평가 결과`,
+      size: 'large',
+      content: `
+        <div class="space-y-6">
+          <!-- 완성도 점수 -->
+          <div class="bg-gradient-to-r from-toss-blue to-blue-500 rounded-2xl p-6 text-white">
+            <div class="flex items-center justify-between mb-3">
+              <div>
+                <p class="text-sm opacity-90 mb-1">완성도 점수</p>
+                <p class="text-4xl font-bold">${evaluation.completeness_score}<span class="text-2xl">/100</span></p>
+              </div>
+              <div class="w-24 h-24 rounded-full border-4 border-white/30 flex items-center justify-center">
+                <i class="fas ${evaluation.completeness_score >= 80 ? 'fa-check-circle' : evaluation.completeness_score >= 60 ? 'fa-info-circle' : 'fa-exclamation-circle'} text-4xl"></i>
+              </div>
+            </div>
+            <div class="h-2 bg-white/20 rounded-full overflow-hidden">
+              <div class="h-full bg-white rounded-full transition-all duration-500" style="width: ${evaluation.completeness_score}%"></div>
+            </div>
+          </div>
+          
+          <!-- 프로젝트 성격 -->
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+            <div class="flex items-center gap-3">
+              <i class="fas fa-tag text-toss-blue text-xl"></i>
+              <div>
+                <p class="text-xs text-toss-gray-600 mb-1">프로젝트 성격</p>
+                <p class="text-sm font-semibold text-toss-gray-900">${evaluation.project_type}</p>
+              </div>
+            </div>
+          </div>
+          
+          ${evaluation.missing_items && evaluation.missing_items.length > 0 ? `
+          <!-- 부족한 항목 -->
+          <div>
+            <h4 class="text-sm font-semibold text-toss-gray-900 mb-3">⚠️ 보완하면 좋을 항목</h4>
+            <ul class="space-y-2">
+              ${evaluation.missing_items.map(item => `
+                <li class="flex items-start gap-2 text-sm text-toss-gray-700">
+                  <i class="fas fa-circle text-xs text-orange-500 mt-1.5"></i>
+                  <span>${escapeHtml(item)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
+          <!-- 개선 제안 -->
+          <div>
+            <h4 class="text-sm font-semibold text-toss-gray-900 mb-3">💡 개선 제안</h4>
+            <ul class="space-y-2">
+              ${evaluation.suggestions.map(suggestion => `
+                <li class="flex items-start gap-2 text-sm text-toss-gray-700">
+                  <i class="fas fa-check text-xs text-toss-blue mt-1.5"></i>
+                  <span>${escapeHtml(suggestion)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          <!-- 진행 가능 여부 -->
+          <div class="bg-${evaluation.is_ready ? 'green' : 'yellow'}-50 border border-${evaluation.is_ready ? 'green' : 'yellow'}-100 rounded-xl p-4">
+            <div class="flex items-center gap-3">
+              <i class="fas ${evaluation.is_ready ? 'fa-check-circle' : 'fa-exclamation-triangle'} text-${evaluation.is_ready ? 'green' : 'yellow'}-600 text-xl"></i>
+              <div>
+                <p class="text-sm font-semibold text-toss-gray-900">
+                  ${evaluation.is_ready ? 'AI 분석을 진행할 수 있어요!' : '기획안을 보완하면 더 정확한 분석이 가능해요'}
+                </p>
+                <p class="text-xs text-toss-gray-600 mt-1">
+                  ${evaluation.is_ready ? 'AI 분석을 시작하시겠어요?' : '지금 바로 분석하거나, 기획안을 수정한 후 다시 평가해보세요'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+      confirmText: evaluation.is_ready ? 'AI 분석 시작하기' : '기획안 수정하기',
+      cancelText: evaluation.is_ready ? '나중에' : 'AI 분석 시작하기',
+      onConfirm: async () => {
+        if (evaluation.is_ready) {
+          analyzeProject();
+        } else {
+          editProjectOverview();
+        }
+        return true;
+      },
+      onCancel: async () => {
+        if (!evaluation.is_ready) {
+          analyzeProject();
+        }
+        return true;
+      }
+    });
+    
+  } catch (error) {
+    console.error('Failed to evaluate project:', error);
+    hideToast(loadingToast);
+    showToast('기획안 평가에 실패했습니다', 'error');
+  }
 }
 
 async function analyzeProject() {
@@ -287,7 +411,12 @@ function renderOverview() {
   content.innerHTML = `
     <div class="max-w-4xl">
       <div class="mb-8">
-        <h1 class="text-4xl font-bold text-toss-gray-900 mb-3">${escapeHtml(currentProject.title)}</h1>
+        <div class="flex items-start justify-between mb-3">
+          <h1 class="text-4xl font-bold text-toss-gray-900 flex-1">${escapeHtml(currentProject.title)}</h1>
+          <button onclick="editProjectOverview()" class="text-toss-gray-500 hover:text-toss-blue transition-colors ml-4">
+            <i class="fas fa-edit text-xl"></i>
+          </button>
+        </div>
         <div class="flex items-center gap-3 text-sm text-toss-gray-600">
           <span><i class="far fa-calendar mr-1"></i>${formatDate(currentProject.created_at)}</span>
           ${getStatusBadge(currentProject.status)}
@@ -314,8 +443,12 @@ function renderOverview() {
         </div>
       ` : ''}
       
-      <div class="flex gap-3">
+      <div class="flex gap-3 flex-wrap">
         ${currentProject.status === 'draft' && currentProject.input_content ? `
+          <button onclick="evaluateProject()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+            <i class="fas fa-chart-line"></i>
+            기획안 평가하기
+          </button>
           <button onclick="analyzeProject()" class="btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg">
             <i class="fas fa-magic"></i>
             AI 분석 시작하기
@@ -338,6 +471,71 @@ function renderOverview() {
       </div>
     </div>
   `;
+}
+
+// 프로젝트 개요 편집
+function editProjectOverview() {
+  if (!currentProject) return;
+  
+  showModal({
+    title: '프로젝트 개요 편집',
+    size: 'large',
+    content: `
+      <div class="space-y-6">
+        <div>
+          <label class="block text-sm font-semibold text-toss-gray-900 mb-2">프로젝트 이름 *</label>
+          <input type="text" id="edit-project-title" value="${escapeHtml(currentProject.title)}" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-toss-gray-900 mb-2">프로젝트 설명</label>
+          <textarea id="edit-project-description" rows="3" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(currentProject.description || '')}</textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-toss-gray-900 mb-2">상위 기획안</label>
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3">
+            <div class="flex gap-2">
+              <i class="fas fa-info-circle text-amber-600 mt-0.5"></i>
+              <div class="flex-1">
+                <p class="text-xs text-toss-gray-700 font-semibold mb-1">기획안을 수정하면 다시 평가해보는 것을 권장해요</p>
+                <p class="text-xs text-toss-gray-600">수정 후 '기획안 평가하기' 버튼을 눌러 AI의 피드백을 받아보세요.</p>
+              </div>
+            </div>
+          </div>
+          <textarea id="edit-project-input" rows="10" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(currentProject.input_content || '')}</textarea>
+        </div>
+      </div>
+    `,
+    confirmText: '저장하기',
+    onConfirm: async () => {
+      const title = document.getElementById('edit-project-title').value.trim();
+      const description = document.getElementById('edit-project-description').value.trim();
+      const inputContent = document.getElementById('edit-project-input').value.trim();
+      
+      if (!title) {
+        showToast('프로젝트 이름을 입력해주세요', 'error');
+        return false;
+      }
+      
+      try {
+        await axios.put(`${API_BASE}/projects/${currentProject.id}`, {
+          title,
+          description,
+          input_content: inputContent,
+          status: currentProject.status,
+        });
+        
+        currentProject = { ...currentProject, title, description, input_content: inputContent };
+        await loadProjects();
+        renderContent();
+        showToast('프로젝트가 수정되었습니다', 'success');
+        return true;
+      } catch (error) {
+        console.error('Failed to update project:', error);
+        showToast('프로젝트 수정에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
 }
 
 // ============ 요건 관리 탭 ============
@@ -457,6 +655,10 @@ async function openRequirementDetails(requirementId) {
     const requirement = response.data;
     const questions = requirement.questions || [];
     
+    // 답변된 질문 개수 확인
+    const answeredCount = questions.filter(q => q.answer).length;
+    const hasAnswers = answeredCount > 0;
+    
     showModal({
       title: requirement.title,
       content: `
@@ -472,6 +674,7 @@ async function openRequirementDetails(requirementId) {
               <h3 class="font-bold text-toss-gray-900 mb-4 flex items-center gap-2">
                 <i class="fas fa-question-circle text-toss-blue"></i>
                 확인 질문 (${questions.length}개)
+                ${hasAnswers ? `<span class="text-xs font-semibold text-green-600 ml-2">${answeredCount}/${questions.length} 답변 완료</span>` : ''}
               </h3>
               <div class="space-y-4">
                 ${questions.map((q, index) => `
@@ -494,6 +697,22 @@ async function openRequirementDetails(requirementId) {
                   </div>
                 `).join('')}
               </div>
+              
+              ${hasAnswers ? `
+                <div class="mt-6 bg-blue-50 border border-blue-100 rounded-xl p-4">
+                  <div class="flex items-start gap-3">
+                    <i class="fas fa-magic text-toss-blue text-xl"></i>
+                    <div class="flex-1">
+                      <p class="text-sm font-semibold text-toss-gray-900 mb-1">답변을 바탕으로 파생 요건 생성하기</p>
+                      <p class="text-xs text-toss-gray-600 mb-3">AI가 답변 내용을 분석하여 추가로 필요한 요건을 자동으로 생성해드려요</p>
+                      <button onclick="closeAllModals(); generateDerivedRequirements(${requirementId})" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl font-semibold text-sm transition-all">
+                        <i class="fas fa-plus-circle mr-1"></i>
+                        파생 요건 생성하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
             </div>
           ` : '<p class="text-sm text-toss-gray-500 text-center py-8">질문이 없습니다</p>'}
         </div>
@@ -515,12 +734,19 @@ async function submitAnswer(questionId) {
   }
   
   try {
-    await axios.post(`${API_BASE}/questions/${questionId}/answer`, {
+    const response = await axios.post(`${API_BASE}/questions/${questionId}/answer`, {
       question_id: questionId,
       answer_text: answerText,
     });
     
     showToast('답변이 저장되었습니다', 'success');
+    
+    // 파생 질문이 생성되었는지 확인
+    const followUpCount = response.data.follow_up_count || 0;
+    if (followUpCount > 0) {
+      showToast(`${followUpCount}개의 파생 질문이 생성되었습니다`, 'info');
+    }
+    
     closeAllModals();
     renderRequirements();
   } catch (error) {
@@ -790,5 +1016,141 @@ function formatRelativeTime(dateString) {
   if (hours > 0) return `${hours}시간 전`;
   if (minutes > 0) return `${minutes}분 전`;
   return '방금 전';
+}
+
+
+// ============ 요건 편집 및 삭제 ============
+
+// 요건 편집
+async function editRequirement(requirementId) {
+  try {
+    const response = await axios.get(`${API_BASE}/requirements/${requirementId}`);
+    const requirement = response.data;
+    
+    showModal({
+      title: '요건 편집',
+      size: 'large',
+      content: `
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">요건 제목 *</label>
+            <input type="text" id="edit-req-title" value="${escapeHtml(requirement.title)}" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">설명</label>
+            <textarea id="edit-req-description" rows="4" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(requirement.description || '')}</textarea>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">우선순위</label>
+            <select id="edit-req-priority" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">
+              <option value="critical" ${requirement.priority === 'critical' ? 'selected' : ''}>Critical (긴급)</option>
+              <option value="high" ${requirement.priority === 'high' ? 'selected' : ''}>High (높음)</option>
+              <option value="medium" ${requirement.priority === 'medium' ? 'selected' : ''}>Medium (보통)</option>
+              <option value="low" ${requirement.priority === 'low' ? 'selected' : ''}>Low (낮음)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">상태</label>
+            <select id="edit-req-status" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">
+              <option value="pending" ${requirement.status === 'pending' ? 'selected' : ''}>대기</option>
+              <option value="in_progress" ${requirement.status === 'in_progress' ? 'selected' : ''}>진행중</option>
+              <option value="completed" ${requirement.status === 'completed' ? 'selected' : ''}>완료</option>
+            </select>
+          </div>
+        </div>
+      `,
+      confirmText: '저장하기',
+      onConfirm: async () => {
+        const title = document.getElementById('edit-req-title').value.trim();
+        const description = document.getElementById('edit-req-description').value.trim();
+        const priority = document.getElementById('edit-req-priority').value;
+        const status = document.getElementById('edit-req-status').value;
+        
+        if (!title) {
+          showToast('요건 제목을 입력해주세요', 'error');
+          return false;
+        }
+        
+        try {
+          await axios.put(`${API_BASE}/requirements/${requirementId}`, {
+            title,
+            description,
+            priority,
+            status,
+          });
+          
+          await renderRequirements();
+          showToast('요건이 수정되었습니다', 'success');
+          return true;
+        } catch (error) {
+          console.error('Failed to update requirement:', error);
+          showToast('요건 수정에 실패했습니다', 'error');
+          return false;
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Failed to load requirement:', error);
+    showToast('요건을 불러오는데 실패했습니다', 'error');
+  }
+}
+
+// 요건 삭제
+async function deleteRequirement(requirementId) {
+  showModal({
+    title: '요건 삭제',
+    content: `
+      <div class="text-center py-4">
+        <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-exclamation-triangle text-2xl text-red-500"></i>
+        </div>
+        <p class="text-toss-gray-900 font-semibold mb-2">요건을 삭제하시겠어요?</p>
+        <p class="text-sm text-toss-gray-600">삭제한 요건은 복구할 수 없어요.</p>
+      </div>
+    `,
+    confirmText: '삭제하기',
+    cancelText: '취소',
+    confirmClass: 'bg-red-500 hover:bg-red-600',
+    onConfirm: async () => {
+      try {
+        await axios.delete(`${API_BASE}/requirements/${requirementId}`);
+        await renderRequirements();
+        showToast('요건이 삭제되었습니다', 'success');
+        return true;
+      } catch (error) {
+        console.error('Failed to delete requirement:', error);
+        showToast('요건 삭제에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
+}
+
+// 파생 요건 자동 생성
+async function generateDerivedRequirements(requirementId) {
+  const loadingToast = showLoadingToast('답변을 분석하여 파생 요건을 생성하고 있어요...');
+  
+  try {
+    const response = await axios.post(`${API_BASE}/requirements/${requirementId}/generate-derived`);
+    
+    hideToast(loadingToast);
+    
+    if (response.data.success) {
+      const count = response.data.derived_count;
+      
+      if (count > 0) {
+        await renderRequirements();
+        showToast(`${count}개의 파생 요건이 생성되었습니다! 🎉`, 'success');
+      } else {
+        showToast('추가 파생 요건이 필요하지 않습니다', 'info');
+      }
+    } else {
+      showToast(response.data.message || '파생 요건 생성에 실패했습니다', 'error');
+    }
+  } catch (error) {
+    console.error('Failed to generate derived requirements:', error);
+    hideToast(loadingToast);
+    showToast('파생 요건 생성에 실패했습니다', 'error');
+  }
 }
 
