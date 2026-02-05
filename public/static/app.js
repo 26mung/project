@@ -757,6 +757,9 @@ async function openRequirementDetails(requirementId) {
     const requirement = response.data;
     const questions = requirement.questions || [];
     
+    // 질문 트리 구조 생성 (parent_question_id 기반)
+    const questionTree = buildQuestionTree(questions);
+    
     // 답변된 질문 개수 확인
     const answeredCount = questions.filter(q => q.answer).length;
     const hasAnswers = answeredCount > 0;
@@ -778,26 +781,9 @@ async function openRequirementDetails(requirementId) {
                 확인 질문 (${questions.length}개)
                 ${hasAnswers ? `<span class="text-xs font-semibold text-green-600 ml-2">${answeredCount}/${questions.length} 답변 완료</span>` : ''}
               </h3>
-              <div class="space-y-4">
-                ${questions.map((q, index) => `
-                  <div class="border-2 border-toss-gray-200 rounded-xl p-5">
-                    <p class="font-semibold text-toss-gray-900 mb-3">${index + 1}. ${escapeHtml(q.question_text)}</p>
-                    ${q.answer ? `
-                      <div class="bg-green-50 border border-green-100 rounded-xl p-4">
-                        <p class="text-xs font-semibold text-green-700 mb-2 flex items-center gap-1">
-                          <i class="fas fa-check-circle"></i>
-                          답변 완료
-                        </p>
-                        <p class="text-sm text-toss-gray-900">${escapeHtml(q.answer.answer_text)}</p>
-                      </div>
-                    ` : `
-                      <textarea id="answer-${q.id}" rows="3" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors mb-3" placeholder="답변을 입력해주세요..."></textarea>
-                      <button onclick="submitAnswer(${q.id})" class="btn-primary text-white px-5 py-2 rounded-xl font-semibold text-sm">
-                        답변 저장하기
-                      </button>
-                    `}
-                  </div>
-                `).join('')}
+              
+              <div class="space-y-3">
+                ${renderQuestionTree(questionTree)}
               </div>
               
               ${hasAnswers ? `
@@ -825,6 +811,78 @@ async function openRequirementDetails(requirementId) {
     console.error('Failed to load requirement details:', error);
     showToast('요건 상세 정보를 불러오는데 실패했습니다', 'error');
   }
+}
+
+// 질문 트리 구조 생성
+function buildQuestionTree(questions) {
+  const questionMap = new Map();
+  const rootQuestions = [];
+  
+  // 먼저 모든 질문을 맵에 저장
+  questions.forEach(q => {
+    questionMap.set(q.id, { ...q, children: [] });
+  });
+  
+  // 부모-자식 관계 설정
+  questions.forEach(q => {
+    const node = questionMap.get(q.id);
+    if (q.parent_question_id) {
+      const parent = questionMap.get(q.parent_question_id);
+      if (parent) {
+        parent.children.push(node);
+      } else {
+        rootQuestions.push(node);
+      }
+    } else {
+      rootQuestions.push(node);
+    }
+  });
+  
+  return rootQuestions;
+}
+
+// 질문 트리 렌더링 (재귀)
+function renderQuestionTree(nodes, level = 0) {
+  return nodes.map(node => {
+    const isRoot = level === 0;
+    const hasAnswer = node.answer && node.answer.answer_text;
+    
+    return `
+      <div class="question-node ${hasAnswer ? 'answered' : ''} ${isRoot ? 'root' : ''}" style="margin-left: ${level * 24}px">
+        <div class="flex items-start gap-3">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full ${hasAnswer ? 'bg-green-500' : 'bg-toss-blue'} text-white flex items-center justify-center font-bold text-sm">
+            ${hasAnswer ? '<i class="fas fa-check"></i>' : '?'}
+          </div>
+          <div class="flex-1">
+            <p class="font-semibold text-toss-gray-900 mb-2">
+              ${level > 0 ? '<i class="fas fa-reply mr-2 text-toss-gray-400"></i>' : ''}
+              ${escapeHtml(node.question_text)}
+            </p>
+            ${hasAnswer ? `
+              <div class="bg-white border border-green-200 rounded-lg p-3 mb-3">
+                <p class="text-xs font-semibold text-green-700 mb-1 flex items-center gap-1">
+                  <i class="fas fa-check-circle"></i>
+                  답변
+                </p>
+                <p class="text-sm text-toss-gray-800">${escapeHtml(node.answer.answer_text)}</p>
+              </div>
+            ` : `
+              <textarea id="answer-${node.id}" rows="2" class="w-full bg-white border-2 border-toss-gray-200 rounded-lg px-3 py-2 text-sm text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors mb-2" placeholder="답변을 입력해주세요..."></textarea>
+              <button onclick="submitAnswer(${node.id})" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold text-xs">
+                답변 저장하기
+              </button>
+            `}
+          </div>
+        </div>
+        
+        ${node.children.length > 0 ? `
+          <div class="mt-3">
+            ${renderQuestionTree(node.children, level + 1)}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
 }
 
 async function submitAnswer(questionId) {

@@ -377,12 +377,23 @@ export async function generatePRD(
   apiKey: string,
   baseURL: string
 ): Promise<PRDGenerationResult> {
-  const systemPrompt = `You are a Product Manager. Generate a PRD document in markdown format with these sections:
-1. Overview
-2. Goals
-3. Features
-4. Requirements
-5. Timeline suggestion`;
+  const systemPrompt = `당신은 기획자입니다. 다음 형식으로 PRD(기획서)를 작성하세요:
+
+**반드시 표 형식으로 작성하고, 기획자가 이해하기 쉬운 비즈니스 언어를 사용하세요.**
+
+구성:
+1. 📋 프로젝트 개요
+2. 🎯 핵심 목표 및 기대 효과
+3. 👥 사용자 정의 (페르소나가 있다면 표로 정리)
+4. ⚙️ 주요 기능 목록 (표 형식)
+5. 🔄 사용자 시나리오 및 플로우
+6. 📊 요구사항 상세 (표 형식)
+7. 🚀 우선순위 및 일정 제안
+
+**중요**: 
+- 모든 항목을 마크다운 표로 정리하세요
+- 개발자 용어(API, DB, 클래스)가 아닌 기획자 언어(화면, 기능, 사용자 행동)로 작성하세요
+- 각 섹션에 이모지를 사용해 가독성을 높이세요`;
 
   const requirementsText = requirementsData
     .map(
@@ -390,18 +401,20 @@ export async function generatePRD(
 ### ${req.title}
 ${req.description}
 
-${req.questions.map((q) => `- ${q.question}: ${q.answer}`).join('\n')}
+**확인된 사항:**
+${req.questions.map((q) => `- ${q.question}\n  → ${q.answer}`).join('\n')}
 `
     )
     .join('\n');
 
-  const userPrompt = `Project: ${projectTitle}
-Description: ${projectDescription}
+  const userPrompt = `프로젝트명: ${projectTitle}
+프로젝트 설명: ${projectDescription}
 
-Requirements:
+도출된 요구사항:
 ${requirementsText}
 
-Generate concise PRD in markdown:`;
+위 정보를 바탕으로 기획자가 이해하기 쉬운 PRD를 작성해주세요.
+반드시 표 형식을 사용하고, 비즈니스 관점의 언어로 작성하세요.`;
 
   const content = await chatCompletion(
     [
