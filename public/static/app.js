@@ -1679,6 +1679,10 @@ async function renderPRD() {
       window.prdTimerInterval = null;
     }
     
+    // 세션 스토리지 정리
+    const startTimeKey = `prd_start_time_${currentProject.id}`;
+    sessionStorage.removeItem(startTimeKey);
+    
     content.innerHTML = `
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
@@ -2752,6 +2756,16 @@ async function selectCategory(category) {
 function selectCustomCategory() {
   const input = document.getElementById('custom-category-input');
   const category = input.value.trim();
+  
+  if (!category) {
+    showToast('카테고리를 입력해주세요', 'error');
+    return;
+  }
+  
+  selectCategory(category);
+}
+
+ue.trim();
   
   if (!category) {
     showToast('카테고리를 입력해주세요', 'error');

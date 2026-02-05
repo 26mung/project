@@ -646,75 +646,73 @@ api.post('/projects/:id/generate-prd', async (c) => {
     console.log('포함된 요건:', requirementsData.map(r => r.title).join(', '));
     console.log('========================================');
     
-    // 🚀 최적화: PRD 생성을 백그라운드로 처리 (즉시 응답)
-    // 임시 PRD 문서 생성 (status: generating)
+    // 🚀 최적화: 임시 PRD 생성 후 즉시 응답
     const tempResult = await DB.prepare(
       'INSERT INTO prd_documents (project_id, content, metadata, version) VALUES (?, ?, ?, ?)'
     ).bind(id, '생성 중...', JSON.stringify({ status: 'generating' }), 0).run();
     
     const prdId = tempResult.meta.last_row_id;
     
-    // 백그라운드에서 PRD 생성 (응답을 기다리지 않음)
-    c.executionCtx.waitUntil(
-      (async () => {
-        try {
-          console.log(`[PRD 백그라운드] PRD 생성 시작 (ID: ${prdId})`);
-          const startTime = Date.now();
-          
-          const prd = await generatePRD(
-            project.title,
-            project.description || '',
-            requirementsData,
-            apiKey,
-            baseURL
-          );
-          
-          const generationTime = Date.now() - startTime;
-          console.log(`[PRD 백그라운드] PRD 생성 완료 (${generationTime}ms)`);
-          
-          // PRD 업데이트
-          const prdData = {
-            requirements: requirementsData,
-            project: {
-              title: project.title,
-              description: project.description,
-            },
-            status: 'completed',
-            generation_time_ms: generationTime
-          };
-          
-          await DB.prepare(
-            'UPDATE prd_documents SET content = ?, metadata = ?, version = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-          ).bind(prd.content, JSON.stringify(prdData), prdId).run();
-          
-          // 프로젝트 상태 업데이트
-          await DB.prepare(
-            'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-          ).bind('completed', id).run();
-          
-          console.log(`[PRD 백그라운드] PRD 저장 완료 (ID: ${prdId})`);
-        } catch (error) {
-          console.error('[PRD 백그라운드] PRD 생성 실패:', error);
-          
-          // 에러 상태로 업데이트
-          await DB.prepare(
-            'UPDATE prd_documents SET content = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-          ).bind(
-            'PRD 생성에 실패했습니다. 다시 시도해주세요.',
-            JSON.stringify({ status: 'failed', error: String(error) }),
-            prdId
-          ).run();
-        }
-      })()
-    );
-    
-    // 즉시 응답 반환 (0.5초 이내)
-    return c.json({ 
+    // 즉시 응답 반환
+    const response = c.json({ 
       success: true, 
       prd_id: prdId,
       status: 'generating',
-      message: 'PRD 생성을 시작했습니다. 백그라운드에서 생성 중입니다.'
+      message: 'PRD 생성을 시작했습니다.'
     });
+    
+    // ⚠️ 로컬 wrangler 환경에서는 waitUntil이 제대로 작동하지 않으므로
+    // 응답 후 즉시 PRD 생성을 시작합니다 (블로킹)
+    try {
+      console.log(`[PRD 생성] 시작 (ID: ${prdId})`);
+      const startTime = Date.now();
+      
+      const prd = await generatePRD(
+        project.title,
+        project.description || '',
+        requirementsData,
+        apiKey,
+        baseURL
+      );
+      
+      const generationTime = Date.now() - startTime;
+      console.log(`[PRD 생성] 완료 (${generationTime}ms)`);
+      
+      // PRD 업데이트
+      const prdData = {
+        requirements: requirementsData,
+        project: {
+          title: project.title,
+          description: project.description,
+        },
+        status: 'completed',
+        generation_time_ms: generationTime
+      };
+      
+      await DB.prepare(
+        'UPDATE prd_documents SET content = ?, metadata = ?, version = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).bind(prd.content, JSON.stringify(prdData), prdId).run();
+      
+      // 프로젝트 상태 업데이트
+      await DB.prepare(
+        'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).bind('completed', id).run();
+      
+      console.log(`[PRD 생성] 저장 완료 (ID: ${prdId})`);
+    } catch (error) {
+      console.error('[PRD 생성] 실패:', error);
+      
+      // 에러 상태로 업데이트
+      await DB.prepare(
+        'UPDATE prd_documents SET content = ?, metadata = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      ).bind(
+        'PRD 생성에 실패했습니다. 다시 시도해주세요.',
+        JSON.stringify({ status: 'failed', error: String(error) }),
+        prdId
+      ).run();
+    }
+    
+    return response;
   } catch (error) {
     console.error('PRD generation error:', error);
     return c.json({ error: 'PRD generation failed', message: String(error) }, 500);
