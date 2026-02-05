@@ -1798,23 +1798,31 @@ async function generatePRD() {
     `,
     confirmText: 'PRD 생성하기',
     onConfirm: async () => {
+      console.log('[PRD] Starting PRD generation...');
       const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요... (최대 2분 소요)');
       
       try {
-        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
+        console.log('[PRD] Calling API...');
+        const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
           timeout: 150000 // 150초 타임아웃
         });
+        console.log('[PRD] API response:', response.status);
         
         hideToast(loadingToast);
+        console.log('[PRD] Refreshing project data...');
         await selectProject(currentProject.id);
+        console.log('[PRD] Switching to PRD tab...');
         switchTab('prd');
+        console.log('[PRD] Showing success toast...');
         showToast('PRD가 생성되었습니다!', 'success');
+        console.log('[PRD] Returning true to close modal...');
         return true; // 모달 닫기
       } catch (error) {
-        console.error('Failed to generate PRD:', error);
+        console.error('[PRD] Failed to generate PRD:', error);
         hideToast(loadingToast);
         const errorMessage = error.response?.data?.message || error.message;
         showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
+        console.log('[PRD] Returning false to keep modal open...');
         return false; // 모달 열어두기
       }
     }
@@ -1871,12 +1879,20 @@ function showModal({ title, content, confirmText = '확인', cancelText = '취�
 }
 
 async function handleModalConfirm(modalId) {
+  console.log('[Modal] handleModalConfirm called for:', modalId);
   const confirmFn = window[`modalConfirm_${modalId}`];
   if (confirmFn) {
+    console.log('[Modal] Executing confirm function...');
     const result = await confirmFn();
+    console.log('[Modal] Confirm function returned:', result);
     if (result !== false) {
+      console.log('[Modal] Closing modal...');
       closeModal(modalId);
+    } else {
+      console.log('[Modal] Keeping modal open (result was false)');
     }
+  } else {
+    console.warn('[Modal] No confirm function found for:', modalId);
   }
 }
 
