@@ -294,7 +294,8 @@ async function evaluateProject() {
         if (evaluation.is_ready) {
           analyzeProject();
         } else {
-          editProjectOverview();
+          // 평가 결과를 전달하여 편집 팝업에서 표시
+          editProjectOverview(evaluation);
         }
         return true;
       },
@@ -518,7 +519,7 @@ function renderOverview() {
 
 // 프로젝트 개요 편집
 // 프로젝트 개요 편집 (평가는 사용자가 원할 때만)
-async function editProjectOverview() {
+async function editProjectOverview(evaluationData = null) {
   if (!currentProject) return;
   
   showModal({
@@ -526,6 +527,59 @@ async function editProjectOverview() {
     size: 'large',
     content: `
       <div class="space-y-6">
+        ${evaluationData ? `
+        <!-- 평가 결과 표시 -->
+        <div class="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-5">
+          <div class="flex items-start gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
+              <i class="fas fa-chart-line text-white"></i>
+            </div>
+            <div class="flex-1">
+              <h4 class="text-base font-bold text-toss-gray-900 mb-1">최근 평가 결과</h4>
+              <p class="text-xs text-toss-gray-600">아래 내용을 참고하여 기획안을 보완해보세요</p>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-purple-600">${evaluationData.completeness_score}<span class="text-sm">/100</span></div>
+              <div class="text-[10px] text-toss-gray-500 mt-0.5">완성도</div>
+            </div>
+          </div>
+          
+          ${evaluationData.missing_items && evaluationData.missing_items.length > 0 ? `
+          <div class="bg-white/70 rounded-xl p-4 mb-3">
+            <p class="text-xs font-bold text-orange-600 mb-2 flex items-center gap-1.5">
+              <i class="fas fa-exclamation-circle"></i>
+              보완하면 좋을 항목
+            </p>
+            <ul class="space-y-1.5">
+              ${evaluationData.missing_items.map(item => `
+                <li class="text-xs text-toss-gray-700 flex items-start gap-2">
+                  <i class="fas fa-circle text-[6px] text-orange-500 mt-1.5"></i>
+                  <span>${escapeHtml(item)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          ${evaluationData.suggestions && evaluationData.suggestions.length > 0 ? `
+          <div class="bg-white/70 rounded-xl p-4">
+            <p class="text-xs font-bold text-toss-blue mb-2 flex items-center gap-1.5">
+              <i class="fas fa-lightbulb"></i>
+              개선 제안
+            </p>
+            <ul class="space-y-1.5">
+              ${evaluationData.suggestions.map(suggestion => `
+                <li class="text-xs text-toss-gray-700 flex items-start gap-2">
+                  <i class="fas fa-check text-[6px] text-toss-blue mt-1.5"></i>
+                  <span>${escapeHtml(suggestion)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+        </div>
+        ` : ''}
+      
         <!-- 프로젝트 이름 -->
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">프로젝트 이름 *</label>
@@ -542,7 +596,8 @@ async function editProjectOverview() {
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">상위 기획안</label>
           
-          <!-- 작성 가이드 (항상 표시) -->
+          ${!evaluationData ? `
+          <!-- 작성 가이드 (평가 결과가 없을 때만 표시) -->
           <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-3">
             <div class="flex gap-3">
               <i class="fas fa-lightbulb text-toss-blue text-lg"></i>
@@ -581,6 +636,7 @@ async function editProjectOverview() {
               </div>
             </div>
           </div>
+          ` : ''}
           
           <textarea id="edit-project-input" rows="12" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors font-mono text-sm leading-relaxed" placeholder="프로젝트에 대해 자유롭게 작성해주세요...">${escapeHtml(currentProject.input_content || '')}</textarea>
         </div>
