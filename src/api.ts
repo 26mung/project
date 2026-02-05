@@ -754,7 +754,7 @@ ${existingRequirementsText}
       // 질문 저장
       for (const q of req.questions || []) {
         await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type, display_order) VALUES (?, ?, ?, ?)'
+          'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, ?)'
         ).bind(requirementId, q.question_text, q.question_type, 0).run();
       }
     }
@@ -871,7 +871,7 @@ api.post('/projects/:id/generate-by-category', async (c) => {
       // 질문 저장
       for (const q of req.questions || []) {
         await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type, display_order) VALUES (?, ?, ?, ?)'
+          'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, ?)'
         ).bind(requirementId, q.question_text, q.question_type, 0).run();
       }
       
