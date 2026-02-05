@@ -1,1 +1,44 @@
+/* 기본 스타일 */
 h1 { font-family: Arial, Helvetica, sans-serif; }
+
+/* 버튼 크기 위계 - Toss Style */
+
+/* Large: 주요 액션 (AI 분석, PRD 생성) */
+.btn-large {
+  @apply px-8 py-4 rounded-xl font-bold text-base;
+  @apply shadow-lg hover:shadow-xl;
+  @apply transform hover:-translate-y-0.5;
+  @apply transition-all duration-200;
+}
+
+/* Medium: 일반 액션 (저장, 평가) */
+.btn-medium {
+  @apply px-6 py-3 rounded-xl font-semibold text-sm;
+  @apply shadow-md hover:shadow-lg;
+  @apply transition-all duration-200;
+}
+
+/* Small: 보조 액션 (편집, 삭제, 상세보기) */
+.btn-small {
+  @apply px-4 py-2 rounded-lg font-semibold text-sm;
+  @apply hover:shadow-md;
+  @apply transition-all duration-200;
+}
+
+/* Icon: 아이콘 버튼 (편집 아이콘 등) */
+.btn-icon {
+  @apply p-2 rounded-lg;
+  @apply hover:bg-toss-gray-100;
+  @apply transition-all duration-200;
+}
+
+/* Primary 버튼 (토스 블루) */
+.btn-primary {
+  @apply bg-toss-blue hover:bg-blue-600 text-white;
+}
+
+/* 카드 hover 효과 */
+.card {
+  @apply transition-all duration-200;
+  @apply hover:shadow-md;
+}

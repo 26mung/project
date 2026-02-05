@@ -145,14 +145,9 @@ function createNewProject() {
         currentProject = response.data;
         await loadProjects();
         
-        if (inputContent) {
-          showToast('프로젝트가 생성되었습니다! 기획안을 평가합니다', 'success');
-          // 먼저 기획안 평가 실행
-          setTimeout(() => evaluateProject(), 500);
-        } else {
-          switchTab('overview');
-          showToast('프로젝트가 생성되었습니다', 'success');
-        }
+        // 프로젝트 생성 후 Overview로 이동 (자동 평가 제거)
+        switchTab('overview');
+        showToast('프로젝트가 생성되었습니다! 개요에서 기획안을 평가해보세요', 'success');
         
         return true;
       } catch (error) {
@@ -408,12 +403,79 @@ function renderContent() {
 
 function renderOverview() {
   const content = document.getElementById('content');
+  
+  // 상태별 주요 액션 버튼 결정
+  let primaryAction = '';
+  let secondaryActions = '';
+  
+  if (currentProject.status === 'draft') {
+    if (currentProject.input_content) {
+      // Draft + 기획안 있음: AI 분석이 주요 액션
+      primaryAction = `
+        <button onclick="analyzeProject()" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+          <i class="fas fa-magic"></i>
+          AI 분석 시작하기
+        </button>
+      `;
+      secondaryActions = `
+        <button onclick="evaluateProject()" class="btn-medium bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all">
+          <i class="fas fa-chart-line"></i>
+          기획안 평가하기
+        </button>
+      `;
+    } else {
+      // Draft + 기획안 없음: 편집 유도
+      primaryAction = `
+        <div class="bg-blue-50 border-2 border-blue-200 border-dashed rounded-2xl p-8 text-center">
+          <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-pen-to-square text-3xl text-toss-blue"></i>
+          </div>
+          <p class="text-lg font-bold text-toss-gray-900 mb-2">기획안을 작성해주세요</p>
+          <p class="text-sm text-toss-gray-600 mb-4">프로젝트 목표, 사용자, 주요 기능 등을 입력하면<br>AI가 자동으로 세부 요건을 만들어드려요</p>
+          <button onclick="editProjectOverview()" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold inline-flex items-center gap-2 transition-all">
+            <i class="fas fa-edit"></i>
+            기획안 작성하기
+          </button>
+        </div>
+      `;
+    }
+  } else if (currentProject.status === 'in_progress') {
+    // In Progress: 요건 확인이 주요 액션
+    primaryAction = `
+      <button onclick="switchTab('requirements')" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+        <i class="fas fa-list-check"></i>
+        요건 확인하기
+      </button>
+    `;
+    secondaryActions = `
+      <button onclick="evaluateProject()" class="btn-small text-toss-gray-600 hover:text-toss-blue px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-all">
+        <i class="fas fa-chart-line text-sm"></i>
+        재평가
+      </button>
+    `;
+  } else if (currentProject.status === 'completed') {
+    // Completed: PRD 보기가 주요 액션
+    primaryAction = `
+      <button onclick="switchTab('prd')" class="btn-large bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+        <i class="fas fa-file-alt"></i>
+        PRD 문서 보기
+      </button>
+    `;
+    secondaryActions = `
+      <button onclick="switchTab('requirements')" class="btn-medium text-toss-gray-700 hover:text-toss-blue px-6 py-3 rounded-xl font-semibold flex items-center gap-2 border-2 border-toss-gray-200 hover:border-toss-blue transition-all">
+        <i class="fas fa-list-check"></i>
+        요건 다시 보기
+      </button>
+    `;
+  }
+  
   content.innerHTML = `
     <div class="max-w-4xl">
+      <!-- 헤더 -->
       <div class="mb-8">
         <div class="flex items-start justify-between mb-3">
           <h1 class="text-4xl font-bold text-toss-gray-900 flex-1">${escapeHtml(currentProject.title)}</h1>
-          <button onclick="editProjectOverview()" class="text-toss-gray-500 hover:text-toss-blue transition-colors ml-4">
+          <button onclick="editProjectOverview()" class="btn-icon text-toss-gray-400 hover:text-toss-blue transition-colors ml-4" title="편집">
             <i class="fas fa-edit text-xl"></i>
           </button>
         </div>
@@ -423,6 +485,7 @@ function renderOverview() {
         </div>
       </div>
       
+      <!-- 프로젝트 설명 -->
       ${currentProject.description ? `
         <div class="card p-6 mb-6">
           <h2 class="text-lg font-bold text-toss-gray-900 mb-3 flex items-center gap-2">
@@ -433,65 +496,30 @@ function renderOverview() {
         </div>
       ` : ''}
       
+      <!-- 상위 기획안 -->
       ${currentProject.input_content ? `
         <div class="card p-6 mb-6">
           <h2 class="text-lg font-bold text-toss-gray-900 mb-3 flex items-center gap-2">
             <i class="fas fa-file-alt text-toss-blue"></i>
             상위 기획안
           </h2>
-          <div class="text-toss-gray-700 whitespace-pre-wrap leading-relaxed">${escapeHtml(currentProject.input_content)}</div>
+          <div class="text-toss-gray-700 whitespace-pre-wrap leading-relaxed text-sm">${escapeHtml(currentProject.input_content)}</div>
         </div>
       ` : ''}
       
-      <div class="flex gap-3 flex-wrap">
-        ${currentProject.status === 'draft' && currentProject.input_content ? `
-          <button onclick="evaluateProject()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-            <i class="fas fa-chart-line"></i>
-            기획안 평가하기
-          </button>
-          <button onclick="analyzeProject()" class="btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg">
-            <i class="fas fa-magic"></i>
-            AI 분석 시작하기
-          </button>
-        ` : ''}
-        
-        ${currentProject.status === 'in_progress' ? `
-          <button onclick="switchTab('requirements')" class="btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg">
-            <i class="fas fa-list-check"></i>
-            요건 확인하기
-          </button>
-        ` : ''}
-        
-        ${currentProject.status === 'completed' ? `
-          <button onclick="switchTab('prd')" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-            <i class="fas fa-file-alt"></i>
-            PRD 문서 보기
-          </button>
-        ` : ''}
+      <!-- 액션 버튼들 -->
+      <div class="flex items-center gap-3 flex-wrap">
+        ${primaryAction}
+        ${secondaryActions}
       </div>
     </div>
   `;
 }
 
 // 프로젝트 개요 편집
-// 프로젝트 개요 편집 (평가 결과 통합)
+// 프로젝트 개요 편집 (평가는 사용자가 원할 때만)
 async function editProjectOverview() {
   if (!currentProject) return;
-  
-  // 먼저 평가 실행 (입력 내용이 있을 경우)
-  let evaluation = null;
-  if (currentProject.input_content) {
-    const loadingToast = showLoadingToast('기획안을 평가하고 있어요...');
-    try {
-      const evalResponse = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`);
-      evaluation = evalResponse.data;
-      hideToast(loadingToast);
-    } catch (error) {
-      console.error('Evaluation failed:', error);
-      hideToast(loadingToast);
-      // 평가 실패해도 편집은 가능하도록
-    }
-  }
   
   showModal({
     title: '프로젝트 개요 편집',
@@ -514,68 +542,47 @@ async function editProjectOverview() {
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">상위 기획안</label>
           
-          ${evaluation ? `
-            <!-- 평가 결과 요약 -->
-            <div class="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-5">
-              <div class="flex items-center gap-3 mb-3">
-                <div class="flex items-center gap-2">
-                  <i class="fas fa-chart-line text-toss-blue text-xl"></i>
-                  <span class="text-sm font-bold text-toss-gray-900">현재 완성도: ${evaluation.completeness_score}점</span>
-                </div>
-                <span class="text-xs px-3 py-1 rounded-full ${evaluation.is_ready ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
-                  ${evaluation.is_ready ? '✅ 분석 준비됨' : '⚠️ 보완 권장'}
-                </span>
-              </div>
-              
-              ${evaluation.missing_items && evaluation.missing_items.length > 0 ? `
-                <div class="mb-3">
-                  <p class="text-xs font-semibold text-toss-gray-800 mb-2">💡 추가하면 좋을 내용:</p>
-                  <ul class="space-y-1.5">
-                    ${evaluation.missing_items.map(item => `
-                      <li class="flex items-start gap-2 text-xs text-toss-gray-700">
-                        <i class="fas fa-circle text-[6px] text-orange-500 mt-1.5"></i>
-                        <span>${escapeHtml(item)}</span>
-                      </li>
-                    `).join('')}
-                  </ul>
-                </div>
-              ` : ''}
-              
-              ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
-                <div>
-                  <p class="text-xs font-semibold text-toss-gray-800 mb-2">✨ 개선 제안:</p>
-                  <ul class="space-y-1.5">
-                    ${evaluation.suggestions.slice(0, 3).map(suggestion => `
-                      <li class="flex items-start gap-2 text-xs text-toss-gray-700">
-                        <i class="fas fa-lightbulb text-xs text-toss-blue mt-0.5"></i>
-                        <span>${escapeHtml(suggestion)}</span>
-                      </li>
-                    `).join('')}
-                  </ul>
-                </div>
-              ` : ''}
-            </div>
-          ` : `
-            <!-- 평가 안내 -->
-            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-3">
-              <div class="flex gap-3">
-                <i class="fas fa-lightbulb text-toss-blue text-lg"></i>
-                <div class="flex-1">
-                  <p class="text-sm font-semibold text-toss-gray-900 mb-1">AI가 기획안을 분석해드려요</p>
-                  <p class="text-xs text-toss-gray-600 mb-2">기획안을 입력하시면 AI가 자동으로 평가하고 개선 제안을 해드립니다.</p>
-                  <p class="text-xs text-toss-gray-600 font-semibold">💡 포함하면 좋은 내용:</p>
-                  <ul class="text-xs text-toss-gray-600 mt-1 ml-4 space-y-1">
-                    <li>• 프로젝트 목표 및 해결하려는 문제</li>
-                    <li>• 타겟 사용자 및 주요 기능</li>
-                    <li>• 사용자 시나리오/플로우</li>
-                    <li>• 기술적 제약이나 외부 시스템 연동</li>
-                  </ul>
-                </div>
+          <!-- 작성 가이드 (항상 표시) -->
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-3">
+            <div class="flex gap-3">
+              <i class="fas fa-lightbulb text-toss-blue text-lg"></i>
+              <div class="flex-1">
+                <p class="text-sm font-semibold text-toss-gray-900 mb-2">💡 포함하면 좋은 내용</p>
+                <ul class="text-xs text-toss-gray-700 space-y-1.5">
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>프로젝트 성격</strong>: 어떤 종류의 제품/서비스인가요?</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>목표 및 배경</strong>: 왜 만들고, 어떤 문제를 해결하나요?</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>타겟 사용자</strong>: 주요 사용자는 누구인가요?</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>핵심 기능</strong>: 반드시 필요한 기능들은 무엇인가요?</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>사용자 시나리오</strong>: 주요 사용 흐름은 어떻게 되나요?</span>
+                  </li>
+                  <li class="flex items-start gap-2">
+                    <i class="fas fa-check text-toss-blue mt-0.5 text-[10px]"></i>
+                    <span><strong>기술 제약/외부 연동</strong>: 특별히 고려할 사항이 있나요?</span>
+                  </li>
+                </ul>
+                <p class="text-xs text-toss-gray-600 mt-3 pt-3 border-t border-blue-200">
+                  <i class="fas fa-info-circle mr-1"></i>
+                  작성 후 개요 탭에서 <strong>'기획안 평가하기'</strong> 버튼으로 AI 피드백을 받을 수 있어요
+                </p>
               </div>
             </div>
-          `}
+          </div>
           
-          <textarea id="edit-project-input" rows="12" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors font-mono text-sm" placeholder="프로젝트 목표, 타겟 사용자, 주요 기능, 사용자 시나리오, 기술 스택 등을 작성해주세요...">${escapeHtml(currentProject.input_content || '')}</textarea>
+          <textarea id="edit-project-input" rows="12" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors font-mono text-sm leading-relaxed" placeholder="프로젝트에 대해 자유롭게 작성해주세요...">${escapeHtml(currentProject.input_content || '')}</textarea>
         </div>
       </div>
     `,
@@ -603,13 +610,6 @@ async function editProjectOverview() {
         await loadProjects();
         renderContent();
         showToast('프로젝트가 수정되었습니다', 'success');
-        
-        // 내용이 수정되었으면 재평가 권장
-        if (inputContent && inputContent !== currentProject.input_content) {
-          setTimeout(() => {
-            showToast('기획안이 수정되었어요. 재평가를 권장해요!', 'info');
-          }, 1000);
-        }
         
         return true;
       } catch (error) {
@@ -660,7 +660,7 @@ async function renderRequirements() {
             <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">요건 관리</h1>
             <p class="text-sm text-toss-gray-600">각 요건의 질문에 답변해주세요</p>
           </div>
-          <button onclick="generatePRD()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+          <button onclick="generatePRD()" class="btn-medium bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
             <i class="fas fa-file-alt"></i>
             PRD 생성하기
           </button>
@@ -708,10 +708,18 @@ function renderRequirementCard(requirement) {
           </div>
           ${requirement.description ? `<p class="text-sm text-toss-gray-600 leading-relaxed">${escapeHtml(requirement.description)}</p>` : ''}
         </div>
-        <button onclick="openRequirementDetails(${requirement.id})" class="ml-4 text-toss-blue hover:text-toss-blue-dark font-semibold text-sm flex items-center gap-1 transition-colors">
-          <span>상세보기</span>
-          <i class="fas fa-chevron-right"></i>
-        </button>
+        <div class="flex items-center gap-2 ml-4">
+          <button onclick="editRequirement(${requirement.id})" class="btn-icon text-toss-gray-400 hover:text-toss-blue" title="편집">
+            <i class="fas fa-edit text-sm"></i>
+          </button>
+          <button onclick="deleteRequirement(${requirement.id})" class="btn-icon text-toss-gray-400 hover:text-red-500" title="삭제">
+            <i class="fas fa-trash text-sm"></i>
+          </button>
+          <button onclick="openRequirementDetails(${requirement.id})" class="btn-small text-toss-blue hover:text-blue-600 ml-2">
+            <span>상세보기</span>
+            <i class="fas fa-chevron-right text-xs ml-1"></i>
+          </button>
+        </div>
       </div>
       
       ${children.length > 0 ? `
@@ -719,10 +727,21 @@ function renderRequirementCard(requirement) {
           ${children.map(child => `
             <div class="bg-toss-gray-50 rounded-xl p-4">
               <div class="flex items-center justify-between">
-                <span class="font-semibold text-sm text-toss-gray-900">${escapeHtml(child.title)}</span>
-                <button onclick="openRequirementDetails(${child.id})" class="text-toss-blue hover:text-toss-blue-dark text-xs font-semibold">
-                  상세보기
-                </button>
+                <div class="flex items-center gap-2 flex-1">
+                  <span class="font-semibold text-sm text-toss-gray-900">${escapeHtml(child.title)}</span>
+                  <span class="text-xs text-toss-blue bg-blue-50 px-2 py-0.5 rounded">파생</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="editRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-toss-blue text-xs" title="편집">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button onclick="deleteRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-red-500 text-xs" title="삭제">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                  <button onclick="openRequirementDetails(${child.id})" class="btn-small text-toss-blue hover:text-blue-600 text-xs ml-1">
+                    상세보기
+                  </button>
+                </div>
               </div>
             </div>
           `).join('')}
