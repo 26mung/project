@@ -1548,6 +1548,11 @@ async function renderPRD() {
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
     const prd = response.data;
     
+    // "생성 중..." 상태 체크 - 에러로 처리
+    if (prd.content === '생성 중...' || prd.content.includes('생성 중')) {
+      throw new Error('PRD가 생성 중입니다');
+    }
+    
     // 메타데이터 파싱
     let metadata = null;
     try {
