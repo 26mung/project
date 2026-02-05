@@ -1941,7 +1941,7 @@ async function regeneratePRD() {
       
       try {
         await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 600000 // 600초 (10분)
+          timeout: 360000 // 360초 (6분)
         });
         
         // 진행 바를 100%로 업데이트 후 제거
@@ -1985,7 +1985,7 @@ async function generatePRD() {
         <p class="text-sm text-toss-gray-600 mb-3">모든 요건과 답변을 종합하여 완전한 기획 문서를 만들어드려요</p>
         <p class="text-xs text-orange-600">
           <i class="fas fa-clock mr-1"></i>
-          약 8-10분 소요됩니다. 완료될 때까지 기다려주세요.
+          약 4-5분 소요됩니다. 완료될 때까지 기다려주세요.
         </p>
       </div>
     `,
@@ -1999,7 +1999,7 @@ async function generatePRD() {
       
       try {
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 600000 // 600초 (10분) - 8개 요건 = 8배치 = 8분
+          timeout: 360000 // 360초 (6분) - 8개 요건 = 3배치 = 약 5분
         });
         
         // 진행 바를 100%로 업데이트 후 제거
@@ -2206,7 +2206,7 @@ function showPRDProgressBar() {
             <span id="prd-elapsed-time" style="font-size: 14px; color: var(--grey-600); font-weight: 500;">0초</span>
           </div>
           <p class="text-caption" style="color: var(--grey-600); margin: 0;">
-            AI가 요건과 답변을 종합하여 완전한 기획 문서를 작성하고 있습니다 (예상 소요: 약 8-10분)
+            AI가 요건과 답변을 종합하여 완전한 기획 문서를 작성하고 있습니다 (예상 소요: 약 4-5분)
           </p>
         </div>
         <button onclick="hidePRDProgressBar()" style="width: 32px; height: 32px; border-radius: 8px; background: var(--grey-100); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
@@ -2254,7 +2254,7 @@ function showPRDProgressBar() {
     // 진행률 업데이트 (최대 90%까지)
     const progressFill = document.getElementById('prd-progress-fill');
     if (progressFill) {
-      const progress = Math.min(90, (elapsed / 600) * 100); // 600초 = 10분
+      const progress = Math.min(90, (elapsed / 360) * 100); // 360초 = 6분
       progressFill.style.width = `${progress}%`;
     }
   }, 1000);
