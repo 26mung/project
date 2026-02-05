@@ -1936,16 +1936,26 @@ async function regeneratePRD() {
     confirmText: 'PRD 다시 생성',
     cancelText: '취소',
     onConfirm: async () => {
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 4분 소요)', 'info', 0);
+      // 진행 상태 바 표시
+      showPRDProgressBar();
       
       try {
         await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
           timeout: 240000 // 240초 (4분)
         });
         
-        hideToast(loadingToast);
-        showToast('PRD가 재생성되었습니다!', 'success');
-        renderPRD(); // 화면 갱신
+        // 진행 바를 100%로 업데이트 후 제거
+        const progressFill = document.getElementById('prd-progress-fill');
+        if (progressFill) {
+          progressFill.style.width = '100%';
+        }
+        
+        setTimeout(() => {
+          hidePRDProgressBar();
+          showToast('PRD가 재생성되었습니다!', 'success');
+          renderPRD(); // 화면 갱신
+        }, 500);
+        
         return true;
       } catch (error) {
         console.error('Failed to regenerate PRD:', error);
@@ -1954,7 +1964,7 @@ async function regeneratePRD() {
           response: error.response?.data,
           status: error.response?.status
         });
-        hideToast(loadingToast);
+        hidePRDProgressBar();
         const errorMsg = error.response?.data?.message || error.message || '알 수 없는 오류';
         showToast(`PRD 재생성에 실패했습니다: ${errorMsg}`, 'error');
         return false;
@@ -1984,29 +1994,37 @@ async function generatePRD() {
       // 모달 닫기
       closeAllModals();
       
-      // 로딩 토스트 표시
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 4분 소요)', 'info', 0);
+      // 진행 상태 바 표시
+      showPRDProgressBar();
       
       try {
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
           timeout: 240000 // 240초 (4분)
         });
         
-        hideToast(loadingToast);
+        // 진행 바를 100%로 업데이트 후 제거
+        const progressFill = document.getElementById('prd-progress-fill');
+        if (progressFill) {
+          progressFill.style.width = '100%';
+        }
         
-        // 성공 메시지
-        showToast('PRD가 생성되었습니다! 🎉', 'success');
-        
-        // 프로젝트 정보 새로고침
-        await selectProject(currentProject.id);
-        
-        // PRD 탭으로 전환
-        switchTab('prd');
+        setTimeout(() => {
+          hidePRDProgressBar();
+          
+          // 성공 메시지
+          showToast('PRD가 생성되었습니다! 🎉', 'success');
+          
+          // 프로젝트 정보 새로고침
+          selectProject(currentProject.id);
+          
+          // PRD 탭으로 전환
+          switchTab('prd');
+        }, 500);
         
         return true;
       } catch (error) {
         console.error('Failed to generate PRD:', error);
-        hideToast(loadingToast);
+        hidePRDProgressBar();
         const errorMessage = error.response?.data?.message || error.message;
         showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
         return false;
@@ -2152,6 +2170,128 @@ function showLoadingToast(message) {
   
   return toastId;
 }
+
+// 🚀 PRD 생성 진행 상태 바 (하단 고정)
+function showPRDProgressBar() {
+  // 기존 진행 바가 있으면 제거
+  const existing = document.getElementById('prd-progress-bar');
+  if (existing) {
+    existing.remove();
+  }
+  
+  const progressBar = document.createElement('div');
+  progressBar.id = 'prd-progress-bar';
+  progressBar.style.cssText = `
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--grey-200);
+    padding: 20px 24px;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 9999;
+    animation: slideUp 0.3s ease-out;
+  `;
+  
+  progressBar.innerHTML = `
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 12px;">
+        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, var(--blue-50) 0%, var(--purple-50) 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <i class="fas fa-file-alt" style="font-size: 20px; color: var(--blue-500); animation: pulse 2s ease-in-out infinite;"></i>
+        </div>
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+            <h3 class="text-body1" style="font-weight: 700; color: var(--grey-900); margin: 0;">PRD 문서 생성 중</h3>
+            <span id="prd-elapsed-time" style="font-size: 14px; color: var(--grey-600); font-weight: 500;">0초</span>
+          </div>
+          <p class="text-caption" style="color: var(--grey-600); margin: 0;">
+            AI가 요건과 답변을 종합하여 완전한 기획 문서를 작성하고 있습니다 (예상 소요: 약 3-4분)
+          </p>
+        </div>
+        <button onclick="hidePRDProgressBar()" style="width: 32px; height: 32px; border-radius: 8px; background: var(--grey-100); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <i class="fas fa-times" style="color: var(--grey-600); font-size: 14px;"></i>
+        </button>
+      </div>
+      
+      <div style="position: relative; width: 100%; height: 8px; background: var(--grey-100); border-radius: 4px; overflow: hidden;">
+        <div id="prd-progress-fill" style="position: absolute; left: 0; top: 0; height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue-500), var(--purple-500)); border-radius: 4px; transition: width 1s linear;"></div>
+      </div>
+    </div>
+    
+    <style>
+      @keyframes slideUp {
+        from {
+          transform: translateY(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+    </style>
+  `;
+  
+  document.body.appendChild(progressBar);
+  
+  // 경과 시간 업데이트
+  const startTime = Date.now();
+  window.prdProgressTimer = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    
+    const elapsedTimeEl = document.getElementById('prd-elapsed-time');
+    if (elapsedTimeEl) {
+      if (minutes > 0) {
+        elapsedTimeEl.textContent = `${minutes}분 ${seconds}초`;
+      } else {
+        elapsedTimeEl.textContent = `${seconds}초`;
+      }
+    }
+    
+    // 진행률 업데이트 (최대 90%까지)
+    const progressFill = document.getElementById('prd-progress-fill');
+    if (progressFill) {
+      const progress = Math.min(90, (elapsed / 240) * 100); // 240초 = 4분
+      progressFill.style.width = `${progress}%`;
+    }
+  }, 1000);
+}
+
+function hidePRDProgressBar() {
+  const progressBar = document.getElementById('prd-progress-bar');
+  if (progressBar) {
+    progressBar.style.animation = 'slideDown 0.3s ease-out';
+    setTimeout(() => {
+      progressBar.remove();
+    }, 300);
+  }
+  
+  // 타이머 정리
+  if (window.prdProgressTimer) {
+    clearInterval(window.prdProgressTimer);
+    window.prdProgressTimer = null;
+  }
+}
+
+// slideDown 애니메이션 추가
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideDown {
+    from {
+      transform: translateY(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+  }
+`;
+document.head.appendChild(style);
+
 
 function hideToast(toastId) {
   const toast = document.getElementById(toastId);
