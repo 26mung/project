@@ -2765,13 +2765,3 @@ function selectCustomCategory() {
   selectCategory(category);
 }
 
-ue.trim();
-  
-  if (!category) {
-    showToast('카테고리를 입력해주세요', 'error');
-    return;
-  }
-  
-  selectCategory(category);
-}
-
