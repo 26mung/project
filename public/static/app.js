@@ -2231,28 +2231,182 @@ async function deleteQuestion(questionId, questionText) {
 async function generateAdditionalRequirements() {
   if (!currentProject) return;
   
-  const loadingToast = showLoadingToast('기존 요건을 분석하고 추가 요건을 찾고 있어요...');
+  showModal({
+    title: '추가 요건 생성',
+    size: 'large',
+    content: `
+      <div id="category-selection-step">
+        <div class="text-center py-8">
+          <div class="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-sparkles text-2xl text-blue-600 animate-pulse"></i>
+          </div>
+          <p class="text-toss-gray-900 font-semibold mb-2">AI가 추가 요건 카테고리를 분석하고 있어요...</p>
+          <p class="text-sm text-toss-gray-600">기존 요건을 검토하여 누락된 영역을 찾아드릴게요</p>
+        </div>
+      </div>
+    `,
+    confirmText: null, // 확인 버튼 숨김
+    cancelText: '닫기'
+  });
   
   try {
-    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-additional-requirements`);
+    // AI 카테고리 추천 요청
+    const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/suggest-categories`);
+    const { categories } = response.data;
     
-    hideToast(loadingToast);
+    if (!categories || categories.length === 0) {
+      document.getElementById('category-selection-step').innerHTML = `
+        <div class="text-center py-8">
+          <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-check-circle text-2xl text-green-600"></i>
+          </div>
+          <p class="text-toss-gray-900 font-semibold mb-2">현재 요건이 충분합니다</p>
+          <p class="text-sm text-toss-gray-600">추가로 필요한 요건이 없어요</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // 카테고리 선택 UI 표시
+    document.getElementById('category-selection-step').innerHTML = `
+      <div class="space-y-4">
+        <div class="text-center mb-6">
+          <p class="text-toss-gray-900 font-semibold mb-2">어떤 영역의 요건을 추가할까요?</p>
+          <p class="text-sm text-toss-gray-600">AI가 분석한 추가 요건 카테고리를 선택하거나 직접 입력하세요</p>
+        </div>
+        
+        <div class="space-y-3">
+          ${categories.map((cat, idx) => `
+            <button 
+              onclick="selectCategory('${escapeHtml(cat)}')" 
+              class="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 hover:border-blue-400 rounded-xl transition-all group"
+            >
+              <div class="flex items-start gap-3">
+                <div class="w-8 h-8 bg-blue-500 text-white rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                  <i class="fas fa-plus text-sm"></i>
+                </div>
+                <div class="flex-1">
+                  <p class="text-toss-gray-900 font-semibold mb-1">${escapeHtml(cat)}</p>
+                </div>
+                <i class="fas fa-arrow-right text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"></i>
+              </div>
+            </button>
+          `).join('')}
+        </div>
+        
+        <div class="mt-6 pt-6 border-t border-toss-gray-200">
+          <p class="text-sm text-toss-gray-700 font-semibold mb-3">💡 또는 직접 입력하기</p>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="custom-category-input" 
+              placeholder="예: 데이터 백업 및 복구 전략"
+              class="flex-1 bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors"
+              onkeypress="if(event.key==='Enter') selectCustomCategory()"
+            >
+            <button 
+              onclick="selectCustomCategory()" 
+              class="btn-primary text-white px-6 py-3 rounded-xl font-bold whitespace-nowrap"
+            >
+              추가
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    
+  } catch (error) {
+    console.error('Failed to suggest categories:', error);
+    document.getElementById('category-selection-step').innerHTML = `
+      <div class="text-center py-8">
+        <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+        </div>
+        <p class="text-toss-gray-900 font-semibold mb-2">카테고리 추천에 실패했습니다</p>
+        <p class="text-sm text-toss-gray-600">${error.response?.data?.message || error.message}</p>
+        
+        <div class="mt-6">
+          <p class="text-sm text-toss-gray-700 font-semibold mb-3">직접 입력하여 진행할 수 있어요</p>
+          <div class="flex gap-2">
+            <input 
+              type="text" 
+              id="custom-category-input" 
+              placeholder="추가하고 싶은 요건 카테고리를 입력하세요"
+              class="flex-1 bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors"
+              onkeypress="if(event.key==='Enter') selectCustomCategory()"
+            >
+            <button 
+              onclick="selectCustomCategory()" 
+              class="btn-primary text-white px-6 py-3 rounded-xl font-bold whitespace-nowrap"
+            >
+              추가
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function selectCategory(category) {
+  console.log('[Category] Selected:', category);
+  
+  // 로딩 상태로 변경
+  document.getElementById('category-selection-step').innerHTML = `
+    <div class="text-center py-8">
+      <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-cog text-2xl text-green-600 animate-spin"></i>
+      </div>
+      <p class="text-toss-gray-900 font-semibold mb-2">"${escapeHtml(category)}" 요건을 생성하고 있어요...</p>
+      <p class="text-sm text-toss-gray-600">잠시만 기다려주세요</p>
+    </div>
+  `;
+  
+  try {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-by-category`, {
+      category: category
+    });
     
     if (response.data.success) {
       const count = response.data.added_count;
       
-      if (count > 0) {
-        await renderRequirements();
-        showToast(`${count}개의 새로운 요건이 추가되었습니다! 🎉`, 'success');
-      } else {
-        showToast('기존 요건으로 충분합니다. 추가 요건이 필요 없어요', 'info');
-      }
+      closeAllModals();
+      await renderRequirements();
+      showToast(`${count}개의 새로운 요건이 추가되었습니다! 🎉`, 'success');
     } else {
-      showToast(response.data.message || '추가 요건 생성에 실패했습니다', 'error');
+      throw new Error(response.data.message || '요건 생성에 실패했습니다');
     }
   } catch (error) {
-    console.error('Failed to generate additional requirements:', error);
-    hideToast(loadingToast);
-    showToast('추가 요건 생성에 실패했습니다', 'error');
+    console.error('Failed to generate requirements:', error);
+    const errorMessage = error.response?.data?.message || error.message;
+    
+    document.getElementById('category-selection-step').innerHTML = `
+      <div class="text-center py-8">
+        <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+        </div>
+        <p class="text-toss-gray-900 font-semibold mb-2">요건 생성에 실패했습니다</p>
+        <p class="text-sm text-toss-gray-600">${errorMessage}</p>
+        <button 
+          onclick="closeAllModals()" 
+          class="mt-4 btn-primary text-white px-6 py-3 rounded-xl font-bold"
+        >
+          닫기
+        </button>
+      </div>
+    `;
   }
 }
+
+function selectCustomCategory() {
+  const input = document.getElementById('custom-category-input');
+  const category = input.value.trim();
+  
+  if (!category) {
+    showToast('카테고리를 입력해주세요', 'error');
+    return;
+  }
+  
+  selectCategory(category);
+}
+

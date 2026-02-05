@@ -528,3 +528,142 @@ ${requirementsText}
 
   return { content };
 }
+
+/**
+ * 기존 요건을 분석하여 추가 요건 카테고리 추천
+ */
+export async function suggestAdditionalCategories(
+  projectTitle: string,
+  projectDescription: string,
+  existingRequirements: { title: string; description: string }[],
+  apiKey: string,
+  baseURL: string
+): Promise<{ categories: string[] }> {
+  const existingTitles = existingRequirements.map(r => r.title).join(', ');
+  
+  const systemPrompt = `당신은 전문 기획자입니다. 프로젝트의 기존 요건을 분석하여 추가로 고려해야 할 요건 카테고리를 추천하세요.
+
+**추천 기준:**
+- 기존 요건에서 누락된 중요 영역
+- 비기능 요구사항 (성능, 보안, 운영 등)
+- 사용자 경험 관련 요건
+- 외부 연동 및 통합
+- 모니터링 및 로깅
+- 데이터 관리 및 백업
+
+**출력 형식 (유효한 JSON만):**
+{
+  "categories": [
+    "카테고리명 1 (간단한 설명)",
+    "카테고리명 2 (간단한 설명)",
+    "카테고리명 3 (간단한 설명)"
+  ]
+}
+
+**규칙:**
+- 3-5개의 카테고리 추천
+- 각 카테고리는 30자 이내
+- 기존 요건과 중복되지 않는 영역
+- 실무에서 꼭 필요한 요건 우선`;
+
+  const userPrompt = `## 프로젝트 정보
+프로젝트: ${projectTitle}
+설명: ${projectDescription}
+
+## 기존 요건
+${existingTitles}
+
+위 프로젝트에서 추가로 고려해야 할 요건 카테고리를 추천해주세요.
+유효한 JSON으로 응답하세요.`;
+
+  try {
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL,
+      true // JSON 모드
+    );
+
+    console.log('[AI] Category suggestion response:', content.substring(0, 500));
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('[AI] Failed to suggest categories:', error);
+    throw error;
+  }
+}
+
+/**
+ * 선택된 카테고리에 대한 상세 요건 생성
+ */
+export async function generateRequirementsByCategory(
+  projectTitle: string,
+  projectDescription: string,
+  category: string,
+  existingRequirements: { title: string; description: string }[],
+  apiKey: string,
+  baseURL: string
+): Promise<AIAnalysisResult> {
+  const existingTitles = existingRequirements.map(r => r.title).join(', ');
+  
+  const systemPrompt = `당신은 전문 기획자입니다. 지정된 카테고리에 대한 세부 요건을 JSON 형식으로 생성하세요.
+
+**출력 형식:**
+{
+  "requirements": [
+    {
+      "title": "요건명",
+      "description": "간단한 설명 (50자 이내)",
+      "requirement_type": "functional|non_functional|constraint",
+      "priority": "low|medium|high|critical",
+      "questions": [
+        {
+          "question_text": "확인 질문",
+          "question_type": "open|choice|boolean"
+        }
+      ]
+    }
+  ]
+}
+
+**규칙:**
+- 2-4개 요건 생성
+- 각 요건마다 2-3개 질문
+- 기존 요건과 중복 금지
+- 실무에서 꼭 확인해야 할 내용`;
+
+  const userPrompt = `## 프로젝트 정보
+프로젝트: ${projectTitle}
+설명: ${projectDescription}
+
+## 기존 요건
+${existingTitles}
+
+## 요청 카테고리
+${category}
+
+위 카테고리에 대한 세부 요건과 확인 질문을 생성하세요.
+유효한 JSON으로 응답하세요.`;
+
+  try {
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL,
+      true // JSON 모드
+    );
+
+    console.log('[AI] Requirements generation response:', content.substring(0, 500));
+    
+    return JSON.parse(content);
+  } catch (error) {
+    console.error('[AI] Failed to generate requirements:', error);
+    throw error;
+  }
+}

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { setCookie, getCookie } from 'hono/cookie';
 import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
-import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion } from './ai-service';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion, suggestAdditionalCategories, generateRequirementsByCategory } from './ai-service';
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -769,5 +769,133 @@ ${existingRequirementsText}
     return c.json({ error: 'Failed to generate additional requirements', message: String(error) }, 500);
   }
 });
+
+// 추가 요건 카테고리 추천 API
+api.get('/projects/:id/suggest-categories', async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://www.genspark.ai/api/llm_proxy/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    // 프로젝트 정보
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    // 기존 요건 목록
+    const { results: existingRequirements } = await DB.prepare(
+      'SELECT title, description FROM requirements WHERE project_id = ? AND parent_id IS NULL'
+    ).bind(projectId).all();
+    
+    // AI로 카테고리 추천
+    const result = await suggestAdditionalCategories(
+      project.title,
+      project.description || project.input_content || '',
+      existingRequirements as any[],
+      apiKey,
+      baseURL
+    );
+    
+    return c.json(result);
+  } catch (error) {
+    console.error('Category suggestion error:', error);
+    return c.json({ error: 'Failed to suggest categories', message: String(error) }, 500);
+  }
+});
+
+// 카테고리별 요건 생성 API
+api.post('/projects/:id/generate-by-category', async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  const { category } = await c.req.json() as { category: string };
+  
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://www.genspark.ai/api/llm_proxy/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  if (!category) {
+    return c.json({ error: 'Category is required' }, 400);
+  }
+  
+  try {
+    // 프로젝트 정보
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    // 기존 요건 목록
+    const { results: existingRequirements } = await DB.prepare(
+      'SELECT title, description FROM requirements WHERE project_id = ? AND parent_id IS NULL'
+    ).bind(projectId).all();
+    
+    // AI로 요건 생성
+    const result = await generateRequirementsByCategory(
+      project.title,
+      project.description || project.input_content || '',
+      category,
+      existingRequirements as any[],
+      apiKey,
+      baseURL
+    );
+    
+    // 요건 저장
+    const addedRequirements = [];
+    
+    for (const req of result.requirements) {
+      const requirementResult = await DB.prepare(
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(
+        projectId,
+        req.title,
+        req.description,
+        req.requirement_type || 'functional',
+        req.priority || 'medium',
+        'pending'
+      ).run();
+      
+      const requirementId = requirementResult.meta.last_row_id;
+      
+      // 질문 저장
+      for (const q of req.questions || []) {
+        await DB.prepare(
+          'INSERT INTO questions (requirement_id, question_text, question_type, display_order) VALUES (?, ?, ?, ?)'
+        ).bind(requirementId, q.question_text, q.question_type, 0).run();
+      }
+      
+      addedRequirements.push({
+        id: requirementId,
+        ...req
+      });
+    }
+    
+    // 프로젝트 상태 업데이트
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('in_progress', projectId).run();
+    
+    return c.json({ 
+      success: true, 
+      added_count: addedRequirements.length,
+      requirements: addedRequirements 
+    });
+  } catch (error) {
+    console.error('Requirements generation error:', error);
+    return c.json({ error: 'Failed to generate requirements', message: String(error) }, 500);
+  }
+});
+
 
 export default api;
