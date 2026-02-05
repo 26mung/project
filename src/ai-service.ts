@@ -38,7 +38,7 @@ export async function chatCompletion(
   console.log(`[AI Service] Max tokens: ${maxTokens}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180초 타임아웃 (PRD 생성용 - max_tokens 8000 고려)
+  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180초 타임아웃 (PRD 생성용)
   
   try {
     const requestBody: any = {
@@ -540,7 +540,7 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
     baseURL,
     false, // JSON 모드 사용 안함 (마크다운 출력)
     0.2, // temperature 낮춤 (더 정확하게 따라함)
-    8000 // 토큰 대폭 증가 (5개 요건 모두 작성 가능)
+    4000 // 토큰 (4000으로 줄여서 타임아웃 방지)
   );
 
   return { content };
