@@ -10,7 +10,7 @@ const api = new Hono<{ Bindings: Bindings }>();
 api.use('/*', cors());
 
 // 간단한 비밀번호 상수
-const APP_PASSWORD = 'leehs1!';
+const APP_PASSWORD = '6116';
 const SESSION_COOKIE_NAME = 'platform_session';
 
 // ============ 인증 API ============
