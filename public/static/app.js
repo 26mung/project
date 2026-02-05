@@ -1375,96 +1375,176 @@ function enhancePRDWithMetadata(metadata) {
   const prdContent = document.getElementById('prd-content');
   if (!prdContent) return;
   
-  // 4번 섹션(요건별 상세 정책) 아래의 h2, h3 헤딩 찾기
-  const headings = prdContent.querySelectorAll('h2, h3');
   const requirements = metadata.requirements || [];
   
-  // 각 요건에 대한 정보 카드 추가
-  headings.forEach((heading, idx) => {
+  console.log('🔍 PRD 인터랙티브 기능 추가 시작');
+  console.log('📊 전체 요건 수:', requirements.length);
+  console.log('📝 요건 목록:', requirements.map(r => r.title));
+  
+  // 1. 헤딩(h2, h3)에 요건 정보 배지 추가
+  const headings = prdContent.querySelectorAll('h2, h3');
+  console.log('📍 찾은 헤딩 수:', headings.length);
+  
+  headings.forEach((heading) => {
     const headingText = heading.textContent.trim();
     
-    // 요건 제목과 매칭
-    const matchedReq = requirements.find(req => 
-      headingText.includes(req.title) || req.title.includes(headingText)
-    );
+    // 요건 제목과 매칭 (더 유연한 매칭)
+    const matchedReq = requirements.find(req => {
+      const reqTitle = req.title.toLowerCase().trim();
+      const headingLower = headingText.toLowerCase();
+      return headingLower.includes(reqTitle) || reqTitle.includes(headingLower.substring(0, 20));
+    });
     
     if (matchedReq && matchedReq.questions && matchedReq.questions.length > 0) {
-      // 요건 정보 뱃지 추가
+      console.log('✅ 매칭된 요건:', matchedReq.title, '(질문 수:', matchedReq.questions.length + ')');
+      
+      // 요건 정보 배지 추가
       const badge = document.createElement('button');
-      badge.className = 'inline-flex items-center gap-1 ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition-all';
+      badge.className = 'inline-flex items-center gap-1 ml-2 badge-small badge-fill-purple';
+      badge.style.cssText = 'vertical-align: middle;';
       badge.innerHTML = `
         <i class="fas fa-question-circle"></i>
         ${matchedReq.questions.length}개 질문
       `;
       badge.onclick = (e) => {
         e.preventDefault();
+        e.stopPropagation();
         showRequirementDetails(matchedReq);
       };
       heading.appendChild(badge);
     }
   });
   
-  // 표의 각 셀에 근거 버튼 추가
+  // 2. 모든 리스트 아이템(li)을 클릭 가능하게 만들기
+  const listItems = prdContent.querySelectorAll('ul li, ol li');
+  console.log('📋 찾은 리스트 항목 수:', listItems.length);
+  
+  listItems.forEach((li) => {
+    // 해당 리스트 항목이 속한 섹션의 요건 찾기
+    let currentElement = li;
+    let requirementTitle = '';
+    
+    while (currentElement && currentElement !== prdContent) {
+      currentElement = currentElement.previousElementSibling;
+      if (currentElement && (currentElement.tagName === 'H2' || currentElement.tagName === 'H3')) {
+        requirementTitle = currentElement.textContent.trim();
+        break;
+      }
+      if (!currentElement && li.parentElement) {
+        currentElement = li.parentElement;
+      } else {
+        break;
+      }
+    }
+    
+    if (requirementTitle) {
+      const matchedReq = requirements.find(req => {
+        const reqTitle = req.title.toLowerCase().trim();
+        const titleLower = requirementTitle.toLowerCase();
+        return titleLower.includes(reqTitle) || reqTitle.includes(titleLower.substring(0, 20));
+      });
+      
+      if (matchedReq && matchedReq.questions && matchedReq.questions.length > 0) {
+        // 리스트 항목을 클릭 가능하게 스타일링
+        li.style.cssText = `
+          cursor: pointer;
+          padding: 8px 12px;
+          margin: 4px 0;
+          border-radius: 8px;
+          transition: all 0.2s ease;
+          position: relative;
+        `;
+        
+        // 호버 효과
+        li.addEventListener('mouseenter', () => {
+          li.style.backgroundColor = 'var(--blue-50)';
+          li.style.paddingLeft = '16px';
+        });
+        
+        li.addEventListener('mouseleave', () => {
+          li.style.backgroundColor = 'transparent';
+          li.style.paddingLeft = '12px';
+        });
+        
+        // 클릭 이벤트
+        li.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showRequirementDetails(matchedReq);
+        });
+        
+        // 작은 아이콘 추가
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-info-circle';
+        icon.style.cssText = `
+          margin-left: 6px;
+          font-size: 11px;
+          color: var(--blue-500);
+          opacity: 0.6;
+        `;
+        li.appendChild(icon);
+      }
+    }
+  });
+  
+  // 3. 표의 각 행을 클릭 가능하게 만들기
   const tables = prdContent.querySelectorAll('table');
+  console.log('📊 찾은 테이블 수:', tables.length);
+  
   tables.forEach((table) => {
     const rows = table.querySelectorAll('tbody tr');
     
     rows.forEach((row, rowIdx) => {
-      const cells = row.querySelectorAll('td');
+      // 해당 행이 속한 섹션의 요건 찾기
+      let currentElement = table;
+      let requirementTitle = '';
       
-      // 3번째 컬럼이 "근거" 컬럼이라고 가정
-      if (cells.length >= 3) {
-        const evidenceCell = cells[2]; // 근거 컬럼
-        const originalText = evidenceCell.textContent.trim();
+      while (currentElement && currentElement !== prdContent) {
+        currentElement = currentElement.previousElementSibling;
+        if (currentElement && (currentElement.tagName === 'H2' || currentElement.tagName === 'H3')) {
+          requirementTitle = currentElement.textContent.trim();
+          break;
+        }
+      }
+      
+      if (requirementTitle) {
+        const matchedReq = requirements.find(req => {
+          const reqTitle = req.title.toLowerCase().trim();
+          const titleLower = requirementTitle.toLowerCase();
+          return titleLower.includes(reqTitle) || reqTitle.includes(titleLower.substring(0, 20));
+        });
         
-        if (originalText) {
-          // 해당 행이 속한 섹션의 요건 찾기
-          let currentElement = table;
-          let requirementTitle = '';
+        if (matchedReq && matchedReq.questions && matchedReq.questions.length > 0) {
+          // 행을 클릭 가능하게 스타일링
+          row.style.cssText = `
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+          `;
           
-          while (currentElement && currentElement !== prdContent) {
-            currentElement = currentElement.previousElementSibling;
-            if (currentElement && (currentElement.tagName === 'H2' || currentElement.tagName === 'H3')) {
-              requirementTitle = currentElement.textContent.trim();
-              break;
+          // 호버 효과
+          row.addEventListener('mouseenter', () => {
+            row.style.backgroundColor = 'var(--blue-50)';
+          });
+          
+          row.addEventListener('mouseleave', () => {
+            row.style.backgroundColor = 'transparent';
+          });
+          
+          // 클릭 이벤트
+          row.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // 특정 질문이 매칭되면 해당 질문 강조, 아니면 전체 요건 표시
+            if (matchedReq.questions[rowIdx]) {
+              showRequirementDetails(matchedReq, rowIdx);
+            } else {
+              showRequirementDetails(matchedReq);
             }
-          }
-          
-          const matchedReq = requirements.find(req => 
-            requirementTitle.includes(req.title) || req.title.includes(requirementTitle)
-          );
-          
-          if (matchedReq && matchedReq.questions && matchedReq.questions[rowIdx]) {
-            // 근거 셀에 인터랙티브 버튼 추가
-            evidenceCell.innerHTML = `
-              <div class="flex items-center gap-2">
-                <span class="flex-1">${escapeHtml(originalText)}</span>
-                <button 
-                  class="evidence-btn flex-shrink-0 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold hover:bg-blue-200 transition-all"
-                  data-requirement='${JSON.stringify(matchedReq).replace(/'/g, "&apos;")}'
-                  data-question-idx="${rowIdx}"
-                  title="원본 질문/답변 보기"
-                >
-                  <i class="fas fa-info-circle mr-1"></i>
-                  원본 보기
-                </button>
-              </div>
-            `;
-          }
+          });
         }
       }
     });
   });
   
-  // 근거 버튼 클릭 이벤트 등록
-  prdContent.querySelectorAll('.evidence-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const requirement = JSON.parse(btn.getAttribute('data-requirement'));
-      const questionIdx = parseInt(btn.getAttribute('data-question-idx'));
-      showEvidenceDetails(requirement, questionIdx);
-    });
-  });
+  console.log('✅ PRD 인터랙티브 기능 추가 완료');
 }
 
 // 근거 상세 정보 모달 (특정 질문 강조)

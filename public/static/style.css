@@ -408,6 +408,25 @@ button:disabled {
   color: var(--grey-600);
 }
 
+/* Purple badge variants */
+.badge-fill-purple {
+  background: var(--purple-600);
+  color: white;
+}
+
+.badge-fill-purple:hover {
+  background: var(--purple-700);
+}
+
+.badge-weak-purple {
+  background: var(--purple-50);
+  color: var(--purple-700);
+}
+
+.badge-weak-purple:hover {
+  background: var(--purple-100);
+}
+
 /* ============ Card ============ */
 .card {
   background: white;
