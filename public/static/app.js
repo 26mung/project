@@ -381,28 +381,30 @@ async function evaluateProject() {
       content: `
         <div class="space-y-6">
           <!-- 완성도 점수 -->
-          <div class="bg-gradient-to-r from-toss-blue to-blue-500 rounded-2xl p-6 text-white">
-            <div class="flex items-center justify-between mb-3">
+          <div style="background: linear-gradient(135deg, var(--blue-600) 0%, var(--blue-500) 100%); border-radius: 16px; padding: 24px; color: white;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
               <div>
-                <p class="text-sm opacity-90 mb-1">완성도 점수</p>
-                <p class="text-4xl font-bold">${evaluation.completeness_score}<span class="text-2xl">/100</span></p>
+                <p style="font-size: 14px; color: rgba(255, 255, 255, 0.9); margin-bottom: 8px; font-weight: 500;">완성도 점수</p>
+                <p style="font-size: 48px; font-weight: 700; color: white; line-height: 1;">
+                  ${evaluation.completeness_score}<span style="font-size: 28px; color: rgba(255, 255, 255, 0.9);">/100</span>
+                </p>
               </div>
-              <div class="w-24 h-24 rounded-full border-4 border-white/30 flex items-center justify-center">
-                <i class="fas ${evaluation.completeness_score >= 80 ? 'fa-check-circle' : evaluation.completeness_score >= 60 ? 'fa-info-circle' : 'fa-exclamation-circle'} text-4xl"></i>
+              <div style="width: 96px; height: 96px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.3); display: flex; align-items: center; justify-content: center;">
+                <i class="fas ${evaluation.completeness_score >= 80 ? 'fa-check-circle' : evaluation.completeness_score >= 60 ? 'fa-info-circle' : 'fa-exclamation-circle'}" style="font-size: 48px; color: white;"></i>
               </div>
             </div>
-            <div class="h-2 bg-white/20 rounded-full overflow-hidden">
-              <div class="h-full bg-white rounded-full transition-all duration-500" style="width: ${evaluation.completeness_score}%"></div>
+            <div style="height: 8px; background: rgba(255, 255, 255, 0.2); border-radius: 999px; overflow: hidden;">
+              <div style="height: 100%; background: white; border-radius: 999px; transition: width 0.5s ease; width: ${evaluation.completeness_score}%;"></div>
             </div>
           </div>
           
           <!-- 프로젝트 성격 -->
-          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
-            <div class="flex items-center gap-3">
-              <i class="fas fa-tag text-toss-blue text-xl"></i>
+          <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: 12px; padding: 16px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <i class="fas fa-tag" style="color: var(--blue-500); font-size: 20px;"></i>
               <div>
-                <p class="text-xs text-toss-gray-600 mb-1">프로젝트 성격</p>
-                <p class="text-sm font-semibold text-toss-gray-900">${evaluation.project_type}</p>
+                <p class="text-body3" style="color: var(--grey-600); margin-bottom: 4px;">프로젝트 성격</p>
+                <p class="text-body2" style="color: var(--grey-900); font-weight: 600;">${escapeHtml(evaluation.project_type)}</p>
               </div>
             </div>
           </div>
@@ -410,12 +412,15 @@ async function evaluateProject() {
           ${evaluation.missing_items && evaluation.missing_items.length > 0 ? `
           <!-- 부족한 항목 -->
           <div>
-            <h4 class="text-sm font-semibold text-toss-gray-900 mb-3">⚠️ 보완하면 좋을 항목</h4>
-            <ul class="space-y-2">
+            <h4 class="text-body2" style="color: var(--grey-900); font-weight: 600; margin-bottom: 12px;">
+              <i class="fas fa-exclamation-triangle" style="color: var(--yellow-500); margin-right: 6px;"></i>
+              보완하면 좋을 항목
+            </h4>
+            <ul style="display: flex; flex-direction: column; gap: 8px;">
               ${evaluation.missing_items.map(item => `
-                <li class="flex items-start gap-2 text-sm text-toss-gray-700">
-                  <i class="fas fa-circle text-xs text-orange-500 mt-1.5"></i>
-                  <span>${escapeHtml(item)}</span>
+                <li style="display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--grey-50); border-radius: 8px;">
+                  <i class="fas fa-circle" style="font-size: 6px; color: var(--orange-500); margin-top: 8px;"></i>
+                  <span class="text-body3" style="color: var(--grey-700); line-height: 1.6;">${escapeHtml(item)}</span>
                 </li>
               `).join('')}
             </ul>
@@ -425,12 +430,15 @@ async function evaluateProject() {
           ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
           <!-- 개선 제안 -->
           <div>
-            <h4 class="text-sm font-semibold text-toss-gray-900 mb-3">💡 개선 제안</h4>
-            <ul class="space-y-2">
+            <h4 class="text-body2" style="color: var(--grey-900); font-weight: 600; margin-bottom: 12px;">
+              <i class="fas fa-lightbulb" style="color: var(--blue-500); margin-right: 6px;"></i>
+              개선 제안
+            </h4>
+            <ul style="display: flex; flex-direction: column; gap: 8px;">
               ${evaluation.suggestions.map(suggestion => `
-                <li class="flex items-start gap-2 text-sm text-toss-gray-700">
-                  <i class="fas fa-check text-xs text-toss-blue mt-1.5"></i>
-                  <span>${escapeHtml(suggestion)}</span>
+                <li style="display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--blue-50); border-radius: 8px; border: 1px solid var(--blue-100);">
+                  <i class="fas fa-check" style="font-size: 12px; color: var(--blue-600); margin-top: 4px;"></i>
+                  <span class="text-body3" style="color: var(--grey-700); line-height: 1.6;">${escapeHtml(suggestion)}</span>
                 </li>
               `).join('')}
             </ul>
@@ -438,14 +446,14 @@ async function evaluateProject() {
           ` : ''}
           
           <!-- 진행 가능 여부 -->
-          <div class="bg-${evaluation.is_ready ? 'green' : 'yellow'}-50 border border-${evaluation.is_ready ? 'green' : 'yellow'}-100 rounded-xl p-4">
-            <div class="flex items-center gap-3">
-              <i class="fas ${evaluation.is_ready ? 'fa-check-circle' : 'fa-exclamation-triangle'} text-${evaluation.is_ready ? 'green' : 'yellow'}-600 text-xl"></i>
+          <div style="background: ${evaluation.is_ready ? 'var(--green-50)' : 'var(--yellow-50)'}; border: 1px solid ${evaluation.is_ready ? 'var(--green-200)' : 'var(--yellow-200)'}; border-radius: 12px; padding: 16px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <i class="fas ${evaluation.is_ready ? 'fa-check-circle' : 'fa-exclamation-triangle'}" style="font-size: 24px; color: ${evaluation.is_ready ? 'var(--green-600)' : 'var(--yellow-600)'};"></i>
               <div>
-                <p class="text-sm font-semibold text-toss-gray-900">
+                <p class="text-body2" style="color: var(--grey-900); font-weight: 600; margin-bottom: 4px;">
                   ${evaluation.is_ready ? 'AI 분석을 진행할 수 있어요!' : '기획안을 보완하면 더 정확한 분석이 가능해요'}
                 </p>
-                <p class="text-xs text-toss-gray-600 mt-1">
+                <p class="text-body3" style="color: var(--grey-600);">
                   ${evaluation.is_ready ? 'AI 분석을 시작하시겠어요?' : '지금 바로 분석하거나, 기획안을 수정한 후 다시 평가해보세요'}
                 </p>
               </div>
