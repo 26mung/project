@@ -298,6 +298,21 @@ function createNewProject() {
             </div>
           </div>
           <textarea id="project-input" rows="8" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors" placeholder="프로젝트의 목표, 주요 기능, 사용자 시나리오, 기술 스택 등을 자유롭게 작성해주세요..."></textarea>
+          
+          <!-- 이미지 업로드 -->
+          <div class="mt-4">
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">
+              기획안 이미지 (선택)
+              <span class="text-xs font-normal text-toss-gray-500 ml-2">PPT 장표를 이미지로 저장해서 업로드하세요 (최대 10장)</span>
+            </label>
+            <div class="bg-white border-2 border-dashed border-toss-gray-300 rounded-xl p-6 text-center hover:border-toss-blue transition-colors cursor-pointer" onclick="document.getElementById('project-images').click()">
+              <i class="fas fa-images text-3xl text-toss-gray-400 mb-2"></i>
+              <p class="text-sm text-toss-gray-600 mb-1">클릭하여 이미지 업로드</p>
+              <p class="text-xs text-toss-gray-500">PNG, JPG 형식 (최대 10장)</p>
+            </div>
+            <input type="file" id="project-images" accept="image/*" multiple style="display: none;" onchange="handleImageUpload(event)">
+            <div id="image-preview-container" class="mt-3 grid grid-cols-5 gap-2"></div>
+          </div>
         </div>
       </div>
     `,
@@ -1567,7 +1582,7 @@ async function renderPRD() {
             </h1>
             <p class="text-body3" style="color: var(--grey-600);">
               <i class="far fa-clock" style="margin-right: 4px;"></i>
-              최종 작성: ${new Date(prd.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              최종 작성: ${formatKSTDateTime(prd.created_at)}
             </p>
           </div>
           <div style="display: flex; gap: 8px;">
@@ -2320,8 +2335,28 @@ function formatDate(dateString) {
   });
 }
 
-function formatRelativeTime(dateString) {
+// 한국 시간(KST)으로 변환
+function toKST(dateString) {
   const date = new Date(dateString);
+  // UTC 시간에 9시간 추가
+  return new Date(date.getTime() + (9 * 60 * 60 * 1000));
+}
+
+// 한국 시간으로 포맷팅
+function formatKSTDateTime(dateString) {
+  const kstDate = toKST(dateString);
+  return kstDate.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  });
+}
+
+function formatRelativeTime(dateString) {
+  const date = toKST(dateString); // KST로 변환
   const now = new Date();
   const diff = now - date;
   const seconds = Math.floor(diff / 1000);
