@@ -407,6 +407,7 @@ async function selectProject(projectId) {
     console.log('[Project] Fetching project data...');
     const response = await axios.get(`${API_BASE}/projects/${projectId}`);
     console.log('[Project] Project data received:', response.data.title);
+    console.log('[Project] Image URLs:', response.data.image_urls);
     currentProject = response.data;
     
     console.log('[Project] Rendering project list...');
@@ -913,7 +914,7 @@ function renderOverview() {
       ` : ''}
       
       <!-- 기획안 이미지 -->
-      ${currentProject.image_urls ? `
+      ${currentProject.image_urls && currentProject.image_urls !== 'null' && currentProject.image_urls.length > 2 ? `
         <div class="card p-6 mb-6">
           <h2 class="text-lg font-bold text-toss-gray-900 mb-3 flex items-center gap-2">
             <i class="fas fa-images text-toss-blue"></i>
