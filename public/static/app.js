@@ -241,13 +241,22 @@ function getStatusBadge(status) {
 }
 
 async function selectProject(projectId) {
+  console.log('[Project] Selecting project:', projectId);
   try {
+    console.log('[Project] Fetching project data...');
     const response = await axios.get(`${API_BASE}/projects/${projectId}`);
+    console.log('[Project] Project data received:', response.data.title);
     currentProject = response.data;
+    
+    console.log('[Project] Rendering project list...');
     renderProjectList();
+    
+    console.log('[Project] Switching to tab:', currentTab);
     switchTab(currentTab);
+    
+    console.log('[Project] Selection completed successfully!');
   } catch (error) {
-    console.error('Failed to load project:', error);
+    console.error('[Project] Failed to load project:', error);
     showToast('프로젝트를 불러오는데 실패했습니다', 'error');
   }
 }
@@ -1809,14 +1818,25 @@ async function generatePRD() {
         console.log('[PRD] API response:', response.status);
         
         hideToast(loadingToast);
-        console.log('[PRD] Refreshing project data...');
-        await selectProject(currentProject.id);
-        console.log('[PRD] Switching to PRD tab...');
-        switchTab('prd');
+        
+        // 모달을 먼저 닫음
+        console.log('[PRD] Closing modal...');
+        closeAllModals();
+        
+        // 성공 토스트 표시
         console.log('[PRD] Showing success toast...');
         showToast('PRD가 생성되었습니다!', 'success');
-        console.log('[PRD] Returning true to close modal...');
-        return true; // 모달 닫기
+        
+        // 프로젝트 데이터 새로고침
+        console.log('[PRD] Refreshing project data...');
+        await selectProject(currentProject.id);
+        
+        // PRD 탭으로 전환
+        console.log('[PRD] Switching to PRD tab...');
+        switchTab('prd');
+        
+        console.log('[PRD] Completed successfully!');
+        return true; // 모달 닫기 (이미 닫혔지만 일관성 유지)
       } catch (error) {
         console.error('[PRD] Failed to generate PRD:', error);
         hideToast(loadingToast);
