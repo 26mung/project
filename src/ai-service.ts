@@ -106,14 +106,17 @@ export async function analyzeProjectRequirements(
         {
           "question_text": "확인이 필요한 질문",
           "question_type": "open|choice|boolean",
-          "options": ["선택지1", "선택지2"] // choice일 때만
+          "options": ["선택지1", "선택지2"]
         }
       ]
     }
   ]
 }
 
-**중요**: 5-8개의 핵심 요건을 도출하되, 각 요건마다 2-3개의 확인 질문을 생성하세요. 응답은 반드시 유효한 JSON만 반환하세요.`;
+**중요**: 
+1. 5-8개의 핵심 요건을 도출하되, 각 요건마다 2-3개의 확인 질문을 생성하세요.
+2. 응답은 반드시 유효한 JSON만 반환하세요.
+3. JSON 문자열 내부의 특수문자는 이스케이프하세요 (줄바꿈은 \\n, 따옴표는 \\", 백슬래시는 \\\\).`;
 
   const userPrompt = `## 상위 기획안
 ${inputContent}
@@ -131,24 +134,57 @@ ${inputContent}
 
 유효한 JSON만 반환:`;
 
-  const content = await chatCompletion(
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    apiKey,
-    baseURL
-  );
+  try {
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL
+    );
 
-  // JSON 추출 (마크다운 코드 블록 제거)
-  let jsonContent = content.trim();
-  if (jsonContent.startsWith('```json')) {
-    jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-  } else if (jsonContent.startsWith('```')) {
-    jsonContent = jsonContent.replace(/```\n?/g, '');
+    // JSON 추출 (마크다운 코드 블록 제거)
+    let jsonContent = content.trim();
+    
+    // 마크다운 코드 블록 제거
+    if (jsonContent.startsWith('```json')) {
+      jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
+    } else if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.replace(/```\n?/g, '');
+    }
+    
+    // 앞뒤 공백 제거
+    jsonContent = jsonContent.trim();
+    
+    // JSON 파싱 시도
+    try {
+      return JSON.parse(jsonContent);
+    } catch (parseError) {
+      console.error('JSON parsing failed. Content:', jsonContent);
+      console.error('Parse error:', parseError);
+      
+      // JSON 수정 시도 (일반적인 오류 패턴 수정)
+      let fixedJson = jsonContent
+        // 이스케이프되지 않은 줄바꿈 제거
+        .replace(/\n/g, ' ')
+        // 이스케이프되지 않은 탭 제거
+        .replace(/\t/g, ' ')
+        // 연속된 공백을 하나로
+        .replace(/\s+/g, ' ')
+        // 마지막 쉼표 제거 (배열/객체 끝)
+        .replace(/,(\s*[}\]])/g, '$1');
+      
+      try {
+        return JSON.parse(fixedJson);
+      } catch (secondError) {
+        throw new Error(`JSON parsing failed after fix attempt. Original error: ${parseError}. Content preview: ${jsonContent.substring(0, 200)}...`);
+      }
+    }
+  } catch (error) {
+    console.error('AI analysis failed:', error);
+    throw error;
   }
-
-  return JSON.parse(jsonContent);
 }
 
 /**
@@ -179,7 +215,10 @@ export async function generateFollowUpQuestions(
   ]
 }
 
-**중요**: 최대 2개의 파생 질문만 생성하세요. 추가 확인이 불필요하면 빈 배열을 반환하세요.`;
+**중요**: 
+1. 최대 2개의 파생 질문만 생성하세요. 
+2. 추가 확인이 불필요하면 빈 배열을 반환하세요.
+3. JSON 문자열 내부의 특수문자는 이스케이프하세요.`;
 
   const userPrompt = `## 요건
 ${requirementTitle}
@@ -193,24 +232,50 @@ ${answerText}
 위 답변을 분석하여 추가 확인이 필요한 파생 질문을 생성하세요 (최대 2개).
 유효한 JSON만 반환:`;
 
-  const content = await chatCompletion(
-    [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    apiKey,
-    baseURL
-  );
+  try {
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL
+    );
 
-  let jsonContent = content.trim();
-  if (jsonContent.startsWith('```json')) {
-    jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-  } else if (jsonContent.startsWith('```')) {
-    jsonContent = jsonContent.replace(/```\n?/g, '');
+    let jsonContent = content.trim();
+    if (jsonContent.startsWith('```json')) {
+      jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
+    } else if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.replace(/```\n?/g, '');
+    }
+    
+    jsonContent = jsonContent.trim();
+
+    try {
+      const result = JSON.parse(jsonContent);
+      return result.questions || [];
+    } catch (parseError) {
+      console.error('JSON parsing failed for follow-up questions:', parseError);
+      
+      // JSON 수정 시도
+      let fixedJson = jsonContent
+        .replace(/\n/g, ' ')
+        .replace(/\t/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/,(\s*[}\]])/g, '$1');
+      
+      try {
+        const result = JSON.parse(fixedJson);
+        return result.questions || [];
+      } catch (secondError) {
+        console.error('Failed to parse follow-up questions, returning empty array');
+        return [];
+      }
+    }
+  } catch (error) {
+    console.error('Follow-up questions generation failed:', error);
+    return [];
   }
-
-  const result = JSON.parse(jsonContent);
-  return result.questions || [];
 }
 
 /**
