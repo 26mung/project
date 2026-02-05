@@ -1556,6 +1556,129 @@ async function renderPRD() {
       console.error('Failed to parse metadata:', e);
     }
     
+    // 🚀 생성 중 상태 체크
+    if (metadata && metadata.status === 'generating') {
+      content.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px;">
+          <div style="width: 120px; height: 120px; background: linear-gradient(135deg, var(--blue-500), var(--blue-400)); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 32px; position: relative; animation: pulse 2s ease-in-out infinite;">
+            <i class="fas fa-magic" style="font-size: 48px; color: white;"></i>
+            <!-- 회전하는 원형 진행바 -->
+            <svg style="position: absolute; top: -10px; left: -10px; width: 140px; height: 140px; transform: rotate(-90deg);">
+              <circle cx="70" cy="70" r="60" stroke="var(--blue-200)" stroke-width="4" fill="none" opacity="0.3"/>
+              <circle id="prd-progress-circle" cx="70" cy="70" r="60" stroke="var(--blue-500)" stroke-width="4" fill="none" 
+                      stroke-dasharray="377" stroke-dashoffset="377" stroke-linecap="round"
+                      style="transition: stroke-dashoffset 1s ease-in-out;"/>
+            </svg>
+          </div>
+          
+          <h2 class="text-title2" style="color: var(--grey-900); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+            <span>PRD 문서를 생성하고 있어요</span>
+            <span class="loading-dots"></span>
+          </h2>
+          
+          <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-12); padding: 20px; max-width: 500px; margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <p class="text-body2" style="color: var(--grey-700); font-weight: 600;">예상 소요 시간</p>
+              <p class="text-body2" style="color: var(--blue-600); font-weight: 700;" id="estimated-time">약 2-3분</p>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <p class="text-body2" style="color: var(--grey-700); font-weight: 600;">경과 시간</p>
+              <p class="text-body2" style="color: var(--grey-900); font-weight: 700;" id="elapsed-time">0초</p>
+            </div>
+            
+            <!-- 프로그레스 바 -->
+            <div style="width: 100%; height: 8px; background: var(--grey-200); border-radius: 999px; overflow: hidden; margin-bottom: 16px;">
+              <div id="progress-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--blue-500), var(--blue-400)); transition: width 1s ease-in-out; border-radius: 999px;"></div>
+            </div>
+            
+            <p class="text-body3" style="color: var(--grey-600); text-align: center;">
+              <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
+              백그라운드에서 생성 중이므로 다른 작업을 계속하셔도 됩니다
+            </p>
+          </div>
+          
+          <div style="display: flex; gap: 12px;">
+            <button onclick="switchTab('requirements')" class="btn-secondary btn-medium">
+              <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+              요건 관리로 돌아가기
+            </button>
+            <button onclick="renderPRD()" class="btn-weak-primary btn-medium">
+              <i class="fas fa-sync-alt" style="margin-right: 6px;"></i>
+              상태 새로고침
+            </button>
+          </div>
+        </div>
+        
+        <style>
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+          }
+          
+          .loading-dots::after {
+            content: '';
+            animation: loading-dots 1.5s steps(4, end) infinite;
+          }
+          
+          @keyframes loading-dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+          }
+        </style>
+      `;
+      
+      // 🚀 타이머 시작 (경과 시간 표시)
+      let elapsedSeconds = 0;
+      const timerInterval = setInterval(() => {
+        elapsedSeconds++;
+        const elapsedTimeEl = document.getElementById('elapsed-time');
+        if (elapsedTimeEl) {
+          const minutes = Math.floor(elapsedSeconds / 60);
+          const seconds = elapsedSeconds % 60;
+          elapsedTimeEl.textContent = minutes > 0 ? `${minutes}분 ${seconds}초` : `${seconds}초`;
+          
+          // 진행률 표시 (최대 90%까지만, 마지막 10%는 완료 시)
+          const progressPercent = Math.min(90, (elapsedSeconds / 180) * 100);
+          const progressBar = document.getElementById('progress-bar');
+          if (progressBar) {
+            progressBar.style.width = `${progressPercent}%`;
+          }
+          
+          // 원형 진행바 업데이트
+          const circle = document.getElementById('prd-progress-circle');
+          if (circle) {
+            const circumference = 377;
+            const offset = circumference - (progressPercent / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+          }
+          
+          // 예상 시간 업데이트
+          const estimatedTimeEl = document.getElementById('estimated-time');
+          if (estimatedTimeEl && elapsedSeconds > 30) {
+            const remaining = Math.max(0, 180 - elapsedSeconds);
+            const remainingMinutes = Math.ceil(remaining / 60);
+            estimatedTimeEl.textContent = `약 ${remainingMinutes}분 남음`;
+          }
+        } else {
+          clearInterval(timerInterval);
+        }
+      }, 1000);
+      
+      // 컴포넌트가 언마운트될 때 타이머 정리
+      window.prdTimerInterval = timerInterval;
+      
+      return;
+    }
+    
+    // 기존 타이머 정리
+    if (window.prdTimerInterval) {
+      clearInterval(window.prdTimerInterval);
+      window.prdTimerInterval = null;
+    }
+    
     content.innerHTML = `
       <div>
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
