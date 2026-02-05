@@ -1969,12 +1969,12 @@ async function generatePRD() {
     confirmText: 'PRD 생성하기',
     onConfirm: async () => {
       console.log('[PRD] Starting PRD generation...');
-      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요... (최대 2분 소요)');
+      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요... (최대 3분 소요)');
       
       try {
         console.log('[PRD] Calling API...');
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 150000 // 150초 타임아웃
+          timeout: 200000 // 200초 타임아웃 (서버 180초 + 버퍼 20초)
         });
         console.log('[PRD] API response:', response.status);
         
