@@ -922,62 +922,136 @@ function buildQuestionTree(questions) {
   return rootQuestions;
 }
 
-// 질문 트리 렌더링 (재귀)
+// 질문 트리 렌더링 (재귀) - 그룹핑 강화
 function renderQuestionTree(nodes, level = 0) {
-  return nodes.map(node => {
+  return nodes.map((node, index) => {
     const isRoot = level === 0;
     const hasAnswer = node.answer && node.answer.answer_text;
+    const hasChildren = node.children && node.children.length > 0;
+    const childrenCount = hasChildren ? node.children.length : 0;
     
     return `
-      <div class="question-node ${hasAnswer ? 'answered' : ''} ${isRoot ? 'root' : ''}" style="margin-left: ${level * 24}px">
-        <div class="flex items-start gap-3">
-          <div class="flex-shrink-0 w-8 h-8 rounded-full ${hasAnswer ? 'bg-green-500' : 'bg-toss-blue'} text-white flex items-center justify-center font-bold text-sm">
-            ${hasAnswer ? '<i class="fas fa-check"></i>' : '?'}
-          </div>
-          <div class="flex-1">
-            <div class="flex items-start justify-between gap-2 mb-2">
-              <p class="font-semibold text-toss-gray-900 flex-1">
-                ${level > 0 ? '<i class="fas fa-reply mr-2 text-toss-gray-400"></i>' : ''}
-                ${escapeHtml(node.question_text)}
-              </p>
-              <div class="flex gap-1">
-                <button onclick="deleteQuestion(${node.id}, '${escapeHtml(node.question_text).replace(/'/g, "\\'")}'); event.stopPropagation();" 
-                        class="btn-icon text-red-500 hover:bg-red-50" 
-                        title="질문 삭제">
-                  <i class="fas fa-trash text-xs"></i>
-                </button>
+      <div class="question-group ${isRoot ? 'root-question-group' : 'child-question-group'} mb-6">
+        <!-- 루트 질문: 강조된 카드 형태 -->
+        ${isRoot ? `
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-sm">
+            <div class="flex items-start gap-4">
+              <div class="flex-shrink-0 w-10 h-10 rounded-full ${hasAnswer ? 'bg-green-500' : 'bg-toss-blue'} text-white flex items-center justify-center font-bold shadow-md">
+                ${hasAnswer ? '<i class="fas fa-check text-lg"></i>' : '<span class="text-lg">?</span>'}
               </div>
-            </div>
-            ${hasAnswer ? `
-              <div class="bg-white border border-green-200 rounded-lg p-3 mb-3">
-                <div class="flex items-start justify-between gap-2 mb-1">
-                  <p class="text-xs font-semibold text-green-700 flex items-center gap-1">
-                    <i class="fas fa-check-circle"></i>
-                    답변
-                  </p>
-                  <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}); event.stopPropagation();" 
-                          class="text-toss-blue hover:text-blue-700 text-xs font-semibold flex items-center gap-1"
-                          title="답변 수정">
-                    <i class="fas fa-edit"></i>
-                    수정
+              <div class="flex-1">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-xs font-bold text-toss-blue uppercase tracking-wide">메인 질문</span>
+                      ${hasChildren ? `<span class="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-semibold">+${childrenCount}개 파생</span>` : ''}
+                    </div>
+                    <p class="font-bold text-base text-toss-gray-900 leading-relaxed">${escapeHtml(node.question_text)}</p>
+                  </div>
+                  <button onclick="deleteQuestion(${node.id}, '${escapeHtml(node.question_text).replace(/'/g, "\\'")}'); event.stopPropagation();" 
+                          class="btn-icon text-red-500 hover:bg-red-100 flex-shrink-0" 
+                          title="질문 삭제">
+                    <i class="fas fa-trash text-xs"></i>
                   </button>
                 </div>
-                <p class="text-sm text-toss-gray-800">${escapeHtml(node.answer.answer_text)}</p>
+                
+                ${hasAnswer ? `
+                  <div class="bg-white border-2 border-green-300 rounded-lg p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-2">
+                      <p class="text-xs font-bold text-green-700 uppercase tracking-wide flex items-center gap-1">
+                        <i class="fas fa-check-circle"></i>
+                        답변 완료
+                      </p>
+                      <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}); event.stopPropagation();" 
+                              class="text-toss-blue hover:text-blue-700 text-xs font-semibold flex items-center gap-1"
+                              title="답변 수정">
+                        <i class="fas fa-edit"></i>
+                        수정
+                      </button>
+                    </div>
+                    <p class="text-sm text-toss-gray-800 leading-relaxed whitespace-pre-wrap">${escapeHtml(node.answer.answer_text)}</p>
+                  </div>
+                ` : `
+                  <div class="bg-white rounded-lg border-2 border-toss-gray-200 p-3">
+                    <textarea id="answer-${node.id}" rows="3" class="w-full bg-transparent border-0 text-sm text-toss-gray-900 focus:outline-none resize-none" placeholder="답변을 입력해주세요..."></textarea>
+                    <div class="flex justify-end mt-2">
+                      <button onclick="submitAnswer(${node.id})" class="btn-primary text-white px-5 py-2 rounded-lg font-semibold text-sm">
+                        <i class="fas fa-save mr-1"></i>
+                        답변 저장
+                      </button>
+                    </div>
+                  </div>
+                `}
               </div>
-            ` : `
-              <textarea id="answer-${node.id}" rows="2" class="w-full bg-white border-2 border-toss-gray-200 rounded-lg px-3 py-2 text-sm text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors mb-2" placeholder="답변을 입력해주세요..."></textarea>
-              <button onclick="submitAnswer(${node.id})" class="btn-primary text-white px-4 py-2 rounded-lg font-semibold text-xs">
-                답변 저장하기
-              </button>
-            `}
+            </div>
           </div>
-        </div>
-        
-        ${node.children.length > 0 ? `
-          <div class="mt-3">
-            ${renderQuestionTree(node.children, level + 1)}
+          
+          <!-- 파생 질문들: 들여쓰기와 연결선 -->
+          ${hasChildren ? `
+            <div class="ml-8 mt-3 pl-6 border-l-4 border-indigo-200">
+              <div class="mb-2">
+                <span class="text-xs font-bold text-indigo-600 uppercase tracking-wide">
+                  <i class="fas fa-level-down-alt mr-1"></i>
+                  파생 질문 (${childrenCount}개)
+                </span>
+              </div>
+              ${renderQuestionTree(node.children, level + 1)}
+            </div>
+          ` : ''}
+        ` : `
+          <!-- 파생 질문: 심플한 카드 -->
+          <div class="bg-white border border-toss-gray-200 rounded-lg p-4 hover:border-toss-blue transition-colors mb-3">
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 w-7 h-7 rounded-full ${hasAnswer ? 'bg-green-400' : 'bg-purple-400'} text-white flex items-center justify-center text-sm">
+                ${hasAnswer ? '<i class="fas fa-check"></i>' : '?'}
+              </div>
+              <div class="flex-1">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                  <p class="font-semibold text-sm text-toss-gray-800 flex items-center gap-2">
+                    <i class="fas fa-arrow-turn-up text-purple-400 text-xs"></i>
+                    ${escapeHtml(node.question_text)}
+                  </p>
+                  <button onclick="deleteQuestion(${node.id}, '${escapeHtml(node.question_text).replace(/'/g, "\\'")}'); event.stopPropagation();" 
+                          class="btn-icon text-red-500 hover:bg-red-50 flex-shrink-0" 
+                          title="질문 삭제">
+                    <i class="fas fa-trash text-xs"></i>
+                  </button>
+                </div>
+                
+                ${hasAnswer ? `
+                  <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div class="flex items-center justify-between mb-1">
+                      <p class="text-xs font-semibold text-green-700 flex items-center gap-1">
+                        <i class="fas fa-check-circle"></i>
+                        답변
+                      </p>
+                      <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}); event.stopPropagation();" 
+                              class="text-toss-blue hover:text-blue-700 text-xs font-semibold flex items-center gap-1"
+                              title="답변 수정">
+                        <i class="fas fa-edit"></i>
+                        수정
+                      </button>
+                    </div>
+                    <p class="text-sm text-toss-gray-800 leading-relaxed whitespace-pre-wrap">${escapeHtml(node.answer.answer_text)}</p>
+                  </div>
+                ` : `
+                  <textarea id="answer-${node.id}" rows="2" class="w-full bg-toss-gray-50 border border-toss-gray-200 rounded-lg px-3 py-2 text-sm text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors mb-2" placeholder="답변을 입력해주세요..."></textarea>
+                  <div class="flex justify-end">
+                    <button onclick="submitAnswer(${node.id})" class="btn-primary text-white px-4 py-1.5 rounded-lg font-semibold text-xs">
+                      답변 저장
+                    </button>
+                  </div>
+                `}
+              </div>
+            </div>
+            
+            ${hasChildren ? `
+              <div class="mt-3 ml-10 space-y-2">
+                ${renderQuestionTree(node.children, level + 1)}
+              </div>
+            ` : ''}
           </div>
-        ` : ''}
+        `}
       </div>
     `;
   }).join('');
@@ -1043,16 +1117,29 @@ async function renderPRD() {
       <div>
         <div class="flex justify-between items-center mb-8">
           <div>
-            <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">PRD 문서</h1>
-            <p class="text-sm text-toss-gray-600">생성된 기획 문서를 확인해보세요</p>
+            <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">
+              <i class="fas fa-file-alt text-toss-blue mr-2"></i>
+              PRD 문서
+            </h1>
+            <p class="text-sm text-toss-gray-600">
+              <i class="far fa-clock mr-1"></i>
+              최종 작성: ${new Date(prd.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </p>
           </div>
-          <button onclick="downloadPRD()" class="bg-toss-blue hover:bg-toss-blue-dark text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-            <i class="fas fa-download"></i>
-            다운로드
-          </button>
+          <div class="flex gap-3">
+            <button onclick="regeneratePRD()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+              <i class="fas fa-sync-alt"></i>
+              PRD 다시 생성
+            </button>
+            <button onclick="downloadPRD()" class="bg-toss-blue hover:bg-toss-blue-dark text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+              <i class="fas fa-download"></i>
+              다운로드
+            </button>
+          </div>
         </div>
         
-        <div class="card p-8 prose prose-lg max-w-none">
+        <!-- 노션 스타일 PRD 문서 -->
+        <div class="prd-document">
           ${marked.parse(prd.content)}
         </div>
       </div>
@@ -1074,6 +1161,50 @@ async function renderPRD() {
       </div>
     `;
   }
+}
+
+// PRD 재생성 함수
+async function regeneratePRD() {
+  showModal({
+    title: 'PRD 다시 생성',
+    content: `
+      <div class="text-center py-6">
+        <div class="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i class="fas fa-sync-alt text-2xl text-purple-600"></i>
+        </div>
+        <p class="text-toss-gray-900 font-semibold mb-2">PRD 문서를 다시 생성하시겠어요?</p>
+        <p class="text-sm text-toss-gray-600 mb-4">
+          최신 요건과 답변을 반영하여 PRD를 새로 만들어드려요<br>
+          이전 문서는 덮어쓰여집니다
+        </p>
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p class="text-xs text-yellow-800 flex items-center justify-center gap-2">
+            <i class="fas fa-info-circle"></i>
+            변경된 요건이나 답변이 있다면 다시 생성을 권장해요
+          </p>
+        </div>
+      </div>
+    `,
+    confirmText: 'PRD 다시 생성',
+    cancelText: '취소',
+    onConfirm: async () => {
+      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요...');
+      
+      try {
+        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`);
+        
+        hideToast(loadingToast);
+        showToast('PRD가 재생성되었습니다!', 'success');
+        renderPRD(); // 화면 갱신
+        return true;
+      } catch (error) {
+        console.error('Failed to regenerate PRD:', error);
+        hideToast(loadingToast);
+        showToast('PRD 재생성에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
 }
 
 async function generatePRD() {
