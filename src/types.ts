@@ -1,6 +1,8 @@
 // Cloudflare 환경 타입
 export type Bindings = {
   DB: D1Database;
+  OPENAI_API_KEY?: string;
+  OPENAI_BASE_URL?: string;
 }
 
 // 프로젝트 타입

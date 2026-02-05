@@ -74,8 +74,8 @@ api.post('/projects/:id/analyze', async (c) => {
   const body: AnalyzeProjectRequest = await c.req.json();
   
   // 환경 변수에서 OpenAI 설정 가져오기
-  const apiKey = process.env.OPENAI_API_KEY || '';
-  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   
   if (!apiKey) {
     return c.json({ error: 'OpenAI API key not configured' }, 500);
@@ -240,8 +240,8 @@ api.post('/questions/:id/answer', async (c) => {
   const question = await DB.prepare('SELECT * FROM questions WHERE id = ?').bind(id).first() as any;
   const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(question.requirement_id).first() as any;
   
-  const apiKey = process.env.OPENAI_API_KEY || '';
-  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   
   if (apiKey && question && requirement) {
     try {
@@ -276,8 +276,8 @@ api.post('/projects/:id/generate-prd', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
   
-  const apiKey = process.env.OPENAI_API_KEY || '';
-  const baseURL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   
   if (!apiKey) {
     return c.json({ error: 'OpenAI API key not configured' }, 500);
