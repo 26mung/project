@@ -25,28 +25,37 @@ export interface PRDGenerationResult {
 async function chatCompletion(
   messages: { role: string; content: string }[],
   apiKey: string,
-  baseURL: string
+  baseURL: string,
+  useJsonMode: boolean = false
 ): Promise<string> {
   console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
   console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
   console.log(`[AI Service] Using model: gpt-5-mini (faster)`);
+  console.log(`[AI Service] JSON mode: ${useJsonMode}`);
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
   
   try {
+    const requestBody: any = {
+      model: 'gpt-5-mini', // 더 빠른 모델 사용
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000, // 토큰 제한으로 응답 속도 향상
+    };
+    
+    // JSON mode 활성화 (OpenAI API가 항상 유효한 JSON 반환 보장)
+    if (useJsonMode) {
+      requestBody.response_format = { type: "json_object" };
+    }
+    
     const response = await fetch(`${baseURL}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: 'gpt-5-mini', // 더 빠른 모델 사용
-        messages,
-        temperature: 0.7,
-        max_tokens: 2000, // 토큰 제한으로 응답 속도 향상
-      }),
+      body: JSON.stringify(requestBody),
       signal: controller.signal,
     });
 
@@ -80,59 +89,35 @@ export async function analyzeProjectRequirements(
   apiKey: string,
   baseURL: string
 ): Promise<AIAnalysisResult> {
-  const systemPrompt = `당신은 전문 기획자이자 테크니컬 PM입니다. 상위 기획안을 분석하여 **구현 가능한 세부 요건**을 도출하세요.
+  const systemPrompt = `당신은 전문 기획자입니다. 상위 기획안을 분석하여 세부 요건을 JSON 형식으로 도출하세요.
 
-## 요건 도출 범위
-1. **기능 요건** (functional): 핵심 기능 명세, 사용자 시나리오, 데이터 흐름
-2. **비기능 요건** (non_functional): 성능, 보안, 확장성, 호환성, 개발 정책
-3. **제약사항** (constraint): 기술 스택, 외부 시스템 연동, 법적/규제 요건, 개발 현황
-
-## 필수 확인 사항
-- 🏗️ **개발 구조**: 사용할 기술 스택, 아키텍처 패턴, 데이터베이스 설계
-- 🔌 **외부 연동**: 필요한 API, 외부 서비스, 인증 방식
-- 📋 **개발 정책**: 기존 개발 표준, 코딩 컨벤션, 배포 프로세스
-- 🔄 **시퀀스/플로우**: 주요 사용자 시나리오의 단계별 흐름
-- ⚠️ **리스크**: 기술적 제약, 일정 리스크, 외부 의존성
-
-## 출력 형식 (반드시 유효한 JSON)
+응답 형식:
 {
   "requirements": [
     {
-      "title": "요건 제목 (간결하게)",
-      "description": "구체적인 구현 설명 (100자 이내)",
-      "requirement_type": "functional|non_functional|constraint",
-      "priority": "critical|high|medium|low",
+      "title": "요건명",
+      "description": "간단한 설명",
+      "requirement_type": "functional",
+      "priority": "high",
       "questions": [
         {
-          "question_text": "확인이 필요한 질문",
-          "question_type": "open|choice|boolean",
-          "options": ["선택지1", "선택지2"]
+          "question_text": "질문",
+          "question_type": "open"
         }
       ]
     }
   ]
 }
 
-**중요**: 
-1. 5-8개의 핵심 요건을 도출하되, 각 요건마다 2-3개의 확인 질문을 생성하세요.
-2. 응답은 반드시 유효한 JSON만 반환하세요.
-3. JSON 문자열 내부의 특수문자는 이스케이프하세요 (줄바꿈은 \\n, 따옴표는 \\", 백슬래시는 \\\\).`;
+규칙:
+- description은 50자 이내로 간결하게
+- 5-7개 핵심 요건 도출
+- 각 요건마다 2-3개 질문 생성
+- 유효한 JSON만 응답`;
 
-  const userPrompt = `## 상위 기획안
-${inputContent}
+  const userPrompt = `기획안: ${inputContent}
 
-## 분석 요청
-위 기획안을 분석하여:
-1. 핵심 기능 요건 (우선순위 높음)
-2. 개발 구조 및 기술적 확인 사항
-3. 외부 시스템 연동 여부
-4. 기존 개발 정책/현황 확인 필요 사항
-5. 주요 사용자 시퀀스/플로우
-6. 리스크 및 제약사항
-
-**5-8개의 세부 요건**을 도출하고, 각 요건마다 **2-3개의 확인 질문**을 생성하세요.
-
-유효한 JSON만 반환:`;
+위 기획안에서 핵심 요건을 도출하고 각 요건마다 확인 질문을 생성하세요.`;
 
   try {
     const content = await chatCompletion(
@@ -141,45 +126,19 @@ ${inputContent}
         { role: 'user', content: userPrompt },
       ],
       apiKey,
-      baseURL
+      baseURL,
+      true  // ← JSON mode 활성화
     );
 
-    // JSON 추출 (마크다운 코드 블록 제거)
-    let jsonContent = content.trim();
+    console.log('AI response (first 500 chars):', content.substring(0, 500));
     
-    // 마크다운 코드 블록 제거
-    if (jsonContent.startsWith('```json')) {
-      jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?$/g, '');
-    } else if (jsonContent.startsWith('```')) {
-      jsonContent = jsonContent.replace(/```\n?/g, '');
-    }
-    
-    // 앞뒤 공백 제거
-    jsonContent = jsonContent.trim();
-    
-    // JSON 파싱 시도
     try {
-      return JSON.parse(jsonContent);
+      return JSON.parse(content);
     } catch (parseError) {
-      console.error('JSON parsing failed. Content:', jsonContent);
-      console.error('Parse error:', parseError);
+      console.error('JSON parsing failed:', parseError);
+      console.error('Full content:', content);
       
-      // JSON 수정 시도 (일반적인 오류 패턴 수정)
-      let fixedJson = jsonContent
-        // 이스케이프되지 않은 줄바꿈 제거
-        .replace(/\n/g, ' ')
-        // 이스케이프되지 않은 탭 제거
-        .replace(/\t/g, ' ')
-        // 연속된 공백을 하나로
-        .replace(/\s+/g, ' ')
-        // 마지막 쉼표 제거 (배열/객체 끝)
-        .replace(/,(\s*[}\]])/g, '$1');
-      
-      try {
-        return JSON.parse(fixedJson);
-      } catch (secondError) {
-        throw new Error(`JSON parsing failed after fix attempt. Original error: ${parseError}. Content preview: ${jsonContent.substring(0, 200)}...`);
-      }
+      throw new Error(`JSON 파싱 실패. AI 응답이 유효하지 않습니다. 다시 시도해주세요.`);
     }
   } catch (error) {
     console.error('AI analysis failed:', error);
