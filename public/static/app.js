@@ -101,7 +101,7 @@ async function handleLogin(event) {
 
 function showMainApp() {
   // 원래 HTML 구조를 복원
-  document.body.innerHTML = \`
+  document.body.innerHTML = `
     <div class="min-h-screen bg-toss-gray-50 flex">
       <!-- Sidebar -->
       <div class="w-80 bg-white border-r border-toss-gray-200 flex flex-col">
@@ -164,12 +164,12 @@ function showMainApp() {
       <!-- Toast Container -->
       <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
     </div>
-  \`;
+  `;
 }
 
 async function handleLogout() {
   try {
-    await axios.post(\`\${API_BASE}/auth/logout\`);
+    await axios.post(`${API_BASE}/auth/logout`);
     isAuthenticated = false;
     location.reload();
   } catch (error) {
