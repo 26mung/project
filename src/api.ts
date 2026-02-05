@@ -248,34 +248,78 @@ api.get('/projects/:id/requirements', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
   
-  const { results } = await DB.prepare(
-    'SELECT * FROM requirements WHERE project_id = ? ORDER BY parent_id, order_index'
-  ).bind(id).all();
+  console.log('[Performance] Fetching requirements with stats...');
+  const startTime = Date.now();
   
-  // 각 요건에 대한 질문 통계 추가
-  const requirementsWithStats = [];
-  for (const req of results as any[]) {
-    const { results: questions } = await DB.prepare(
-      'SELECT id FROM questions WHERE requirement_id = ?'
-    ).bind(req.id).all();
+  // 🚀 최적화: JOIN을 사용해 한 번에 모든 데이터 가져오기
+  const { results: rawData } = await DB.prepare(`
+    SELECT 
+      r.*,
+      q.id as question_id,
+      a.id as answer_id
+    FROM requirements r
+    LEFT JOIN questions q ON q.requirement_id = r.id
+    LEFT JOIN answers a ON a.question_id = q.id
+    WHERE r.project_id = ?
+    ORDER BY r.parent_id, r.order_index
+  `).bind(id).all();
+  
+  // 요건별로 그룹화하고 통계 계산
+  const requirementsMap = new Map();
+  
+  for (const row of rawData as any[]) {
+    const reqId = row.id;
     
-    let answeredCount = 0;
-    for (const q of questions as any[]) {
-      const answer = await DB.prepare(
-        'SELECT id FROM answers WHERE question_id = ? LIMIT 1'
-      ).bind(q.id).first();
-      if (answer) answeredCount++;
+    if (!requirementsMap.has(reqId)) {
+      requirementsMap.set(reqId, {
+        id: row.id,
+        project_id: row.project_id,
+        parent_id: row.parent_id,
+        title: row.title,
+        description: row.description,
+        requirement_type: row.requirement_type,
+        priority: row.priority,
+        status: row.status,
+        order_index: row.order_index,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        questions: new Set(),
+        answers: new Set()
+      });
     }
     
-    requirementsWithStats.push({
-      ...req,
-      question_stats: {
-        total: questions.length,
-        answered: answeredCount,
-        remaining: questions.length - answeredCount
-      }
-    });
+    const req = requirementsMap.get(reqId);
+    if (row.question_id) req.questions.add(row.question_id);
+    if (row.answer_id) req.answers.add(row.answer_id);
   }
+  
+  // Set을 배열로 변환하고 통계 계산
+  const requirementsWithStats = Array.from(requirementsMap.values()).map(req => {
+    const totalQuestions = req.questions.size;
+    const answeredCount = req.answers.size;
+    
+    return {
+      id: req.id,
+      project_id: req.project_id,
+      parent_id: req.parent_id,
+      title: req.title,
+      description: req.description,
+      requirement_type: req.requirement_type,
+      priority: req.priority,
+      status: req.status,
+      order_index: req.order_index,
+      created_at: req.created_at,
+      updated_at: req.updated_at,
+      question_stats: {
+        total: totalQuestions,
+        answered: answeredCount,
+        remaining: totalQuestions - answeredCount
+      }
+    };
+  });
+  
+  const queryTime = Date.now() - startTime;
+  console.log(`[Performance] Requirements fetched in ${queryTime}ms`);
   
   return c.json(requirementsWithStats);
 });
@@ -304,7 +348,18 @@ api.get('/requirements/:id', async (c) => {
     question.answer = answer;
   }
   
-  return c.json({ ...requirement, questions });
+  // 🐛 FIX: question_stats 추가 (진행률 표시용)
+  const totalQuestions = questions.length;
+  const answeredQuestions = questions.filter((q: any) => q.answer).length;
+  const remainingQuestions = totalQuestions - answeredQuestions;
+  
+  const questionStats = {
+    total: totalQuestions,
+    answered: answeredQuestions,
+    remaining: remainingQuestions
+  };
+  
+  return c.json({ ...requirement, questions, question_stats: questionStats });
 });
 
 // 요건 생성
@@ -527,48 +582,60 @@ api.post('/projects/:id/generate-prd', async (c) => {
       return c.json({ error: 'Project not found' }, 404);
     }
     
-    // 모든 요건과 질문/답변 가져오기
-    const { results: requirements } = await DB.prepare(
-      'SELECT * FROM requirements WHERE project_id = ?'
-    ).bind(id).all();
+    // 🚀 최적화: JOIN을 사용해 한 번에 모든 데이터 가져오기 (N+1 문제 해결)
+    console.log('[Performance] Fetching all requirements, questions, and answers with JOIN...');
+    const queryStartTime = Date.now();
     
-    const requirementsData = [];
+    const { results: rawData } = await DB.prepare(`
+      SELECT 
+        r.id as requirement_id,
+        r.title as requirement_title,
+        r.description as requirement_description,
+        q.id as question_id,
+        q.question_text,
+        a.id as answer_id,
+        a.answer_text
+      FROM requirements r
+      LEFT JOIN questions q ON q.requirement_id = r.id
+      LEFT JOIN answers a ON a.question_id = q.id
+      WHERE r.project_id = ?
+      ORDER BY r.id, q.id
+    `).bind(id).all();
     
-    for (const req of requirements as any[]) {
-      const { results: questions } = await DB.prepare(
-        'SELECT * FROM questions WHERE requirement_id = ?'
-      ).bind(req.id).all();
+    const queryTime = Date.now() - queryStartTime;
+    console.log(`[Performance] Data fetched in ${queryTime}ms`);
+    
+    // 데이터 그룹화
+    const requirementsMap = new Map();
+    
+    for (const row of rawData as any[]) {
+      const reqId = row.requirement_id;
       
-      const questionsWithAnswers = [];
-      
-      for (const q of questions as any[]) {
-        const answer = await DB.prepare(
-          'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC LIMIT 1'
-        ).bind(q.id).first() as any;
-        
-        // 답변이 있는 질문만 포함
-        if (answer) {
-          questionsWithAnswers.push({
-            question_id: q.id,
-            question: q.question_text,
-            answer_id: answer.id,
-            answer: answer.answer_text,
-          });
-        }
-      }
-      
-      // 답변이 하나라도 있는 요건은 모두 포함
-      if (questionsWithAnswers.length > 0) {
-        requirementsData.push({
-          requirement_id: req.id,
-          title: req.title,
-          description: req.description || '',
-          questions: questionsWithAnswers,
+      if (!requirementsMap.has(reqId)) {
+        requirementsMap.set(reqId, {
+          requirement_id: reqId,
+          title: row.requirement_title,
+          description: row.requirement_description || '',
+          questions: []
         });
-        console.log(`✅ 요건 포함: ${req.title} (답변된 질문: ${questionsWithAnswers.length}개)`);
-      } else {
-        console.log(`⏭️ 요건 제외: ${req.title} (답변 없음)`);
       }
+      
+      // 답변이 있는 질문만 추가
+      if (row.question_id && row.answer_id) {
+        requirementsMap.get(reqId).questions.push({
+          question_id: row.question_id,
+          question: row.question_text,
+          answer_id: row.answer_id,
+          answer: row.answer_text,
+        });
+      }
+    }
+    
+    // 답변이 있는 요건만 최종 배열에 포함
+    const requirementsData = Array.from(requirementsMap.values()).filter(req => req.questions.length > 0);
+    
+    for (const req of requirementsData) {
+      console.log(`✅ 요건 포함: ${req.title} (답변된 질문: ${req.questions.length}개)`);
     }
     
     console.log('========================================');
