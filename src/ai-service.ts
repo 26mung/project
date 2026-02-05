@@ -531,19 +531,106 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
 **🚨 경고: ${requirementsData.length}개 요건 중 하나라도 누락하면 안 됩니다!**
 **완성된 PRD를 마크다운으로 출력하세요.**`;
 
-  const content = await chatCompletion(
+  // 🚀 요건이 많으면 나눠서 생성 (타임아웃 방지)
+  const batchSize = 5; // 한 번에 최대 5개 요건
+  
+  if (requirementsData.length <= batchSize) {
+    // 5개 이하면 한 번에 생성
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL,
+      false,
+      0.2,
+      8000 // 5개 이하는 8000 토큰 사용
+    );
+    
+    return { content };
+  } else {
+    // 5개 초과면 나눠서 생성
+    console.log(`[PRD 생성] 요건이 ${requirementsData.length}개로 많아서 2번에 나눠 생성합니다`);
+    
+    const midpoint = Math.ceil(requirementsData.length / 2);
+    const batch1 = requirementsData.slice(0, midpoint);
+    const batch2 = requirementsData.slice(midpoint);
+    
+    console.log(`[PRD 생성] 1차: ${batch1.length}개 요건 생성...`);
+    const content1 = await generatePRDBatch(projectTitle, projectDescription, batch1, systemPrompt, apiKey, baseURL);
+    
+    console.log(`[PRD 생성] 2차: ${batch2.length}개 요건 생성...`);
+    const content2 = await generatePRDBatch(projectTitle, projectDescription, batch2, systemPrompt, apiKey, baseURL);
+    
+    // 두 결과를 합침 (4번 섹션만 합치기)
+    const mergedContent = mergePRDSections(content1, content2);
+    
+    return { content: mergedContent };
+  }
+}
+
+// 배치 단위로 PRD 생성
+async function generatePRDBatch(
+  projectTitle: string,
+  projectDescription: string,
+  requirements: any[],
+  systemPrompt: string,
+  apiKey: string,
+  baseURL: string
+): Promise<string> {
+  const requirementsText = requirements.map((req, idx) => {
+    const questionsText = req.questions
+      .map((q: any, qIdx: number) => `**Q${qIdx + 1}**: ${q.question}\n**A${qIdx + 1}**: ${q.answer}`)
+      .join('\n\n');
+    
+    return `### 요건 ${idx + 1}: ${req.title}
+설명: ${req.description || '없음'}
+
+${questionsText}
+
+---`;
+  }).join('\n\n');
+  
+  const userPrompt = `다음 프로젝트의 PRD를 작성해주세요.
+
+프로젝트명: ${projectTitle}
+설명: ${projectDescription}
+총 요건 개수: ${requirements.length}개
+
+## 요구사항과 답변
+
+${requirementsText}
+
+## 🚨 필수 작성 요건 목록
+다음 ${requirements.length}개 요건을 **모두** 4번 섹션에 작성하세요:
+${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
+  
+  return await chatCompletion(
     [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
     apiKey,
     baseURL,
-    false, // JSON 모드 사용 안함 (마크다운 출력)
-    0.2, // temperature 낮춤 (더 정확하게 따라함)
-    4000 // 토큰 (4000으로 줄여서 타임아웃 방지)
+    false,
+    0.2,
+    6000 // 배치는 6000 토큰
   );
+}
 
-  return { content };
+// 두 PRD의 4번 섹션을 합침
+function mergePRDSections(content1: string, content2: string): string {
+  // 1번 PRD에서 1-3번 섹션 추출
+  const header = content1.split('# 4. 요건별 상세 정책')[0];
+  
+  // 1번 PRD에서 4번 섹션 추출
+  const section4_1 = content1.split('# 4. 요건별 상세 정책')[1] || '';
+  
+  // 2번 PRD에서 4번 섹션만 추출
+  const section4_2 = content2.split('# 4. 요건별 상세 정책')[1] || '';
+  
+  return `${header}# 4. 요건별 상세 정책${section4_1}\n\n${section4_2}`;
 }
 
 /**
