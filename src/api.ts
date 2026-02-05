@@ -252,7 +252,32 @@ api.get('/projects/:id/requirements', async (c) => {
     'SELECT * FROM requirements WHERE project_id = ? ORDER BY parent_id, order_index'
   ).bind(id).all();
   
-  return c.json(results);
+  // 각 요건에 대한 질문 통계 추가
+  const requirementsWithStats = [];
+  for (const req of results as any[]) {
+    const { results: questions } = await DB.prepare(
+      'SELECT id FROM questions WHERE requirement_id = ?'
+    ).bind(req.id).all();
+    
+    let answeredCount = 0;
+    for (const q of questions as any[]) {
+      const answer = await DB.prepare(
+        'SELECT id FROM answers WHERE question_id = ? LIMIT 1'
+      ).bind(q.id).first();
+      if (answer) answeredCount++;
+    }
+    
+    requirementsWithStats.push({
+      ...req,
+      question_stats: {
+        total: questions.length,
+        answered: answeredCount,
+        remaining: questions.length - answeredCount
+      }
+    });
+  }
+  
+  return c.json(requirementsWithStats);
 });
 
 // 요건 상세 조회 (질문 및 답변 포함)

@@ -929,6 +929,10 @@ async function renderRequirements() {
 function renderRequirementCard(requirement) {
   const children = requirements.filter(r => r.parent_id === requirement.id);
   
+  // 질문 통계
+  const stats = requirement.question_stats || { total: 0, answered: 0, remaining: 0 };
+  const progressPercent = stats.total > 0 ? Math.round((stats.answered / stats.total) * 100) : 0;
+  
   // 토스 디자인 시스템 Badge 스타일
   const priorityBadges = {
     critical: 'badge badge-small badge-fill-red',
@@ -969,7 +973,41 @@ function renderRequirementCard(requirement) {
               ${statusTexts[requirement.status] || '대기'}
             </span>
           </div>
-          ${requirement.description ? `<p class="text-body2" style="color: var(--grey-600); line-height: 1.6;">${escapeHtml(requirement.description)}</p>` : ''}
+          ${requirement.description ? `<p class="text-body2" style="color: var(--grey-600); line-height: 1.6; margin-bottom: 12px;">${escapeHtml(requirement.description)}</p>` : ''}
+          
+          ${stats.total > 0 ? `
+            <div style="margin-top: 12px; padding: 12px; background: var(--grey-50); border-radius: var(--radius-8);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <i class="fas fa-clipboard-list" style="color: var(--blue-500); font-size: 13px;"></i>
+                  <span class="text-body3" style="color: var(--grey-700); font-weight: 600;">질문 진행률</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <span class="text-body3" style="color: var(--blue-600); font-weight: 700;">${progressPercent}%</span>
+                  <span class="text-body3" style="color: var(--grey-600);">
+                    <span style="color: var(--green-600); font-weight: 600;">${stats.answered}</span>
+                    /
+                    <span style="font-weight: 600;">${stats.total}</span>
+                    답변
+                  </span>
+                  ${stats.remaining > 0 ? `
+                    <span class="badge badge-small badge-weak-red">
+                      <i class="fas fa-exclamation-circle" style="margin-right: 4px; font-size: 9px;"></i>
+                      ${stats.remaining}개 남음
+                    </span>
+                  ` : `
+                    <span class="badge badge-small badge-fill-green">
+                      <i class="fas fa-check-circle" style="margin-right: 4px; font-size: 9px;"></i>
+                      완료
+                    </span>
+                  `}
+                </div>
+              </div>
+              <div style="width: 100%; height: 6px; background: var(--grey-200); border-radius: 999px; overflow: hidden;">
+                <div style="width: ${progressPercent}%; height: 100%; background: linear-gradient(90deg, var(--blue-500), var(--blue-400)); transition: width 0.3s ease;"></div>
+              </div>
+            </div>
+          ` : ''}
         </div>
         <div style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
           <button onclick="editRequirement(${requirement.id})" class="btn-icon" title="편집">
@@ -987,27 +1025,39 @@ function renderRequirementCard(requirement) {
       
       ${children.length > 0 ? `
         <div class="mt-4 pl-4 border-l-2 border-toss-gray-200 space-y-3">
-          ${children.map(child => `
-            <div class="bg-toss-gray-50 rounded-xl p-4">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2 flex-1">
-                  <span class="font-semibold text-sm text-toss-gray-900">${escapeHtml(child.title)}</span>
-                  <span class="text-xs text-toss-blue bg-blue-50 px-2 py-0.5 rounded">파생</span>
+          ${children.map(child => {
+            const childStats = child.question_stats || { total: 0, answered: 0, remaining: 0 };
+            const childProgress = childStats.total > 0 ? Math.round((childStats.answered / childStats.total) * 100) : 0;
+            return `
+              <div class="bg-toss-gray-50 rounded-xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-2 flex-1">
+                    <span class="font-semibold text-sm text-toss-gray-900">${escapeHtml(child.title)}</span>
+                    <span class="text-xs text-toss-blue bg-blue-50 px-2 py-0.5 rounded">파생</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <button onclick="editRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-toss-blue text-xs" title="편집">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="deleteRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-red-500 text-xs" title="삭제">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                    <button onclick="openRequirementDetails(${child.id})" class="btn-small text-toss-blue hover:text-blue-600 text-xs ml-1">
+                      상세보기
+                    </button>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button onclick="editRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-toss-blue text-xs" title="편집">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button onclick="deleteRequirement(${child.id})" class="btn-icon text-toss-gray-400 hover:text-red-500 text-xs" title="삭제">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                  <button onclick="openRequirementDetails(${child.id})" class="btn-small text-toss-blue hover:text-blue-600 text-xs ml-1">
-                    상세보기
-                  </button>
-                </div>
+                ${childStats.total > 0 ? `
+                  <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: white; border-radius: 6px;">
+                    <div style="flex: 1; height: 4px; background: var(--grey-200); border-radius: 999px; overflow: hidden;">
+                      <div style="width: ${childProgress}%; height: 100%; background: var(--blue-500); transition: width 0.3s ease;"></div>
+                    </div>
+                    <span class="text-xs text-grey-600">${childStats.answered}/${childStats.total}</span>
+                  </div>
+                ` : ''}
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       ` : ''}
     </div>
