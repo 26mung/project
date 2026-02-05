@@ -199,8 +199,16 @@ api.post('/projects/:id/analyze', async (c) => {
       'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('analyzing', id).run();
     
-    // AI 분석 실행
-    const analysis = await analyzeProjectRequirements(body.input_content, apiKey, baseURL);
+    // AI 분석 실행 (이미지 URL 포함)
+    const imageUrls = body.image_urls || [];
+    console.log(`[분석] 텍스트 기획안 + 이미지 ${imageUrls.length}장 분석 시작`);
+    
+    const analysis = await analyzeProjectRequirements(
+      body.input_content, 
+      apiKey, 
+      baseURL,
+      imageUrls
+    );
     
     // 요건 및 질문 저장
     for (const req of analysis.requirements) {

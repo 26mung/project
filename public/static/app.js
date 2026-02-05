@@ -707,18 +707,38 @@ async function analyzeProject() {
     return;
   }
   
-  const loadingToast = showLoadingToast('AI가 기획안을 분석하고 있어요...');
+  // 이미지 URL 파싱
+  let imageUrls = [];
+  if (currentProject.image_urls) {
+    try {
+      imageUrls = JSON.parse(currentProject.image_urls);
+    } catch (error) {
+      console.error('Failed to parse image URLs:', error);
+    }
+  }
+  
+  const loadingMessage = imageUrls.length > 0 
+    ? `AI가 기획안과 이미지 ${imageUrls.length}장을 분석하고 있어요...`
+    : 'AI가 기획안을 분석하고 있어요...';
+  
+  const loadingToast = showLoadingToast(loadingMessage);
   
   try {
     await axios.post(`${API_BASE}/projects/${currentProject.id}/analyze`, {
       project_id: currentProject.id,
       input_content: inputContent,
+      image_urls: imageUrls
     });
     
     hideToast(loadingToast);
     await selectProject(currentProject.id);
     switchTab('requirements');
-    showToast('분석이 완료되었습니다! 요건을 확인해보세요', 'success');
+    
+    if (imageUrls.length > 0) {
+      showToast(`분석이 완료되었습니다! (이미지 ${imageUrls.length}장 포함) 요건을 확인해보세요`, 'success');
+    } else {
+      showToast('분석이 완료되었습니다! 요건을 확인해보세요', 'success');
+    }
   } catch (error) {
     console.error('Failed to analyze project:', error);
     hideToast(loadingToast);

@@ -101,7 +101,8 @@ export async function chatCompletion(
 export async function analyzeProjectRequirements(
   inputContent: string,
   apiKey: string,
-  baseURL: string
+  baseURL: string,
+  imageUrls: string[] = []
 ): Promise<AIAnalysisResult> {
   const systemPrompt = `당신은 전문 기획자입니다. 상위 기획안을 분석하여 세부 요건을 JSON 형식으로 도출하세요.
 
@@ -129,20 +130,60 @@ export async function analyzeProjectRequirements(
 - 각 요건마다 2-3개 질문 생성
 - 유효한 JSON만 응답`;
 
-  const userPrompt = `기획안: ${inputContent}
+  // 이미지가 있는 경우 프롬프트에 추가
+  let userPrompt = `기획안: ${inputContent}`;
+  
+  if (imageUrls.length > 0) {
+    userPrompt = `다음 텍스트 기획안과 ${imageUrls.length}장의 이미지를 분석하여 핵심 요건을 도출하세요.
 
-위 기획안에서 핵심 요건을 도출하고 각 요건마다 확인 질문을 생성하세요.`;
+텍스트 기획안:
+${inputContent}
+
+이미지 정보: PPT 장표 또는 기획안 문서의 스크린샷 ${imageUrls.length}장이 첨부되어 있습니다. 이미지에서 확인 가능한 요구사항, 기능 설명, 화면 디자인, 플로우차트 등을 모두 반영하여 요건을 도출하세요.`;
+  }
+  
+  userPrompt += `\n\n위 기획안에서 핵심 요건을 도출하고 각 요건마다 확인 질문을 생성하세요.`;
 
   try {
-    const content = await chatCompletion(
-      [
+    // 이미지가 있는 경우 GPT-4 Vision 사용
+    let content: string;
+    
+    if (imageUrls.length > 0) {
+      console.log(`[AI 분석] 이미지 ${imageUrls.length}장 포함 분석 시작`);
+      
+      // GPT-4 Vision API 메시지 구성
+      const messages = [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      apiKey,
-      baseURL,
-      true  // ← JSON mode 활성화
-    );
+        { 
+          role: 'user', 
+          content: [
+            { type: 'text', text: userPrompt },
+            ...imageUrls.map(url => ({
+              type: 'image_url',
+              image_url: { url: url }
+            }))
+          ]
+        }
+      ];
+      
+      content = await chatCompletion(
+        messages as any,
+        apiKey,
+        baseURL,
+        true  // JSON mode
+      );
+    } else {
+      // 텍스트만 있는 경우 기존 방식
+      content = await chatCompletion(
+        [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        apiKey,
+        baseURL,
+        true  // JSON mode
+      );
+    }
 
     console.log('AI response (first 500 chars):', content.substring(0, 500));
     console.log('AI response (last 200 chars):', content.substring(Math.max(0, content.length - 200)));
