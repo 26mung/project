@@ -641,7 +641,7 @@ api.post('/projects/:id/generate-prd', async (c) => {
     console.log('========================================');
     console.log('📊 PRD 생성 최종 데이터');
     console.log('========================================');
-    console.log('전체 요건 수:', requirements.length);
+    console.log('전체 요건 수:', requirementsMap.size);
     console.log('답변된 요건 수:', requirementsData.length);
     console.log('포함된 요건:', requirementsData.map(r => r.title).join(', '));
     console.log('========================================');
