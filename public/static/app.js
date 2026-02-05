@@ -141,6 +141,34 @@ function removeEditImage(index) {
   showToast('이미지가 제거되었습니다', 'info');
 }
 
+// 이미지 확대 모달
+function showImageModal(imageUrl, imageNumber) {
+  const modal = document.createElement('div');
+  modal.className = 'fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4';
+  modal.onclick = (e) => {
+    if (e.target === modal) {
+      modal.remove();
+    }
+  };
+  
+  modal.innerHTML = `
+    <div class="relative max-w-6xl max-h-full">
+      <button 
+        onclick="this.closest('.fixed').remove()" 
+        class="absolute -top-12 right-0 w-10 h-10 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-full flex items-center justify-center transition-all"
+      >
+        <i class="fas fa-times text-xl"></i>
+      </button>
+      <img src="${imageUrl}" class="max-w-full max-h-[80vh] object-contain rounded-xl shadow-2xl">
+      <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-70 text-white px-4 py-2 rounded-full text-sm">
+        이미지 ${imageNumber}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+}
+
 // ============ 초기화 ============
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthentication();
@@ -861,6 +889,30 @@ function renderOverview() {
             상위 기획안
           </h2>
           <div class="text-toss-gray-700 whitespace-pre-wrap leading-relaxed text-sm">${escapeHtml(currentProject.input_content)}</div>
+        </div>
+      ` : ''}
+      
+      <!-- 기획안 이미지 -->
+      ${currentProject.image_urls ? `
+        <div class="card p-6 mb-6">
+          <h2 class="text-lg font-bold text-toss-gray-900 mb-3 flex items-center gap-2">
+            <i class="fas fa-images text-toss-blue"></i>
+            기획안 이미지
+            <span class="text-sm font-normal text-toss-gray-500">(${JSON.parse(currentProject.image_urls).length}장)</span>
+          </h2>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+            ${JSON.parse(currentProject.image_urls).map((imgUrl, index) => `
+              <div class="relative group cursor-pointer" onclick="showImageModal('${imgUrl.replace(/'/g, "\\'")}', ${index + 1})">
+                <img src="${imgUrl}" class="w-full h-48 object-cover rounded-xl border-2 border-toss-gray-200 hover:border-toss-blue transition-all">
+                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-xl flex items-center justify-center">
+                  <i class="fas fa-search-plus text-white text-2xl opacity-0 group-hover:opacity-100 transition-all"></i>
+                </div>
+                <div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-lg">
+                  ${index + 1}/${JSON.parse(currentProject.image_urls).length}
+                </div>
+              </div>
+            `).join('')}
+          </div>
         </div>
       ` : ''}
       
