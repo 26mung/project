@@ -474,38 +474,113 @@ function renderOverview() {
 }
 
 // 프로젝트 개요 편집
-function editProjectOverview() {
+// 프로젝트 개요 편집 (평가 결과 통합)
+async function editProjectOverview() {
   if (!currentProject) return;
+  
+  // 먼저 평가 실행 (입력 내용이 있을 경우)
+  let evaluation = null;
+  if (currentProject.input_content) {
+    const loadingToast = showLoadingToast('기획안을 평가하고 있어요...');
+    try {
+      const evalResponse = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`);
+      evaluation = evalResponse.data;
+      hideToast(loadingToast);
+    } catch (error) {
+      console.error('Evaluation failed:', error);
+      hideToast(loadingToast);
+      // 평가 실패해도 편집은 가능하도록
+    }
+  }
   
   showModal({
     title: '프로젝트 개요 편집',
     size: 'large',
     content: `
       <div class="space-y-6">
+        <!-- 프로젝트 이름 -->
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">프로젝트 이름 *</label>
           <input type="text" id="edit-project-title" value="${escapeHtml(currentProject.title)}" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">
         </div>
+        
+        <!-- 프로젝트 설명 -->
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">프로젝트 설명</label>
           <textarea id="edit-project-description" rows="3" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(currentProject.description || '')}</textarea>
         </div>
+        
+        <!-- 상위 기획안 -->
         <div>
           <label class="block text-sm font-semibold text-toss-gray-900 mb-2">상위 기획안</label>
-          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-3">
-            <div class="flex gap-2">
-              <i class="fas fa-info-circle text-amber-600 mt-0.5"></i>
-              <div class="flex-1">
-                <p class="text-xs text-toss-gray-700 font-semibold mb-1">기획안을 수정하면 다시 평가해보는 것을 권장해요</p>
-                <p class="text-xs text-toss-gray-600">수정 후 '기획안 평가하기' 버튼을 눌러 AI의 피드백을 받아보세요.</p>
+          
+          ${evaluation ? `
+            <!-- 평가 결과 요약 -->
+            <div class="mb-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-5">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="flex items-center gap-2">
+                  <i class="fas fa-chart-line text-toss-blue text-xl"></i>
+                  <span class="text-sm font-bold text-toss-gray-900">현재 완성도: ${evaluation.completeness_score}점</span>
+                </div>
+                <span class="text-xs px-3 py-1 rounded-full ${evaluation.is_ready ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                  ${evaluation.is_ready ? '✅ 분석 준비됨' : '⚠️ 보완 권장'}
+                </span>
+              </div>
+              
+              ${evaluation.missing_items && evaluation.missing_items.length > 0 ? `
+                <div class="mb-3">
+                  <p class="text-xs font-semibold text-toss-gray-800 mb-2">💡 추가하면 좋을 내용:</p>
+                  <ul class="space-y-1.5">
+                    ${evaluation.missing_items.map(item => `
+                      <li class="flex items-start gap-2 text-xs text-toss-gray-700">
+                        <i class="fas fa-circle text-[6px] text-orange-500 mt-1.5"></i>
+                        <span>${escapeHtml(item)}</span>
+                      </li>
+                    `).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+              
+              ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
+                <div>
+                  <p class="text-xs font-semibold text-toss-gray-800 mb-2">✨ 개선 제안:</p>
+                  <ul class="space-y-1.5">
+                    ${evaluation.suggestions.slice(0, 3).map(suggestion => `
+                      <li class="flex items-start gap-2 text-xs text-toss-gray-700">
+                        <i class="fas fa-lightbulb text-xs text-toss-blue mt-0.5"></i>
+                        <span>${escapeHtml(suggestion)}</span>
+                      </li>
+                    `).join('')}
+                  </ul>
+                </div>
+              ` : ''}
+            </div>
+          ` : `
+            <!-- 평가 안내 -->
+            <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-3">
+              <div class="flex gap-3">
+                <i class="fas fa-lightbulb text-toss-blue text-lg"></i>
+                <div class="flex-1">
+                  <p class="text-sm font-semibold text-toss-gray-900 mb-1">AI가 기획안을 분석해드려요</p>
+                  <p class="text-xs text-toss-gray-600 mb-2">기획안을 입력하시면 AI가 자동으로 평가하고 개선 제안을 해드립니다.</p>
+                  <p class="text-xs text-toss-gray-600 font-semibold">💡 포함하면 좋은 내용:</p>
+                  <ul class="text-xs text-toss-gray-600 mt-1 ml-4 space-y-1">
+                    <li>• 프로젝트 목표 및 해결하려는 문제</li>
+                    <li>• 타겟 사용자 및 주요 기능</li>
+                    <li>• 사용자 시나리오/플로우</li>
+                    <li>• 기술적 제약이나 외부 시스템 연동</li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
-          <textarea id="edit-project-input" rows="10" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(currentProject.input_content || '')}</textarea>
+          `}
+          
+          <textarea id="edit-project-input" rows="12" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors font-mono text-sm" placeholder="프로젝트 목표, 타겟 사용자, 주요 기능, 사용자 시나리오, 기술 스택 등을 작성해주세요...">${escapeHtml(currentProject.input_content || '')}</textarea>
         </div>
       </div>
     `,
     confirmText: '저장하기',
+    cancelText: '취소',
     onConfirm: async () => {
       const title = document.getElementById('edit-project-title').value.trim();
       const description = document.getElementById('edit-project-description').value.trim();
@@ -528,6 +603,14 @@ function editProjectOverview() {
         await loadProjects();
         renderContent();
         showToast('프로젝트가 수정되었습니다', 'success');
+        
+        // 내용이 수정되었으면 재평가 권장
+        if (inputContent && inputContent !== currentProject.input_content) {
+          setTimeout(() => {
+            showToast('기획안이 수정되었어요. 재평가를 권장해요!', 'info');
+          }, 1000);
+        }
+        
         return true;
       } catch (error) {
         console.error('Failed to update project:', error);
