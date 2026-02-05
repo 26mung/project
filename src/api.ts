@@ -646,90 +646,46 @@ api.post('/projects/:id/generate-prd', async (c) => {
     console.log('포함된 요건:', requirementsData.map(r => r.title).join(', '));
     console.log('========================================');
     
-    // 1️⃣ 임시 PRD 생성 (즉시 응답)
-    console.log('[PRD 생성] 임시 PRD 생성 중...');
-    const tempPrdResult = await DB.prepare(
+    // PRD 생성 (동기 처리 - 완료될 때까지 대기)
+    console.log('[PRD 생성] 시작...');
+    const startTime = Date.now();
+    
+    const prd = await generatePRD(
+      project.title,
+      project.description || '',
+      requirementsData,
+      apiKey,
+      baseURL
+    );
+    
+    const generationTime = Date.now() - startTime;
+    console.log(`[PRD 생성] 완료 (${generationTime}ms)`);
+    
+    // PRD 저장
+    const prdData = {
+      requirements: requirementsData,
+      project: {
+        title: project.title,
+        description: project.description,
+      },
+      generation_time_ms: generationTime
+    };
+    
+    const result = await DB.prepare(
       'INSERT INTO prd_documents (project_id, content, metadata, version) VALUES (?, ?, ?, ?)'
-    ).bind(
-      id,
-      '생성 중...',
-      JSON.stringify({ status: 'generating', started_at: new Date().toISOString() }),
-      1
-    ).run();
+    ).bind(id, prd.content, JSON.stringify(prdData), 1).run();
     
-    const prdId = tempPrdResult.meta.last_row_id;
-    console.log(`[PRD 생성] 임시 PRD 생성 완료 (ID: ${prdId})`);
+    // 프로젝트 상태 업데이트
+    await DB.prepare(
+      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind('completed', id).run();
     
-    // 2️⃣ 즉시 응답 (프론트엔드는 폴링 시작)
-    console.log('[PRD 생성] 즉시 응답 - 백그라운드에서 생성 시작');
+    console.log(`[PRD 생성] 저장 완료 (ID: ${result.meta.last_row_id})`);
     
-    // 3️⃣ 백그라운드 PRD 생성 (Promise.resolve로 비블로킹)
-    Promise.resolve().then(async () => {
-      try {
-        console.log('[PRD 생성] 백그라운드 생성 시작...');
-        const startTime = Date.now();
-        
-        const prd = await generatePRD(
-          project.title,
-          project.description || '',
-          requirementsData,
-          apiKey,
-          baseURL
-        );
-        
-        const generationTime = Date.now() - startTime;
-        console.log(`[PRD 생성] 백그라운드 생성 완료 (${generationTime}ms)`);
-        
-        // PRD 업데이트
-        const prdData = {
-          requirements: requirementsData,
-          project: {
-            title: project.title,
-            description: project.description,
-          },
-          generation_time_ms: generationTime,
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        };
-        
-        await DB.prepare(
-          'UPDATE prd_documents SET content = ?, metadata = ? WHERE id = ?'
-        ).bind(
-          prd.content,
-          JSON.stringify(prdData),
-          prdId
-        ).run();
-        
-        console.log(`[PRD 생성] 저장 완료 (ID: ${prdId})`);
-        
-        // 프로젝트 상태 업데이트
-        await DB.prepare(
-          'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-        ).bind('completed', id).run();
-        
-        console.log('[PRD 생성] 백그라운드 처리 완료 ✅');
-      } catch (error: any) {
-        console.error('[PRD 생성] 백그라운드 생성 실패:', error.message);
-        
-        // 실패 상태로 업데이트
-        await DB.prepare(
-          'UPDATE prd_documents SET metadata = ? WHERE id = ?'
-        ).bind(
-          JSON.stringify({
-            status: 'failed',
-            error: error.message,
-            failed_at: new Date().toISOString()
-          }),
-          prdId
-        ).run();
-      }
-    });
-    
-    // 즉시 응답 반환
     return c.json({
       success: true,
-      prd_id: prdId,
-      status: 'generating'
+      prd_id: result.meta.last_row_id,
+      content: prd.content
     });
   } catch (error) {
     console.error('PRD generation error:', error);

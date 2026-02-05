@@ -1556,72 +1556,6 @@ async function renderPRD() {
       console.error('Failed to parse metadata:', e);
     }
     
-    // "생성 중..." 상태 체크 - 진행 중 UI 표시
-    if (metadata && metadata.status === 'generating') {
-      content.innerHTML = `
-        <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px;">
-          <div style="width: 140px; height: 140px; background: linear-gradient(135deg, var(--blue-50) 0%, var(--purple-50) 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; position: relative;">
-            <i class="fas fa-file-alt" style="font-size: 48px; color: var(--blue-500); animation: pulse 2s ease-in-out infinite;"></i>
-            <div style="position: absolute; width: 160px; height: 160px; border: 3px solid var(--blue-200); border-top-color: var(--blue-500); border-radius: 50%; animation: spin 1s linear infinite;"></div>
-          </div>
-          
-          <h2 class="text-title1" style="color: var(--grey-900); margin-bottom: 12px;">
-            PRD 문서를 생성하고 있어요
-            <span class="loading-dots">...</span>
-          </h2>
-          
-          <p class="text-body2" style="color: var(--grey-600); text-align: center; max-width: 500px; margin-bottom: 32px; line-height: 1.6;">
-            AI가 요건과 답변을 종합하여<br>
-            완전한 기획 문서를 작성하고 있습니다<br>
-            <span style="color: var(--blue-500); font-weight: 600;">약 2-5분</span> 정도 소요됩니다
-          </p>
-          
-          <div style="width: 100%; max-width: 400px; background: var(--grey-100); height: 8px; border-radius: 4px; margin-bottom: 16px; overflow: hidden;">
-            <div style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--blue-500), var(--purple-500)); border-radius: 4px; animation: progress 3s ease-in-out infinite;" id="progress-bar"></div>
-          </div>
-          
-          <p class="text-caption" style="color: var(--grey-500); margin-bottom: 24px;">
-            백그라운드에서 생성 중이므로 다른 작업을 계속하셔도 됩니다
-          </p>
-          
-          <div style="display: flex; gap: 12px;">
-            <button onclick="switchTab('requirements')" class="btn-secondary btn-medium">
-              <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
-              요건 관리로 돌아가기
-            </button>
-            <button onclick="renderPRD()" class="btn-primary btn-medium">
-              <i class="fas fa-sync-alt" style="margin-right: 6px;"></i>
-              상태 새로고침
-            </button>
-          </div>
-        </div>
-        
-        <style>
-          @keyframes loading-dots {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60%, 100% { content: '...'; }
-          }
-          
-          .loading-dots {
-            animation: loading-dots 1.5s infinite;
-          }
-          
-          @keyframes progress {
-            0% { width: 0%; }
-            50% { width: 70%; }
-            100% { width: 90%; }
-          }
-        </style>
-      `;
-      return;
-    }
-    
-    // "생성 중..." 텍스트가 남아있는 경우 (구버전) - 에러로 처리
-    if (prd.content === '생성 중...' || prd.content.includes('생성 중')) {
-      throw new Error('PRD가 생성 중입니다');
-    }
-    
     // PRD 내용 렌더링
     content.innerHTML = `
       <div>
@@ -2002,23 +1936,16 @@ async function regeneratePRD() {
     confirmText: 'PRD 다시 생성',
     cancelText: '취소',
     onConfirm: async () => {
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요...', 'info', 0);
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 4분 소요)', 'info', 0);
       
       try {
-        // 1️⃣ PRD 생성 요청 (즉시 응답)
-        const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 10000 // 10초 (즉시 응답)
+        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
+          timeout: 240000 // 240초 (4분)
         });
         
         hideToast(loadingToast);
-        
-        // 2️⃣ 백그라운드 생성 시작 알림
-        showToast('PRD 재생성을 시작했습니다! 백그라운드에서 생성 중이에요 ⚡', 'success');
-        
-        // 3️⃣ 폴링 시작 (prd_id로 상태 확인)
-        const prdId = response.data.prd_id;
-        pollPRDStatus(prdId);
-        
+        showToast('PRD가 재생성되었습니다!', 'success');
+        renderPRD(); // 화면 갱신
         return true;
       } catch (error) {
         console.error('Failed to regenerate PRD:', error);
@@ -2029,7 +1956,7 @@ async function regeneratePRD() {
         });
         hideToast(loadingToast);
         const errorMsg = error.response?.data?.message || error.message || '알 수 없는 오류';
-        showToast(`PRD 재생성 요청에 실패했습니다: ${errorMsg}`, 'error');
+        showToast(`PRD 재생성에 실패했습니다: ${errorMsg}`, 'error');
         return false;
       }
     }
@@ -2048,7 +1975,7 @@ async function generatePRD() {
         <p class="text-sm text-toss-gray-600 mb-3">모든 요건과 답변을 종합하여 완전한 기획 문서를 만들어드려요</p>
         <p class="text-xs text-orange-600">
           <i class="fas fa-clock mr-1"></i>
-          약 5-7분 소요됩니다. 완료될 때까지 기다려주세요.
+          약 3-4분 소요됩니다. 완료될 때까지 기다려주세요.
         </p>
       </div>
     `,
@@ -2058,107 +1985,34 @@ async function generatePRD() {
       closeAllModals();
       
       // 로딩 토스트 표시
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 7분 소요)', 'info', 0);
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 4분 소요)', 'info', 0);
       
       try {
-        // 1️⃣ PRD 생성 요청 (즉시 응답)
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 10000 // 10초 (즉시 응답)
+          timeout: 240000 // 240초 (4분)
         });
         
         hideToast(loadingToast);
         
-        // 2️⃣ 백그라운드 생성 시작 알림
-        showToast('PRD 생성을 시작했습니다! 백그라운드에서 생성 중이에요 ⚡', 'success');
+        // 성공 메시지
+        showToast('PRD가 생성되었습니다! 🎉', 'success');
         
-        // 3️⃣ PRD 탭으로 전환
+        // 프로젝트 정보 새로고침
+        await selectProject(currentProject.id);
+        
+        // PRD 탭으로 전환
         switchTab('prd');
-        
-        // 4️⃣ 폴링 시작 (prd_id로 상태 확인)
-        const prdId = response.data.prd_id;
-        pollPRDStatus(prdId);
         
         return true;
       } catch (error) {
         console.error('Failed to generate PRD:', error);
         hideToast(loadingToast);
         const errorMessage = error.response?.data?.message || error.message;
-        showToast(`PRD 생성 요청에 실패했습니다: ${errorMessage}`, 'error');
+        showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
         return false;
       }
     }
   });
-}
-
-// 🚀 PRD 생성 상태 폴링 (주기적 확인)
-async function pollPRDStatus(prdId) {
-  const maxAttempts = 300; // 5분 (300초)
-  let attempts = 0;
-  
-  console.log('[PRD 폴링] 시작 - prd_id:', prdId);
-  
-  // 3초 후 첫 확인
-  await new Promise(resolve => setTimeout(resolve, 3000));
-  
-  const checkStatus = async () => {
-    try {
-      attempts++;
-      console.log(`[PRD 폴링] ${attempts}/${maxAttempts}회 확인 중...`);
-      
-      // PRD 문서 조회
-      const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
-      const prd = response.data;
-      
-      // metadata 파싱
-      let metadata = {};
-      if (prd.metadata) {
-        try {
-          metadata = JSON.parse(prd.metadata);
-        } catch (e) {
-          console.warn('[PRD 폴링] metadata 파싱 실패:', e);
-        }
-      }
-      
-      // 상태 확인
-      if (metadata.status === 'completed') {
-        console.log('[PRD 폴링] 생성 완료! ✅');
-        
-        const generationTime = Math.round(metadata.generation_time_ms / 1000);
-        showToast(`PRD가 생성되었습니다! (${generationTime}초 소요) 🎉`, 'success');
-        
-        // PRD 다시 렌더링
-        renderPRD();
-        return;
-      } else if (metadata.status === 'failed') {
-        console.error('[PRD 폴링] 생성 실패 ❌');
-        showToast('PRD 생성에 실패했습니다. 다시 시도해주세요.', 'error');
-        renderPRD();
-        return;
-      } else if (metadata.status === 'generating') {
-        console.log('[PRD 폴링] 아직 생성 중...');
-        
-        // 1초 후 재시도
-        if (attempts < maxAttempts) {
-          setTimeout(checkStatus, 1000);
-        } else {
-          console.warn('[PRD 폴링] 최대 시도 횟수 초과');
-          showToast('PRD 생성이 예상보다 오래 걸리고 있어요. 페이지를 새로고침해주세요.', 'warning');
-        }
-      }
-    } catch (error) {
-      console.error('[PRD 폴링] 오류 발생:', error);
-      
-      // 에러 시 2초 후 재시도
-      if (attempts < maxAttempts) {
-        setTimeout(checkStatus, 2000);
-      } else {
-        showToast('PRD 상태 확인에 실패했습니다. 페이지를 새로고침해주세요.', 'error');
-      }
-    }
-  };
-  
-  // 첫 확인 시작
-  checkStatus();
 }
 
 function downloadPRD() {
