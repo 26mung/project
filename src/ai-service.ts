@@ -38,7 +38,7 @@ export async function chatCompletion(
   console.log(`[AI Service] Max tokens: ${maxTokens}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 180000); // 180초 타임아웃 (PRD 생성용)
+  const timeoutId = setTimeout(() => controller.abort(), 100000); // 100초 타임아웃 (게이트웨이 타임아웃 120초보다 짧게)
   
   try {
     const requestBody: any = {
@@ -617,7 +617,7 @@ ${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
     baseURL,
     false,
     0.2,
-    3000 // 배치는 2500 토큰 (2개 요건, 각 배치 50초 이내)
+    2000 // 배치는 2000 토큰 (2개 요건, 각 배치 40초 이내로 완료)
   );
 }
 
