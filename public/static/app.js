@@ -630,7 +630,7 @@ function renderOverview() {
   } else if (currentProject.status === 'in_progress') {
     // In Progress: 요건 확인이 주요 액션
     primaryAction = `
-      <button onclick="switchTab('requirements')" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+      <button onclick="switchTab('requirements')" class="btn-large btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
         <i class="fas fa-list-check"></i>
         요건 확인하기
       </button>
@@ -1798,22 +1798,24 @@ async function generatePRD() {
     `,
     confirmText: 'PRD 생성하기',
     onConfirm: async () => {
-      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요...');
+      const loadingToast = showLoadingToast('PRD 문서를 생성하고 있어요... (최대 2분 소요)');
       
       try {
-        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`);
+        await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
+          timeout: 150000 // 150초 타임아웃
+        });
         
         hideToast(loadingToast);
         await selectProject(currentProject.id);
         switchTab('prd');
         showToast('PRD가 생성되었습니다!', 'success');
-        return true;
+        return true; // 모달 닫기
       } catch (error) {
         console.error('Failed to generate PRD:', error);
         hideToast(loadingToast);
         const errorMessage = error.response?.data?.message || error.message;
         showToast(`PRD 생성에 실패했습니다: ${errorMessage}`, 'error');
-        return false;
+        return false; // 모달 열어두기
       }
     }
   });

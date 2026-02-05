@@ -34,7 +34,7 @@ export async function chatCompletion(
   console.log(`[AI Service] JSON mode: ${useJsonMode}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60초 타임아웃
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 120초 타임아웃 (PRD 생성용)
   
   try {
     const requestBody: any = {
@@ -85,7 +85,7 @@ export async function chatCompletion(
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      throw new Error('AI 응답 시간이 초과되었습니다 (60초). 더 짧은 기획안을 입력해주세요.');
+      throw new Error('AI 응답 시간이 초과되었습니다 (120초). 잠시 후 다시 시도해주세요.');
     }
     throw error;
   }
