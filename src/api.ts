@@ -505,6 +505,7 @@ api.post('/projects/:id/generate-prd', async (c) => {
           'SELECT * FROM answers WHERE question_id = ? ORDER BY created_at DESC LIMIT 1'
         ).bind(q.id).first() as any;
         
+        // 답변이 있는 질문만 포함
         if (answer) {
           questionsWithAnswers.push({
             question_id: q.id,
@@ -515,7 +516,7 @@ api.post('/projects/:id/generate-prd', async (c) => {
         }
       }
       
-      // 답변이 있는 요건만 포함
+      // 답변이 하나라도 있는 요건은 모두 포함 (이전: 답변이 있는 요건만 포함)
       if (questionsWithAnswers.length > 0) {
         requirementsData.push({
           requirement_id: req.id,
@@ -526,6 +527,7 @@ api.post('/projects/:id/generate-prd', async (c) => {
       }
     }
     
+    console.log('PRD 생성 데이터 (요건 개수):', requirementsData.length);
     console.log('PRD 생성 데이터:', JSON.stringify(requirementsData, null, 2));
     
     // PRD 생성

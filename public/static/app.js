@@ -1286,36 +1286,36 @@ async function renderPRD() {
     
     content.innerHTML = `
       <div>
-        <div class="flex justify-between items-center mb-8">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
           <div>
-            <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">
-              <i class="fas fa-file-alt text-toss-blue mr-2"></i>
+            <h1 class="text-title1" style="color: var(--grey-900); margin-bottom: 8px;">
+              <i class="fas fa-file-alt" style="color: var(--blue-500); margin-right: 10px;"></i>
               PRD 문서
             </h1>
-            <p class="text-sm text-toss-gray-600">
-              <i class="far fa-clock mr-1"></i>
+            <p class="text-body3" style="color: var(--grey-600);">
+              <i class="far fa-clock" style="margin-right: 4px;"></i>
               최종 작성: ${new Date(prd.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
-          <div class="flex gap-3">
-            <button onclick="regeneratePRD()" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-              <i class="fas fa-sync-alt"></i>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="regeneratePRD()" class="btn-weak-primary btn-medium">
+              <i class="fas fa-sync-alt" style="margin-right: 6px; font-size: 13px;"></i>
               PRD 다시 생성
             </button>
-            <button onclick="downloadPRD()" class="bg-toss-blue hover:bg-toss-blue-dark text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-              <i class="fas fa-download"></i>
+            <button onclick="downloadPRD()" class="btn-primary btn-medium">
+              <i class="fas fa-download" style="margin-right: 6px; font-size: 13px;"></i>
               다운로드
             </button>
           </div>
         </div>
         
         ${metadata && metadata.requirements ? `
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-            <div class="flex items-center gap-2 mb-2">
-              <i class="fas fa-info-circle text-toss-blue"></i>
-              <p class="text-sm font-semibold text-toss-blue">검증 모드 활성화</p>
+          <div style="background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: var(--radius-12); padding: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+              <i class="fas fa-info-circle" style="color: var(--blue-500);"></i>
+              <p class="text-body2" style="font-weight: 600; color: var(--blue-600);">검증 모드 활성화</p>
             </div>
-            <p class="text-xs text-toss-gray-700">
+            <p class="text-body3" style="color: var(--grey-700);">
               PRD의 정책 문장을 클릭하면 해당 내용이 어떤 요건의 어떤 질문/답변에서 도출되었는지 확인할 수 있어요
             </p>
           </div>
@@ -1334,16 +1334,16 @@ async function renderPRD() {
     }
   } catch (error) {
     content.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-20">
-        <div class="w-20 h-20 bg-toss-gray-100 rounded-full flex items-center justify-center mb-6">
-          <i class="fas fa-file-alt text-4xl text-toss-gray-400"></i>
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px;">
+        <div style="width: 80px; height: 80px; background: var(--grey-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+          <i class="fas fa-file-alt" style="font-size: 36px; color: var(--grey-400);"></i>
         </div>
-        <h2 class="text-2xl font-bold text-toss-gray-900 mb-3">아직 PRD가 없어요</h2>
-        <p class="text-toss-gray-600 text-center max-w-md mb-6">
+        <h2 class="text-title2" style="color: var(--grey-900); margin-bottom: 12px;">아직 PRD가 없어요</h2>
+        <p class="text-body2" style="color: var(--grey-600); text-align: center; max-width: 400px; margin-bottom: 24px;">
           요건을 모두 확인한 후 PRD를 생성해보세요
         </p>
-        <button onclick="generatePRD()" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-          <i class="fas fa-file-alt"></i>
+        <button onclick="generatePRD()" class="btn-primary btn-large">
+          <i class="fas fa-file-alt" style="margin-right: 6px; font-size: 14px;"></i>
           PRD 생성하기
         </button>
       </div>
