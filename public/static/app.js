@@ -1222,37 +1222,114 @@ function enhancePRDWithMetadata(metadata) {
     }
   });
   
-  // 표의 각 행에 클릭 이벤트 추가
+  // 표의 각 셀에 근거 버튼 추가
   const tables = prdContent.querySelectorAll('table');
   tables.forEach((table) => {
     const rows = table.querySelectorAll('tbody tr');
     
     rows.forEach((row, rowIdx) => {
-      row.style.cursor = 'pointer';
-      row.classList.add('hover-highlight');
+      const cells = row.querySelectorAll('td');
       
-      row.onclick = () => {
-        // 해당 행이 속한 섹션의 요건 찾기
-        let currentElement = table;
-        let requirementTitle = '';
+      // 3번째 컬럼이 "근거" 컬럼이라고 가정
+      if (cells.length >= 3) {
+        const evidenceCell = cells[2]; // 근거 컬럼
+        const originalText = evidenceCell.textContent.trim();
         
-        while (currentElement && currentElement !== prdContent) {
-          if (currentElement.tagName === 'H2' || currentElement.tagName === 'H3') {
-            requirementTitle = currentElement.textContent.trim();
-            break;
+        if (originalText) {
+          // 해당 행이 속한 섹션의 요건 찾기
+          let currentElement = table;
+          let requirementTitle = '';
+          
+          while (currentElement && currentElement !== prdContent) {
+            currentElement = currentElement.previousElementSibling;
+            if (currentElement && (currentElement.tagName === 'H2' || currentElement.tagName === 'H3')) {
+              requirementTitle = currentElement.textContent.trim();
+              break;
+            }
           }
-          currentElement = currentElement.previousElementSibling;
+          
+          const matchedReq = requirements.find(req => 
+            requirementTitle.includes(req.title) || req.title.includes(requirementTitle)
+          );
+          
+          if (matchedReq && matchedReq.questions && matchedReq.questions[rowIdx]) {
+            // 근거 셀에 인터랙티브 버튼 추가
+            evidenceCell.innerHTML = `
+              <div class="flex items-center gap-2">
+                <span class="flex-1">${escapeHtml(originalText)}</span>
+                <button 
+                  class="evidence-btn flex-shrink-0 px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-semibold hover:bg-blue-200 transition-all"
+                  data-requirement='${JSON.stringify(matchedReq).replace(/'/g, "&apos;")}'
+                  data-question-idx="${rowIdx}"
+                  title="원본 질문/답변 보기"
+                >
+                  <i class="fas fa-info-circle mr-1"></i>
+                  원본 보기
+                </button>
+              </div>
+            `;
+          }
         }
-        
-        const matchedReq = requirements.find(req => 
-          requirementTitle.includes(req.title) || req.title.includes(requirementTitle)
-        );
-        
-        if (matchedReq) {
-          showRequirementDetails(matchedReq, rowIdx);
-        }
-      };
+      }
     });
+  });
+  
+  // 근거 버튼 클릭 이벤트 등록
+  prdContent.querySelectorAll('.evidence-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const requirement = JSON.parse(btn.getAttribute('data-requirement'));
+      const questionIdx = parseInt(btn.getAttribute('data-question-idx'));
+      showEvidenceDetails(requirement, questionIdx);
+    });
+  });
+}
+
+// 근거 상세 정보 모달 (특정 질문 강조)
+function showEvidenceDetails(requirement, questionIdx) {
+  const question = requirement.questions[questionIdx];
+  
+  if (!question) return;
+  
+  showModal({
+    title: `📌 근거 확인`,
+    size: 'medium',
+    content: `
+      <div class="space-y-4">
+        <div class="bg-blue-50 border-2 border-blue-300 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-clipboard-check text-blue-600 text-lg"></i>
+            <h3 class="font-bold text-blue-900">요건: ${escapeHtml(requirement.title)}</h3>
+          </div>
+          ${requirement.description ? `
+            <p class="text-sm text-toss-gray-700 mb-3">${escapeHtml(requirement.description)}</p>
+          ` : ''}
+        </div>
+        
+        <div class="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-question-circle text-yellow-700"></i>
+            <p class="font-bold text-yellow-900">질문</p>
+          </div>
+          <p class="text-sm text-toss-gray-900 leading-relaxed">${escapeHtml(question.question)}</p>
+        </div>
+        
+        <div class="bg-green-50 border-2 border-green-300 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <i class="fas fa-check-circle text-green-700"></i>
+            <p class="font-bold text-green-900">답변</p>
+          </div>
+          <p class="text-sm text-toss-gray-900 leading-relaxed whitespace-pre-wrap">${escapeHtml(question.answer)}</p>
+        </div>
+        
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+          <p class="text-xs text-purple-800 flex items-center gap-2">
+            <i class="fas fa-lightbulb"></i>
+            위 질문과 답변을 바탕으로 PRD의 정책이 도출되었습니다
+          </p>
+        </div>
+      </div>
+    `
   });
 }
 

@@ -688,4 +688,186 @@ ${existingRequirementsText}
   }
 });
 
+// ============ 인증 API ============
+import * as bcrypt from 'bcryptjs';
+
+// 회원가입
+api.post('/auth/register', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email, password, name } = body;
+  
+  if (!email || !password) {
+    return c.json({ error: 'Email and password are required' }, 400);
+  }
+  
+  try {
+    // 이메일 중복 확인
+    const existing = await DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    
+    if (existing) {
+      return c.json({ error: 'Email already exists' }, 400);
+    }
+    
+    // 비밀번호 해싱
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    // 사용자 생성 (pending 상태)
+    const result = await DB.prepare(
+      'INSERT INTO users (email, password_hash, name, role, status) VALUES (?, ?, ?, ?, ?)'
+    ).bind(email, passwordHash, name || '', 'user', 'pending').run();
+    
+    return c.json({ 
+      success: true, 
+      user_id: result.meta.last_row_id,
+      message: '회원가입이 완료되었습니다. 관리자 승인 후 이용 가능합니다.' 
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    return c.json({ error: 'Registration failed' }, 500);
+  }
+});
+
+// 로그인
+api.post('/auth/login', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email, password } = body;
+  
+  if (!email || !password) {
+    return c.json({ error: 'Email and password are required' }, 400);
+  }
+  
+  try {
+    const user = await DB.prepare(
+      'SELECT id, email, password_hash, name, role, status FROM users WHERE email = ?'
+    ).bind(email).first() as any;
+    
+    if (!user) {
+      return c.json({ error: 'Invalid email or password' }, 401);
+    }
+    
+    // 비밀번호 확인
+    const isValid = await bcrypt.compare(password, user.password_hash);
+    
+    if (!isValid) {
+      return c.json({ error: 'Invalid email or password' }, 401);
+    }
+    
+    // 승인 상태 확인
+    if (user.status !== 'approved') {
+      return c.json({ 
+        error: 'Account not approved', 
+        message: '계정이 아직 승인되지 않았습니다. 관리자에게 문의하세요.' 
+      }, 403);
+    }
+    
+    // 로그인 성공
+    return c.json({ 
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json({ error: 'Login failed' }, 500);
+  }
+});
+
+// 현재 사용자 정보
+api.get('/auth/me', async (c) => {
+  const { DB } = c.env;
+  const userId = c.req.header('X-User-Id');
+  
+  if (!userId) {
+    return c.json({ error: 'Not authenticated' }, 401);
+  }
+  
+  try {
+    const user = await DB.prepare(
+      'SELECT id, email, name, role, status FROM users WHERE id = ?'
+    ).bind(userId).first();
+    
+    if (!user) {
+      return c.json({ error: 'User not found' }, 404);
+    }
+    
+    return c.json(user);
+  } catch (error) {
+    return c.json({ error: 'Failed to get user info' }, 500);
+  }
+});
+
+// ============ 관리자 API ============
+
+// 대기 중인 사용자 목록 (관리자 전용)
+api.get('/admin/pending-users', async (c) => {
+  const { DB } = c.env;
+  const userId = c.req.header('X-User-Id');
+  
+  if (!userId) {
+    return c.json({ error: 'Not authenticated' }, 401);
+  }
+  
+  try {
+    // 관리자 권한 확인
+    const admin = await DB.prepare(
+      'SELECT role FROM users WHERE id = ?'
+    ).bind(userId).first() as any;
+    
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+    
+    // 대기 중인 사용자 목록
+    const { results } = await DB.prepare(
+      'SELECT id, email, name, created_at FROM users WHERE status = ? ORDER BY created_at DESC'
+    ).bind('pending').all();
+    
+    return c.json(results);
+  } catch (error) {
+    console.error('Pending users error:', error);
+    return c.json({ error: 'Failed to get pending users' }, 500);
+  }
+});
+
+// 사용자 승인/거부 (관리자 전용)
+api.post('/admin/approve-user/:id', async (c) => {
+  const { DB } = c.env;
+  const targetUserId = c.req.param('id');
+  const adminUserId = c.req.header('X-User-Id');
+  const body = await c.req.json();
+  const { action } = body; // 'approve' or 'reject'
+  
+  if (!adminUserId) {
+    return c.json({ error: 'Not authenticated' }, 401);
+  }
+  
+  try {
+    // 관리자 권한 확인
+    const admin = await DB.prepare(
+      'SELECT role FROM users WHERE id = ?'
+    ).bind(adminUserId).first() as any;
+    
+    if (!admin || (admin.role !== 'super_admin' && admin.role !== 'admin')) {
+      return c.json({ error: 'Unauthorized' }, 403);
+    }
+    
+    const status = action === 'approve' ? 'approved' : 'rejected';
+    
+    await DB.prepare(
+      'UPDATE users SET status = ?, approved_by = ?, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind(status, adminUserId, targetUserId).run();
+    
+    return c.json({ success: true, status });
+  } catch (error) {
+    console.error('Approve user error:', error);
+    return c.json({ error: 'Failed to approve user' }, 500);
+  }
+});
+
 export default api;

@@ -1,10 +1,10 @@
-# 기획 도우미 - AI 기획 전문가 에이전트
+# 플랫폼기획팀 - AI 기획 전문가 에이전트
 
 AI 기반 기획 지원 도구로, 상위 기획안을 분석하여 세부 요건을 자동으로 도출하고 체크리스트 형태로 확인하여 최종 PRD 문서를 생성합니다.
 
 ## 프로젝트 개요
 
-- **Name**: 기획 도우미 (Planning Assistant)
+- **Name**: 플랫폼기획팀 (Planning Assistant)
 - **Goal**: AI를 활용한 자동화된 기획 요건 도출 및 PRD 문서 생성
 - **Tech Stack**: Hono + Cloudflare Workers + D1 Database + OpenAI API
 - **Design**: **토스(Toss) 스타일 UI/UX**
