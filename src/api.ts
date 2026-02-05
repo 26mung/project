@@ -96,8 +96,8 @@ api.put('/projects/:id', async (c) => {
   const body = await c.req.json();
   
   await DB.prepare(
-    'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
-  ).bind(body.title, body.description, body.input_content, body.status, id).run();
+    'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, image_urls = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+  ).bind(body.title, body.description, body.input_content, body.status, body.image_urls || null, id).run();
   
   return c.json({ success: true });
 });

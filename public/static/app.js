@@ -79,6 +79,68 @@ function removeImage(index) {
   showToast('이미지가 제거되었습니다', 'info');
 }
 
+// 편집 모드용 이미지 처리
+function handleEditImageUpload(event) {
+  const files = Array.from(event.target.files);
+  
+  // 최대 10장 제한
+  if (uploadedImages.length + files.length > 10) {
+    showToast('이미지는 최대 10장까지 업로드할 수 있습니다', 'error');
+    event.target.value = '';
+    return;
+  }
+  
+  files.forEach((file) => {
+    if (!file.type.startsWith('image/')) {
+      showToast('이미지 파일만 업로드할 수 있습니다', 'error');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('이미지는 5MB 이하만 업로드할 수 있습니다', 'error');
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedImages.push({
+        data: e.target.result,
+        name: file.name
+      });
+      renderEditImagePreviews();
+    };
+    reader.readAsDataURL(file);
+  });
+  
+  event.target.value = '';
+}
+
+function renderEditImagePreviews() {
+  const container = document.getElementById('edit-image-preview-container');
+  if (!container) return;
+  
+  container.innerHTML = uploadedImages.map((img, index) => `
+    <div class="relative group">
+      <img src="${img.data}" class="w-full h-20 object-cover rounded-lg border-2 border-toss-gray-200">
+      <button 
+        onclick="removeEditImage(${index})" 
+        class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+      >
+        ✕
+      </button>
+      <div class="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs px-1 py-0.5 truncate rounded-b-lg">
+        ${img.name}
+      </div>
+    </div>
+  `).join('');
+}
+
+function removeEditImage(index) {
+  uploadedImages.splice(index, 1);
+  renderEditImagePreviews();
+  showToast('이미지가 제거되었습니다', 'info');
+}
+
 // ============ 초기화 ============
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthentication();
@@ -816,6 +878,20 @@ function renderOverview() {
 async function editProjectOverview(evaluationData = null) {
   if (!currentProject) return;
   
+  // 기존 이미지 로드
+  uploadedImages = [];
+  if (currentProject.image_urls) {
+    try {
+      const urls = JSON.parse(currentProject.image_urls);
+      uploadedImages = urls.map((data, index) => ({
+        data: data,
+        name: `image_${index + 1}.png`
+      }));
+    } catch (error) {
+      console.error('Failed to parse image URLs:', error);
+    }
+  }
+  
   // 평가 결과가 전달되지 않았다면 최근 평가 결과 불러오기 시도
   let evaluation = evaluationData;
   
@@ -967,6 +1043,21 @@ async function editProjectOverview(evaluationData = null) {
           ` : ''}
           
           <textarea id="edit-project-input" rows="12" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors font-mono text-sm leading-relaxed" placeholder="프로젝트에 대해 자유롭게 작성해주세요...">${escapeHtml(currentProject.input_content || '')}</textarea>
+          
+          <!-- 이미지 업로드 -->
+          <div class="mt-4">
+            <label class="block text-sm font-semibold text-toss-gray-900 mb-2">
+              기획안 이미지 (선택)
+              <span class="text-xs font-normal text-toss-gray-500 ml-2">PPT 장표를 이미지로 저장해서 업로드하세요 (최대 10장)</span>
+            </label>
+            <div class="bg-white border-2 border-dashed border-toss-gray-300 rounded-xl p-6 text-center hover:border-toss-blue transition-colors cursor-pointer" onclick="document.getElementById('edit-project-images').click()">
+              <i class="fas fa-images text-3xl text-toss-gray-400 mb-2"></i>
+              <p class="text-sm text-toss-gray-600 mb-1">클릭하여 이미지 업로드</p>
+              <p class="text-xs text-toss-gray-500">PNG, JPG 형식 (최대 10장)</p>
+            </div>
+            <input type="file" id="edit-project-images" accept="image/*" multiple style="display: none;" onchange="handleEditImageUpload(event)">
+            <div id="edit-image-preview-container" class="mt-3 grid grid-cols-5 gap-2"></div>
+          </div>
         </div>
       </div>
     `,
@@ -983,17 +1074,32 @@ async function editProjectOverview(evaluationData = null) {
       }
       
       try {
+        // 이미지 URL 배열 생성 (Base64 데이터)
+        const imageUrls = uploadedImages.map(img => img.data);
+        
         await axios.put(`${API_BASE}/projects/${currentProject.id}`, {
           title,
           description,
           input_content: inputContent,
           status: currentProject.status,
+          image_urls: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null
         });
         
-        currentProject = { ...currentProject, title, description, input_content: inputContent };
+        currentProject = { 
+          ...currentProject, 
+          title, 
+          description, 
+          input_content: inputContent,
+          image_urls: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null
+        };
         await loadProjects();
         renderContent();
-        showToast('프로젝트가 수정되었습니다', 'success');
+        
+        if (imageUrls.length > 0) {
+          showToast(`프로젝트가 수정되었습니다 (이미지 ${imageUrls.length}장)`, 'success');
+        } else {
+          showToast('프로젝트가 수정되었습니다', 'success');
+        }
         
         return true;
       } catch (error) {
@@ -1003,6 +1109,11 @@ async function editProjectOverview(evaluationData = null) {
       }
     }
   });
+  
+  // 모달이 렌더링된 후 이미지 미리보기 표시
+  setTimeout(() => {
+    renderEditImagePreviews();
+  }, 100);
 }
 
 // ============ 요건 관리 탭 ============
