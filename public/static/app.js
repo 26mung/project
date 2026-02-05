@@ -5,6 +5,11 @@ let projects = [];
 let requirements = [];
 let isAuthenticated = false;
 
+// 🚀 성능 최적화: 페이지네이션 상태
+let currentPage = 1;
+const ITEMS_PER_PAGE = 10; // 한 페이지당 10개 요건
+let totalRequirements = 0;
+
 // API 기본 URL
 const API_BASE = window.location.origin + '/api';
 
@@ -909,12 +914,19 @@ async function editProjectOverview(evaluationData = null) {
 
 // ============ 요건 관리 탭 ============
 
-async function renderRequirements() {
+async function renderRequirements(page = 1) {
   const content = document.getElementById('content');
   
   try {
+    console.log('[Performance] Loading requirements for page:', page);
+    const startTime = performance.now();
+    
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/requirements`);
     requirements = response.data;
+    totalRequirements = requirements.length;
+    
+    const loadTime = performance.now() - startTime;
+    console.log(`[Performance] Requirements loaded in ${loadTime.toFixed(0)}ms`);
     
     if (!requirements.length) {
       content.innerHTML = `
@@ -937,14 +949,23 @@ async function renderRequirements() {
       return;
     }
     
+    // 🚀 페이지네이션: 상위 요건만 페이지네이션 적용
     const topLevelRequirements = requirements.filter(r => !r.parent_id);
+    const totalPages = Math.ceil(topLevelRequirements.length / ITEMS_PER_PAGE);
+    currentPage = Math.min(page, totalPages);
+    
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const paginatedRequirements = topLevelRequirements.slice(startIndex, endIndex);
+    
+    console.log(`[Performance] Rendering ${paginatedRequirements.length}/${topLevelRequirements.length} requirements (page ${currentPage}/${totalPages})`);
     
     content.innerHTML = `
       <div>
         <div class="flex justify-between items-center mb-8">
           <div>
             <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">요건 관리</h1>
-            <p class="text-sm text-toss-gray-600">각 요건의 질문에 답변해주세요</p>
+            <p class="text-sm text-toss-gray-600">각 요건의 질문에 답변해주세요 · 총 ${topLevelRequirements.length}개</p>
           </div>
           <div class="flex gap-3">
             <button onclick="generateAdditionalRequirements()" 
@@ -961,11 +982,16 @@ async function renderRequirements() {
           </div>
         </div>
         
-        <div class="space-y-4">
-          ${topLevelRequirements.map(req => renderRequirementCard(req)).join('')}
+        <div class="space-y-4" id="requirements-list">
+          ${paginatedRequirements.map(req => renderRequirementCard(req)).join('')}
         </div>
+        
+        ${totalPages > 1 ? renderPagination(currentPage, totalPages) : ''}
       </div>
     `;
+    
+    const renderTime = performance.now() - startTime;
+    console.log(`[Performance] Total render time: ${renderTime.toFixed(0)}ms`);
   } catch (error) {
     console.error('Failed to load requirements:', error);
     content.innerHTML = `
@@ -975,6 +1001,62 @@ async function renderRequirements() {
       </div>
     `;
   }
+}
+
+// 🚀 페이지네이션 UI 렌더링
+function renderPagination(current, total) {
+  const pages = [];
+  const maxVisible = 5;
+  
+  let start = Math.max(1, current - Math.floor(maxVisible / 2));
+  let end = Math.min(total, start + maxVisible - 1);
+  
+  if (end - start + 1 < maxVisible) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+  
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+  
+  return `
+    <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 32px; padding: 16px;">
+      <button 
+        onclick="renderRequirements(${current - 1})" 
+        ${current === 1 ? 'disabled' : ''}
+        class="btn-secondary btn-small"
+        style="${current === 1 ? 'opacity: 0.5; cursor: not-allowed;' : ''}">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      
+      ${start > 1 ? `
+        <button onclick="renderRequirements(1)" class="btn-secondary btn-small">1</button>
+        ${start > 2 ? '<span style="color: var(--grey-400); padding: 0 4px;">...</span>' : ''}
+      ` : ''}
+      
+      ${pages.map(p => `
+        <button 
+          onclick="renderRequirements(${p})" 
+          class="${p === current ? 'btn-primary' : 'btn-secondary'} btn-small"
+          style="min-width: 40px;">
+          ${p}
+        </button>
+      `).join('')}
+      
+      ${end < total ? `
+        ${end < total - 1 ? '<span style="color: var(--grey-400); padding: 0 4px;">...</span>' : ''}
+        <button onclick="renderRequirements(${total})" class="btn-secondary btn-small">${total}</button>
+      ` : ''}
+      
+      <button 
+        onclick="renderRequirements(${current + 1})" 
+        ${current === total ? 'disabled' : ''}
+        class="btn-secondary btn-small"
+        style="${current === total ? 'opacity: 0.5; cursor: not-allowed;' : ''}">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+    </div>
+  `;
 }
 
 function renderRequirementCard(requirement) {
@@ -1012,7 +1094,7 @@ function renderRequirementCard(requirement) {
   };
   
   return `
-    <div class="card p-6 card-hover">
+    <div class="card p-6 card-hover" data-requirement-id="${requirement.id}">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
@@ -1341,32 +1423,102 @@ function renderQuestionTree(nodes, level = 0) {
 }
 
 async function submitAnswer(questionId) {
-  const answerText = document.getElementById(`answer-${questionId}`).value.trim();
+  const answerInput = document.getElementById(`answer-${questionId}`);
+  const answerText = answerInput.value.trim();
   
   if (!answerText) {
     showToast('답변을 입력해주세요', 'error');
     return;
   }
   
+  // 버튼 찾기 및 로딩 상태 설정
+  const submitButton = document.querySelector(`button[onclick="submitAnswer(${questionId})"]`);
+  const originalButtonHTML = submitButton ? submitButton.innerHTML : '';
+  
+  console.log('[Performance] Submit answer start');
+  const startTime = performance.now();
+  
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 저장 중...';
+  }
+  
   try {
+    // 낙관적 UI 업데이트: 입력창 비활성화
+    answerInput.disabled = true;
+    
     const response = await axios.post(`${API_BASE}/questions/${questionId}/answer`, {
       question_id: questionId,
       answer_text: answerText,
     });
     
-    showToast('답변이 저장되었습니다', 'success');
+    const apiTime = performance.now() - startTime;
+    console.log(`[Performance] Answer saved in ${apiTime.toFixed(0)}ms`);
     
-    // 파생 질문이 생성되었는지 확인
-    const followUpCount = response.data.follow_up_count || 0;
-    if (followUpCount > 0) {
-      showToast(`${followUpCount}개의 파생 질문이 생성되었습니다`, 'info');
+    showToast('답변이 저장되었습니다! ✨', 'success');
+    
+    // 파생 질문은 백그라운드에서 생성되므로 즉시 알림
+    if (response.data.message) {
+      console.log('[Background] 파생 질문 생성 중...');
+      showToast('파생 질문은 백그라운드에서 생성됩니다', 'info');
     }
     
     closeAllModals();
-    renderRequirements();
+    
+    // 🚀 최적화: 해당 요건만 업데이트 (전체 재렌더링 방지)
+    if (response.data.requirement_id) {
+      await updateSingleRequirement(response.data.requirement_id);
+    }
+    
+    const totalTime = performance.now() - startTime;
+    console.log(`[Performance] Total submit time: ${totalTime.toFixed(0)}ms`);
+    
   } catch (error) {
     console.error('Failed to submit answer:', error);
     showToast('답변 저장에 실패했습니다', 'error');
+    
+    // 에러 시 입력창 다시 활성화
+    answerInput.disabled = false;
+    
+    // 버튼 복구
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML = originalButtonHTML;
+    }
+  }
+}
+
+// 🚀 개별 요건만 업데이트하는 함수 (성능 최적화)
+async function updateSingleRequirement(requirementId) {
+  try {
+    console.log('[Performance] Updating single requirement:', requirementId);
+    
+    // 해당 요건의 최신 데이터만 가져오기
+    const response = await axios.get(`${API_BASE}/requirements/${requirementId}`);
+    const updatedRequirement = response.data;
+    
+    // requirements 배열에서 해당 요건 업데이트
+    const index = requirements.findIndex(r => r.id === requirementId);
+    if (index !== -1) {
+      requirements[index] = updatedRequirement;
+    }
+    
+    // 해당 요건 카드만 찾아서 교체
+    const cardElement = document.querySelector(`[data-requirement-id="${requirementId}"]`);
+    if (cardElement) {
+      const newCardHTML = renderRequirementCard(updatedRequirement);
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = newCardHTML;
+      cardElement.replaceWith(tempDiv.firstElementChild);
+      console.log('[Performance] Single card updated successfully');
+    } else {
+      // 카드를 찾지 못하면 전체 렌더링 (fallback)
+      console.log('[Performance] Card not found, fallback to full render');
+      await renderRequirements();
+    }
+  } catch (error) {
+    console.error('[Performance] Failed to update single requirement, fallback to full render:', error);
+    await renderRequirements();
   }
 }
 

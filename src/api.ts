@@ -373,37 +373,53 @@ api.post('/questions/:id/answer', async (c) => {
     ).bind(id, body.answer_text).run();
   }
   
-  // 파생 질문 생성 (선택적)
-  const question = await DB.prepare('SELECT * FROM questions WHERE id = ?').bind(id).first() as any;
-  const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(question.requirement_id).first() as any;
+  // 질문의 requirement_id 가져오기 (즉시 반환용)
+  const question = await DB.prepare('SELECT requirement_id FROM questions WHERE id = ?').bind(id).first() as any;
+  const requirementId = question?.requirement_id;
   
+  // 🚀 최적화: 답변만 즉시 저장하고 바로 응답 (파생 질문은 비동기로 생성)
+  // 파생 질문 생성을 백그라운드로 처리 (non-blocking)
   const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
   const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   
-  if (apiKey && question && requirement) {
-    try {
-      const followUpQuestions = await generateFollowUpQuestions(
-        requirement.title,
-        question.question_text,
-        body.answer_text,
-        apiKey,
-        baseURL
-      );
-      
-      // 파생 질문 저장
-      for (const fq of followUpQuestions) {
-        await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type) VALUES (?, ?, ?)'
-        ).bind(question.requirement_id, fq.question_text, fq.question_type).run();
-      }
-      
-      return c.json({ success: true, follow_up_count: followUpQuestions.length });
-    } catch (error) {
-      console.error('Follow-up generation error:', error);
-    }
+  if (apiKey && question) {
+    // 백그라운드 처리 (응답을 기다리지 않음)
+    c.executionCtx.waitUntil(
+      (async () => {
+        try {
+          const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(question.requirement_id).first() as any;
+          if (!requirement) return;
+          
+          const fullQuestion = await DB.prepare('SELECT * FROM questions WHERE id = ?').bind(id).first() as any;
+          const followUpQuestions = await generateFollowUpQuestions(
+            requirement.title,
+            fullQuestion.question_text,
+            body.answer_text,
+            apiKey,
+            baseURL
+          );
+          
+          // 파생 질문 저장
+          for (const fq of followUpQuestions) {
+            await DB.prepare(
+              'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, 0)'
+            ).bind(question.requirement_id, fq.question_text, fq.question_type).run();
+          }
+          
+          console.log(`[답변 저장] 파생 질문 ${followUpQuestions.length}개 생성 완료 (비동기)`);
+        } catch (error) {
+          console.error('Follow-up generation error (background):', error);
+        }
+      })()
+    );
   }
   
-  return c.json({ success: true, follow_up_count: 0 });
+  // 즉시 응답 반환 (0.5초 이내)
+  return c.json({ 
+    success: true, 
+    requirement_id: requirementId,
+    message: '답변이 저장되었습니다. 파생 질문은 백그라운드에서 생성됩니다.'
+  });
 });
 
 // 답변 기반 파생 요건 자동 생성
