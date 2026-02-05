@@ -41,7 +41,7 @@ export async function chatCompletion(
       model: 'gpt-5-mini', // 더 빠른 모델 사용
       messages,
       temperature: 0.7,
-      max_tokens: 2000, // 토큰 제한으로 응답 속도 향상
+      max_tokens: 4000, // 충분한 토큰 확보로 완전한 응답 보장
     };
     
     // JSON mode 활성화 (OpenAI API가 항상 유효한 JSON 반환 보장)
@@ -70,8 +70,18 @@ export async function chatCompletion(
     }
 
     const data = await response.json();
-    console.log(`[AI Service] Response received, content length: ${data.choices?.[0]?.message?.content?.length || 0}`);
-    return data.choices[0].message.content;
+    const content = data.choices[0].message.content;
+    const finishReason = data.choices[0].finish_reason;
+    
+    console.log(`[AI Service] Response received`);
+    console.log(`[AI Service] Content length: ${content?.length || 0}`);
+    console.log(`[AI Service] Finish reason: ${finishReason}`);
+    
+    if (finishReason === 'length') {
+      console.warn('[AI Service] WARNING: Response was cut off due to max_tokens limit!');
+    }
+    
+    return content;
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
@@ -131,12 +141,15 @@ export async function analyzeProjectRequirements(
     );
 
     console.log('AI response (first 500 chars):', content.substring(0, 500));
+    console.log('AI response (last 200 chars):', content.substring(Math.max(0, content.length - 200)));
     
     try {
       return JSON.parse(content);
     } catch (parseError) {
       console.error('JSON parsing failed:', parseError);
-      console.error('Full content:', content);
+      console.error('Full content length:', content.length);
+      console.error('Content preview (first 1000 chars):', content.substring(0, 1000));
+      console.error('Content preview (last 500 chars):', content.substring(Math.max(0, content.length - 500)));
       
       throw new Error(`JSON 파싱 실패. AI 응답이 유효하지 않습니다. 다시 시도해주세요.`);
     }
