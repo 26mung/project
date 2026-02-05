@@ -1941,11 +1941,11 @@ async function regeneratePRD() {
     confirmText: 'PRD 다시 생성',
     cancelText: '취소',
     onConfirm: async () => {
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 5분 소요)', 'info', 0);
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 7분 소요)', 'info', 0);
       
       try {
         await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 300000 // 300초 (5분)
+          timeout: 420000 // 420초 (7분)
         });
         
         hideToast(loadingToast);
@@ -1980,7 +1980,7 @@ async function generatePRD() {
         <p class="text-sm text-toss-gray-600 mb-3">모든 요건과 답변을 종합하여 완전한 기획 문서를 만들어드려요</p>
         <p class="text-xs text-orange-600">
           <i class="fas fa-clock mr-1"></i>
-          약 3-5분 소요됩니다. 완료될 때까지 기다려주세요.
+          약 5-7분 소요됩니다. 완료될 때까지 기다려주세요.
         </p>
       </div>
     `,
@@ -1990,11 +1990,11 @@ async function generatePRD() {
       closeAllModals();
       
       // 로딩 토스트 표시
-      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 5분 소요)', 'info', 0);
+      const loadingToast = showToast('PRD 문서를 생성하고 있어요... (최대 7분 소요)', 'info', 0);
       
       try {
         const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-prd`, {}, {
-          timeout: 300000 // 300초 (5분)
+          timeout: 420000 // 420초 (7분)
         });
         
         hideToast(loadingToast);
