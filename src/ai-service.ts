@@ -38,7 +38,7 @@ export async function chatCompletion(
   console.log(`[AI Service] Max tokens: ${maxTokens}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 50000); // 50초 타임아웃 (1개 요건, 매우 짧게)
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90초 타임아웃 (1개 요건, 충분한 시간)
   
   try {
     const requestBody: any = {
@@ -617,7 +617,7 @@ ${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
     baseURL,
     false,
     0.2,
-    1500 // 배치는 1500 토큰 (1개 요건, 각 배치 20-30초 이내로 완료)
+    4000 // 배치는 4000 토큰 (1개 요건, 충분한 내용)
   );
 }
 
