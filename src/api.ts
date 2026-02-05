@@ -92,10 +92,41 @@ api.post('/projects/:id/evaluate', async (c) => {
       baseURL
     );
     
+    // 평가 결과를 프로젝트에 저장
+    await DB.prepare(`
+      UPDATE projects 
+      SET last_evaluation = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `).bind(JSON.stringify(evaluation), id).run();
+    
     return c.json(evaluation);
   } catch (error) {
     console.error('Evaluation error:', error);
     return c.json({ error: 'Evaluation failed', message: String(error) }, 500);
+  }
+});
+
+// 최근 평가 결과 조회
+api.get('/projects/:id/last-evaluation', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  try {
+    const project = await DB.prepare('SELECT last_evaluation FROM projects WHERE id = ?').bind(id).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    if (!project.last_evaluation) {
+      return c.json({ error: 'No evaluation found' }, 404);
+    }
+    
+    const evaluation = JSON.parse(project.last_evaluation);
+    return c.json(evaluation);
+  } catch (error) {
+    console.error('Failed to get evaluation:', error);
+    return c.json({ error: 'Failed to get evaluation' }, 500);
   }
 });
 
