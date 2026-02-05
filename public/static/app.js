@@ -535,15 +535,15 @@ async function analyzeProject() {
 function switchTab(tab) {
   currentTab = tab;
   
+  // 모든 탭 버튼에서 active 클래스 제거
   document.querySelectorAll('.tab-button').forEach(btn => {
-    btn.classList.remove('text-toss-blue', 'border-toss-blue');
-    btn.classList.add('text-toss-gray-600', 'border-transparent');
+    btn.classList.remove('active');
   });
   
+  // 선택된 탭에 active 클래스 추가
   const activeTab = document.getElementById(`tab-${tab}`);
   if (activeTab) {
-    activeTab.classList.remove('text-toss-gray-600', 'border-transparent');
-    activeTab.classList.add('text-toss-blue', 'border-toss-blue');
+    activeTab.classList.add('active');
   }
   
   renderContent();

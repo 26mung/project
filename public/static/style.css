@@ -497,8 +497,16 @@ textarea {
   letter-spacing: -0.1px;
 }
 
+.tab-button:hover {
+  color: var(--grey-700);
+}
+
 .tab-button.active {
   color: var(--blue-500);
+}
+
+.tab-button.active:hover {
+  color: var(--blue-600);
 }
 
 .tab-button.active::after {
@@ -509,6 +517,7 @@ textarea {
   right: 0;
   height: 2px;
   background: var(--blue-500);
+  transition: background 0.2s ease;
 }
 
 /* ============ Modal ============ */
