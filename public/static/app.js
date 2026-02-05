@@ -100,59 +100,59 @@ async function handleLogin(event) {
 }
 
 function showMainApp() {
-  // 원래 HTML 구조를 복원
+  // 토스 디자인 시스템을 적용한 메인 앱 레이아웃
   document.body.innerHTML = `
-    <div class="min-h-screen bg-toss-gray-50 flex">
+    <div style="min-height: 100vh; display: flex; background: var(--grey-50);">
       <!-- Sidebar -->
-      <div class="w-80 bg-white border-r border-toss-gray-200 flex flex-col">
+      <div style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column;">
         <!-- Header -->
-        <div class="p-6 border-b border-toss-gray-200">
-          <div class="flex items-center justify-between mb-6">
-            <h1 class="text-xl font-bold text-toss-gray-900">
-              <i class="fas fa-lightbulb text-toss-blue mr-2"></i>
+        <div style="padding: 20px; border-bottom: 1px solid var(--grey-100);">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+            <h1 class="text-title3" style="color: var(--grey-900);">
+              <i class="fas fa-lightbulb" style="color: var(--blue-500); margin-right: 8px; font-size: 20px;"></i>
               플랫폼기획팀
             </h1>
-            <button onclick="handleLogout()" class="text-sm text-gray-500 hover:text-red-500 transition-colors" title="로그아웃">
-              <i class="fas fa-sign-out-alt"></i>
+            <button onclick="handleLogout()" class="btn-icon" title="로그아웃">
+              <i class="fas fa-sign-out-alt" style="font-size: 14px;"></i>
             </button>
           </div>
-          <button onclick="createNewProject()" class="btn-primary w-full">
-            <i class="fas fa-plus mr-2"></i>
+          <button onclick="createNewProject()" class="btn-primary btn-large w-full">
+            <i class="fas fa-plus" style="margin-right: 6px; font-size: 14px;"></i>
             새 프로젝트
           </button>
         </div>
         
         <!-- Project List -->
-        <div class="flex-1 overflow-y-auto p-4">
-          <div id="project-list" class="space-y-2">
+        <div style="flex: 1; overflow-y: auto; padding: 12px;">
+          <div id="project-list" style="display: flex; flex-direction: column; gap: 8px;">
             <!-- Projects will be loaded here -->
           </div>
         </div>
       </div>
       
       <!-- Main Content -->
-      <div class="flex-1 flex flex-col">
+      <div style="flex: 1; display: flex; flex-direction: column;">
         <!-- Tabs -->
-        <div class="bg-white border-b border-toss-gray-200">
-          <div class="flex space-x-0 px-8">
-            <button id="tab-overview" onclick="switchTab('overview')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
-              <i class="fas fa-home mr-2"></i>
+        <div style="background: white; border-bottom: 1px solid var(--grey-200);">
+          <div style="display: flex; padding: 0 24px;">
+            <button id="tab-overview" onclick="switchTab('overview')" class="tab-button">
+              <i class="fas fa-home" style="margin-right: 6px; font-size: 13px;"></i>
               프로젝트 개요
             </button>
-            <button id="tab-requirements" onclick="switchTab('requirements')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
-              <i class="fas fa-tasks mr-2"></i>
+            <button id="tab-requirements" onclick="switchTab('requirements')" class="tab-button">
+              <i class="fas fa-tasks" style="margin-right: 6px; font-size: 13px;"></i>
               요건 관리
             </button>
-            <button id="tab-prd" onclick="switchTab('prd')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
-              <i class="fas fa-file-alt mr-2"></i>
+            <button id="tab-prd" onclick="switchTab('prd')" class="tab-button">
+              <i class="fas fa-file-alt" style="margin-right: 6px; font-size: 13px;"></i>
               PRD 문서
             </button>
           </div>
         </div>
         
         <!-- Content -->
-        <div class="flex-1 overflow-y-auto">
-          <div id="content" class="p-8">
+        <div style="flex: 1; overflow-y: auto;">
+          <div id="content" style="padding: 24px;">
             <!-- Content will be loaded here -->
           </div>
         </div>
@@ -162,7 +162,7 @@ function showMainApp() {
       <div id="modal-container"></div>
       
       <!-- Toast Container -->
-      <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+      <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px;"></div>
     </div>
   `;
 }
@@ -180,13 +180,12 @@ async function handleLogout() {
 function initTabStyles() {
   const tabs = document.querySelectorAll('.tab-button');
   tabs.forEach(tab => {
-    tab.classList.add('text-toss-gray-600', 'border-b-2', 'border-transparent');
+    tab.classList.remove('active');
   });
   
-  const activeTab = document.getElementById('tab-overview');
+  const activeTab = document.getElementById(`tab-${currentTab}`);
   if (activeTab) {
-    activeTab.classList.remove('text-toss-gray-600', 'border-transparent');
-    activeTab.classList.add('text-toss-blue', 'border-toss-blue');
+    activeTab.classList.add('active');
   }
 }
 
@@ -207,25 +206,25 @@ function renderProjectList() {
   const container = document.getElementById('project-list');
   if (!projects.length) {
     container.innerHTML = `
-      <div class="text-center py-8">
-        <p class="text-sm text-toss-gray-500">아직 프로젝트가 없어요</p>
+      <div style="text-align: center; padding: 32px 16px;">
+        <p class="text-body2" style="color: var(--grey-500);">아직 프로젝트가 없어요</p>
       </div>
     `;
     return;
   }
   
   container.innerHTML = projects.map(project => `
-    <div class="project-item rounded-xl p-4 cursor-pointer ${currentProject?.id === project.id ? 'active' : ''}"
+    <div class="project-item ${currentProject?.id === project.id ? 'active' : ''}"
          onclick="selectProject(${project.id})">
-      <div class="flex items-start justify-between mb-2">
-        <h3 class="font-semibold text-sm text-toss-gray-900 flex-1 pr-2">${escapeHtml(project.title)}</h3>
-        <button onclick="deleteProject(${project.id}, event)" class="text-toss-gray-400 hover:text-red-500 text-xs">
-          <i class="fas fa-trash"></i>
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
+        <h3 class="text-body2" style="font-weight: 600; color: var(--grey-900); flex: 1; padding-right: 8px;">${escapeHtml(project.title)}</h3>
+        <button onclick="deleteProject(${project.id}, event)" class="btn-icon" style="width: 24px; height: 24px;">
+          <i class="fas fa-trash" style="font-size: 12px;"></i>
         </button>
       </div>
-      <div class="flex items-center gap-2">
+      <div style="display: flex; align-items: center; gap: 6px;">
         ${getStatusBadge(project.status)}
-        <span class="text-xs text-toss-gray-500">${formatRelativeTime(project.updated_at)}</span>
+        <span class="text-caption" style="color: var(--grey-500);">${formatRelativeTime(project.updated_at)}</span>
       </div>
     </div>
   `).join('');
@@ -233,10 +232,10 @@ function renderProjectList() {
 
 function getStatusBadge(status) {
   const badges = {
-    draft: '<span class="status-badge bg-toss-gray-100 text-toss-gray-700">준비중</span>',
-    analyzing: '<span class="status-badge bg-blue-50 text-toss-blue"><i class="fas fa-spinner fa-spin mr-1"></i>분석중</span>',
-    in_progress: '<span class="status-badge bg-blue-50 text-toss-blue">진행중</span>',
-    completed: '<span class="status-badge bg-green-50 text-green-600">완료</span>',
+    draft: '<span class="badge badge-small badge-weak-grey">준비중</span>',
+    analyzing: '<span class="badge badge-small badge-weak-blue"><i class="fas fa-spinner fa-spin" style="margin-right: 4px; font-size: 10px;"></i>분석중</span>',
+    in_progress: '<span class="badge badge-small badge-fill-blue">진행중</span>',
+    completed: '<span class="badge badge-small badge-fill-green">완료</span>',
   };
   return badges[status] || badges.draft;
 }
