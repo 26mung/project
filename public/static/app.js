@@ -1522,20 +1522,29 @@ function enhancePRDWithMetadata(metadata) {
   
   listItems.forEach((li) => {
     // 해당 리스트 항목이 속한 섹션의 요건 찾기
-    let currentElement = li;
     let requirementTitle = '';
+    let currentElement = li.parentElement; // ul 또는 ol부터 시작
+    let depth = 0;
+    const maxDepth = 10; // 무한 루프 방지
     
-    while (currentElement && currentElement !== prdContent) {
-      currentElement = currentElement.previousElementSibling;
-      if (currentElement && (currentElement.tagName === 'H2' || currentElement.tagName === 'H3')) {
-        requirementTitle = currentElement.textContent.trim();
-        break;
+    // 부모를 거슬러 올라가며 가장 가까운 h2/h3 찾기
+    while (currentElement && currentElement !== prdContent && depth < maxDepth) {
+      depth++;
+      
+      // 이전 형제 중 h2/h3 찾기
+      let sibling = currentElement.previousElementSibling;
+      while (sibling) {
+        if (sibling.tagName === 'H2' || sibling.tagName === 'H3') {
+          requirementTitle = sibling.textContent.trim();
+          break;
+        }
+        sibling = sibling.previousElementSibling;
       }
-      if (!currentElement && li.parentElement) {
-        currentElement = li.parentElement;
-      } else {
-        break;
-      }
+      
+      if (requirementTitle) break;
+      
+      // 한 단계 위로
+      currentElement = currentElement.parentElement;
     }
     
     if (requirementTitle) {
