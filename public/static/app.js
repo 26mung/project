@@ -928,36 +928,55 @@ async function renderRequirements() {
 
 function renderRequirementCard(requirement) {
   const children = requirements.filter(r => r.parent_id === requirement.id);
-  const priorityStyles = {
-    critical: { bg: 'bg-red-50', text: 'text-red-600', icon: 'fa-fire' },
-    high: { bg: 'bg-orange-50', text: 'text-orange-600', icon: 'fa-arrow-up' },
-    medium: { bg: 'bg-blue-50', text: 'text-toss-blue', icon: 'fa-equals' },
-    low: { bg: 'bg-toss-gray-100', text: 'text-toss-gray-600', icon: 'fa-arrow-down' },
+  
+  // 토스 디자인 시스템 Badge 스타일
+  const priorityBadges = {
+    critical: 'badge badge-small badge-fill-red',
+    high: 'badge badge-small badge-fill-yellow',
+    medium: 'badge badge-small badge-fill-blue',
+    low: 'badge badge-small badge-weak-grey',
   };
   
-  const style = priorityStyles[requirement.priority] || priorityStyles.medium;
+  const statusBadges = {
+    completed: 'badge badge-small badge-fill-green',
+    in_progress: 'badge badge-small badge-weak-blue',
+    pending: 'badge badge-small badge-weak-grey'
+  };
+  
+  const priorityIcons = {
+    critical: 'fa-fire',
+    high: 'fa-arrow-up',
+    medium: 'fa-equals',
+    low: 'fa-arrow-down'
+  };
+  
+  const statusTexts = {
+    completed: '완료',
+    in_progress: '진행중',
+    pending: '대기'
+  };
   
   return `
-    <div class="card p-6">
-      <div class="flex items-start justify-between mb-4">
-        <div class="flex-1">
-          <div class="flex items-center gap-3 mb-3">
-            <h3 class="text-lg font-bold text-toss-gray-900">${escapeHtml(requirement.title)}</h3>
-            <span class="status-badge ${style.bg} ${style.text}">
-              <i class="fas ${style.icon} mr-1"></i>${requirement.priority.toUpperCase()}
+    <div class="card p-6 card-hover">
+      <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
+        <div style="flex: 1;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <h3 class="text-title4" style="color: var(--grey-900);">${escapeHtml(requirement.title)}</h3>
+            <span class="${priorityBadges[requirement.priority] || priorityBadges.medium}">
+              <i class="fas ${priorityIcons[requirement.priority] || priorityIcons.medium}" style="margin-right: 4px; font-size: 10px;"></i>${requirement.priority.toUpperCase()}
             </span>
-            <span class="status-badge ${requirement.status === 'completed' ? 'bg-green-50 text-green-600' : requirement.status === 'in_progress' ? 'bg-blue-50 text-toss-blue' : 'bg-toss-gray-100 text-toss-gray-600'}">
-              ${requirement.status === 'completed' ? '완료' : requirement.status === 'in_progress' ? '진행중' : '대기'}
+            <span class="${statusBadges[requirement.status] || statusBadges.pending}">
+              ${statusTexts[requirement.status] || '대기'}
             </span>
           </div>
-          ${requirement.description ? `<p class="text-sm text-toss-gray-600 leading-relaxed">${escapeHtml(requirement.description)}</p>` : ''}
+          ${requirement.description ? `<p class="text-body2" style="color: var(--grey-600); line-height: 1.6;">${escapeHtml(requirement.description)}</p>` : ''}
         </div>
-        <div class="flex items-center gap-2 ml-4">
-          <button onclick="editRequirement(${requirement.id})" class="btn-icon text-toss-gray-400 hover:text-toss-blue" title="편집">
-            <i class="fas fa-edit text-sm"></i>
+        <div style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
+          <button onclick="editRequirement(${requirement.id})" class="btn-icon" title="편집">
+            <i class="fas fa-edit" style="font-size: 13px;"></i>
           </button>
-          <button onclick="deleteRequirement(${requirement.id})" class="btn-icon text-toss-gray-400 hover:text-red-500" title="삭제">
-            <i class="fas fa-trash text-sm"></i>
+          <button onclick="deleteRequirement(${requirement.id})" class="btn-icon" title="삭제" style="color: var(--red-500);">
+            <i class="fas fa-trash" style="font-size: 13px;"></i>
           </button>
           <button onclick="openRequirementDetails(${requirement.id})" class="btn-small text-toss-blue hover:text-blue-600 ml-2">
             <span>상세보기</span>
@@ -1699,23 +1718,25 @@ function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   const toastId = 'toast-' + Date.now();
   
-  const styles = {
-    success: { bg: 'bg-green-600', icon: 'fa-check-circle' },
-    error: { bg: 'bg-red-500', icon: 'fa-exclamation-circle' },
-    info: { bg: 'bg-toss-blue', icon: 'fa-info-circle' },
-    warning: { bg: 'bg-orange-500', icon: 'fa-exclamation-triangle' },
-  };
-  
-  const style = styles[type] || styles.info;
-  
   const toast = document.createElement('div');
   toast.id = toastId;
-  toast.className = `${style.bg} text-white px-6 py-4 rounded-2xl shadow-2xl animate-slide-up flex items-center gap-3 min-w-[300px]`;
+  toast.className = `toast ${type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : ''}`;
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.gap = '8px';
+  
+  const icons = {
+    success: 'fa-check-circle',
+    error: 'fa-exclamation-circle',
+    info: 'fa-info-circle',
+    warning: 'fa-exclamation-triangle'
+  };
+  
   toast.innerHTML = `
-    <i class="fas ${style.icon} text-xl"></i>
-    <span class="font-semibold flex-1">${message}</span>
-    <button onclick="hideToast('${toastId}')" class="w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center">
-      <i class="fas fa-times text-sm"></i>
+    <i class="fas ${icons[type] || icons.info}" style="font-size: 16px;"></i>
+    <span style="font-weight: 600; flex: 1;">${message}</span>
+    <button onclick="hideToast('${toastId}')" class="btn-icon" style="width: 24px; height: 24px; background: transparent; color: inherit;">
+      <i class="fas fa-times" style="font-size: 12px;"></i>
     </button>
   `;
   
@@ -1734,10 +1755,15 @@ function showLoadingToast(message) {
   
   const toast = document.createElement('div');
   toast.id = toastId;
-  toast.className = 'bg-toss-blue text-white px-6 py-4 rounded-2xl shadow-2xl animate-slide-up flex items-center gap-3 min-w-[300px]';
+  toast.className = 'toast';
+  toast.style.background = 'var(--blue-500)';
+  toast.style.color = 'white';
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.gap = '8px';
   toast.innerHTML = `
-    <i class="fas fa-spinner fa-spin text-xl"></i>
-    <span class="font-semibold flex-1">${message}</span>
+    <i class="fas fa-spinner fa-spin" style="font-size: 16px;"></i>
+    <span style="font-weight: 600; flex: 1;">${message}</span>
   `;
   
   container.appendChild(toast);
