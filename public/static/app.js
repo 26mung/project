@@ -576,14 +576,14 @@ function renderOverview() {
     if (currentProject.input_content) {
       // Draft + 기획안 있음: AI 분석이 주요 액션
       primaryAction = `
-        <button onclick="analyzeProject()" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
-          <i class="fas fa-magic"></i>
+        <button onclick="analyzeProject()" class="btn-primary btn-large">
+          <i class="fas fa-magic" style="margin-right: 8px; font-size: 16px;"></i>
           AI 분석 시작하기
         </button>
       `;
       secondaryActions = `
-        <button onclick="evaluateProject()" class="btn-medium bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-xl font-semibold flex items-center gap-2 transition-all">
-          <i class="fas fa-chart-line"></i>
+        <button onclick="evaluateProject()" class="btn-secondary btn-medium">
+          <i class="fas fa-chart-line" style="margin-right: 6px; font-size: 14px;"></i>
           기획안 평가하기
         </button>
       `;
@@ -596,8 +596,8 @@ function renderOverview() {
           </div>
           <p class="text-lg font-bold text-toss-gray-900 mb-2">기획안을 작성해주세요</p>
           <p class="text-sm text-toss-gray-600 mb-4">프로젝트 목표, 사용자, 주요 기능 등을 입력하면<br>AI가 자동으로 세부 요건을 만들어드려요</p>
-          <button onclick="editProjectOverview()" class="btn-large bg-toss-blue hover:bg-blue-600 text-white px-8 py-4 rounded-xl font-bold inline-flex items-center gap-2 transition-all">
-            <i class="fas fa-edit"></i>
+          <button onclick="editProjectOverview()" class="btn-primary btn-large">
+            <i class="fas fa-edit" style="margin-right: 8px; font-size: 16px;"></i>
             기획안 작성하기
           </button>
         </div>
@@ -876,8 +876,8 @@ async function renderRequirements() {
             AI 분석을 실행하면 자동으로 요건이 생성돼요
           </p>
           ${currentProject.input_content ? `
-            <button onclick="analyzeProject()" class="btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg">
-              <i class="fas fa-magic"></i>
+            <button onclick="analyzeProject()" class="btn-primary btn-large">
+              <i class="fas fa-magic" style="margin-right: 8px; font-size: 16px;"></i>
               AI 분석 시작하기
             </button>
           ` : ''}
@@ -897,14 +897,14 @@ async function renderRequirements() {
           </div>
           <div class="flex gap-3">
             <button onclick="generateAdditionalRequirements()" 
-                    class="btn-medium bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+                    class="btn-secondary btn-medium"
                     title="기존 요건과 중복되지 않는 새로운 요건을 AI가 제안합니다">
-              <i class="fas fa-plus-circle"></i>
+              <i class="fas fa-plus-circle" style="margin-right: 6px; font-size: 14px;"></i>
               추가 요건 생성
             </button>
             <button onclick="generatePRD()" 
-                    class="btn-medium bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
-              <i class="fas fa-file-alt"></i>
+                    class="btn-primary btn-medium">
+              <i class="fas fa-file-alt" style="margin-right: 6px; font-size: 14px;"></i>
               PRD 생성하기
             </button>
           </div>
@@ -1582,6 +1582,12 @@ function enhancePRDWithMetadata(metadata) {
           // 클릭 이벤트
           row.addEventListener('click', (e) => {
             e.stopPropagation();
+            console.log('📌 표 행 클릭됨:', {
+              rowIdx,
+              requirementTitle: matchedReq.title,
+              questionsCount: matchedReq.questions.length,
+              matchedQuestion: matchedReq.questions[rowIdx]
+            });
             // 특정 질문이 매칭되면 해당 질문 강조, 아니면 전체 요건 표시
             if (matchedReq.questions[rowIdx]) {
               showRequirementDetails(matchedReq, rowIdx);

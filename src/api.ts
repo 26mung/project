@@ -541,7 +541,7 @@ api.post('/projects/:id/generate-prd', async (c) => {
         }
       }
       
-      // 답변이 하나라도 있는 요건은 모두 포함 (이전: 답변이 있는 요건만 포함)
+      // 답변이 하나라도 있는 요건은 모두 포함
       if (questionsWithAnswers.length > 0) {
         requirementsData.push({
           requirement_id: req.id,
@@ -549,11 +549,19 @@ api.post('/projects/:id/generate-prd', async (c) => {
           description: req.description || '',
           questions: questionsWithAnswers,
         });
+        console.log(`✅ 요건 포함: ${req.title} (답변된 질문: ${questionsWithAnswers.length}개)`);
+      } else {
+        console.log(`⏭️ 요건 제외: ${req.title} (답변 없음)`);
       }
     }
     
-    console.log('PRD 생성 데이터 (요건 개수):', requirementsData.length);
-    console.log('PRD 생성 데이터:', JSON.stringify(requirementsData, null, 2));
+    console.log('========================================');
+    console.log('📊 PRD 생성 최종 데이터');
+    console.log('========================================');
+    console.log('전체 요건 수:', requirements.length);
+    console.log('답변된 요건 수:', requirementsData.length);
+    console.log('포함된 요건:', requirementsData.map(r => r.title).join(', '));
+    console.log('========================================');
     
     // PRD 생성
     const prd = await generatePRD(
