@@ -732,10 +732,19 @@ async function renderRequirements() {
             <h1 class="text-3xl font-bold text-toss-gray-900 mb-2">요건 관리</h1>
             <p class="text-sm text-toss-gray-600">각 요건의 질문에 답변해주세요</p>
           </div>
-          <button onclick="generatePRD()" class="btn-medium bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
-            <i class="fas fa-file-alt"></i>
-            PRD 생성하기
-          </button>
+          <div class="flex gap-3">
+            <button onclick="generateAdditionalRequirements()" 
+                    class="btn-medium bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+                    title="기존 요건과 중복되지 않는 새로운 요건을 AI가 제안합니다">
+              <i class="fas fa-plus-circle"></i>
+              추가 요건 생성
+            </button>
+            <button onclick="generatePRD()" 
+                    class="btn-medium bg-green-600 hover:bg-green-700 text-white flex items-center gap-2">
+              <i class="fas fa-file-alt"></i>
+              PRD 생성하기
+            </button>
+          </div>
         </div>
         
         <div class="space-y-4">
@@ -926,16 +935,33 @@ function renderQuestionTree(nodes, level = 0) {
             ${hasAnswer ? '<i class="fas fa-check"></i>' : '?'}
           </div>
           <div class="flex-1">
-            <p class="font-semibold text-toss-gray-900 mb-2">
-              ${level > 0 ? '<i class="fas fa-reply mr-2 text-toss-gray-400"></i>' : ''}
-              ${escapeHtml(node.question_text)}
-            </p>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <p class="font-semibold text-toss-gray-900 flex-1">
+                ${level > 0 ? '<i class="fas fa-reply mr-2 text-toss-gray-400"></i>' : ''}
+                ${escapeHtml(node.question_text)}
+              </p>
+              <div class="flex gap-1">
+                <button onclick="deleteQuestion(${node.id}, '${escapeHtml(node.question_text).replace(/'/g, "\\'")}'); event.stopPropagation();" 
+                        class="btn-icon text-red-500 hover:bg-red-50" 
+                        title="질문 삭제">
+                  <i class="fas fa-trash text-xs"></i>
+                </button>
+              </div>
+            </div>
             ${hasAnswer ? `
               <div class="bg-white border border-green-200 rounded-lg p-3 mb-3">
-                <p class="text-xs font-semibold text-green-700 mb-1 flex items-center gap-1">
-                  <i class="fas fa-check-circle"></i>
-                  답변
-                </p>
+                <div class="flex items-start justify-between gap-2 mb-1">
+                  <p class="text-xs font-semibold text-green-700 flex items-center gap-1">
+                    <i class="fas fa-check-circle"></i>
+                    답변
+                  </p>
+                  <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}); event.stopPropagation();" 
+                          class="text-toss-blue hover:text-blue-700 text-xs font-semibold flex items-center gap-1"
+                          title="답변 수정">
+                    <i class="fas fa-edit"></i>
+                    수정
+                  </button>
+                </div>
                 <p class="text-sm text-toss-gray-800">${escapeHtml(node.answer.answer_text)}</p>
               </div>
             ` : `
