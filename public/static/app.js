@@ -367,7 +367,9 @@ async function evaluateProject() {
   const loadingToast = showLoadingToast('기획안을 평가하고 있어요...');
   
   try {
-    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`);
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`, {}, {
+      timeout: 60000 // 60초 타임아웃
+    });
     const evaluation = response.data;
     
     hideToast(loadingToast);
@@ -473,7 +475,21 @@ async function evaluateProject() {
   } catch (error) {
     console.error('Failed to evaluate project:', error);
     hideToast(loadingToast);
-    showToast('기획안 평가에 실패했습니다', 'error');
+    
+    // 에러 상세 정보 표시
+    let errorMessage = '기획안 평가에 실패했습니다';
+    if (error.response) {
+      // 서버에서 에러 응답을 받은 경우
+      errorMessage = error.response.data?.error || error.response.data?.message || errorMessage;
+    } else if (error.request) {
+      // 요청은 보냈지만 응답을 받지 못한 경우
+      errorMessage = '서버 응답이 없습니다. 네트워크를 확인해주세요.';
+    } else if (error.code === 'ECONNABORTED') {
+      // 타임아웃
+      errorMessage = '요청 시간이 초과되었습니다. 다시 시도해주세요.';
+    }
+    
+    showToast(errorMessage, 'error');
   }
 }
 
