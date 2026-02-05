@@ -732,31 +732,48 @@ async function editProjectOverview(evaluationData = null) {
       <div class="space-y-6">
         ${evaluation ? `
         <!-- 평가 결과 표시 -->
-        <div class="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-2xl p-5">
-          <div class="flex items-start gap-3 mb-4">
-            <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center flex-shrink-0">
-              <i class="fas fa-chart-line text-white"></i>
+        <div style="background: linear-gradient(135deg, #f0f9ff 0%, #dbeafe 100%); border: 2px solid #bfdbfe; border-radius: 16px; padding: 20px;">
+          <!-- 완성도 점수 영역 -->
+          <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+              <div>
+                <div style="color: white; font-size: 14px; font-weight: 600; margin-bottom: 4px;">완성도 점수</div>
+                <div style="color: rgba(255, 255, 255, 0.8); font-size: 12px;">현재 기획안의 완성도를 평가했어요</div>
+              </div>
+              <div style="display: flex; align-items: baseline; gap: 4px;">
+                <span style="color: white; font-size: 48px; font-weight: 700; line-height: 1;">${evaluation.completeness_score}</span>
+                <span style="color: rgba(255, 255, 255, 0.9); font-size: 20px; font-weight: 600;">/100</span>
+              </div>
             </div>
-            <div class="flex-1">
-              <h4 class="text-base font-bold text-toss-gray-900 mb-1">최근 평가 결과</h4>
-              <p class="text-xs text-toss-gray-600">아래 내용을 참고하여 기획안을 보완해보세요</p>
-            </div>
-            <div class="text-right">
-              <div class="text-2xl font-bold text-purple-600">${evaluation.completeness_score}<span class="text-sm">/100</span></div>
-              <div class="text-[10px] text-toss-gray-500 mt-0.5">완성도</div>
+            
+            <!-- 진행 바 -->
+            <div style="background: rgba(255, 255, 255, 0.2); height: 8px; border-radius: 999px; overflow: hidden;">
+              <div style="background: white; height: 100%; width: ${evaluation.completeness_score}%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 999px;"></div>
             </div>
           </div>
           
+          <!-- 프로젝트 성격 (있을 경우) -->
+          ${evaluation.project_type ? `
+          <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="color: var(--grey-900); font-size: 13px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-lightbulb" style="color: var(--blue-500);"></i>
+              프로젝트 성격
+            </div>
+            <p style="color: var(--grey-700); font-size: 13px; line-height: 1.5;">${escapeHtml(evaluation.project_type)}</p>
+          </div>
+          ` : ''}
+          
+          <!-- 보완 항목 -->
           ${evaluation.missing_items && evaluation.missing_items.length > 0 ? `
-          <div class="bg-white/70 rounded-xl p-4 mb-3">
-            <p class="text-xs font-bold text-orange-600 mb-2 flex items-center gap-1.5">
+          <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="color: var(--orange-600); font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
               <i class="fas fa-exclamation-circle"></i>
               보완하면 좋을 항목
-            </p>
-            <ul class="space-y-1.5">
+            </div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
               ${evaluation.missing_items.map(item => `
-                <li class="text-xs text-toss-gray-700 flex items-start gap-2">
-                  <i class="fas fa-circle text-[6px] text-orange-500 mt-1.5"></i>
+                <li style="color: var(--grey-700); font-size: 13px; line-height: 1.6; padding: 6px 0; display: flex; align-items: start; gap: 8px;">
+                  <i class="fas fa-circle" style="color: var(--orange-500); font-size: 6px; margin-top: 7px;"></i>
                   <span>${escapeHtml(item)}</span>
                 </li>
               `).join('')}
@@ -764,16 +781,17 @@ async function editProjectOverview(evaluationData = null) {
           </div>
           ` : ''}
           
+          <!-- 개선 제안 -->
           ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
-          <div class="bg-white/70 rounded-xl p-4">
-            <p class="text-xs font-bold text-toss-blue mb-2 flex items-center gap-1.5">
+          <div style="background: white; border-radius: 12px; padding: 16px;">
+            <div style="color: var(--blue-500); font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
               <i class="fas fa-lightbulb"></i>
               개선 제안
-            </p>
-            <ul class="space-y-1.5">
+            </div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
               ${evaluation.suggestions.map(suggestion => `
-                <li class="text-xs text-toss-gray-700 flex items-start gap-2">
-                  <i class="fas fa-check text-[6px] text-toss-blue mt-1.5"></i>
+                <li style="color: var(--grey-700); font-size: 13px; line-height: 1.6; padding: 6px 0; display: flex; align-items: start; gap: 8px;">
+                  <i class="fas fa-check" style="color: var(--blue-500); font-size: 10px; margin-top: 5px;"></i>
                   <span>${escapeHtml(suggestion)}</span>
                 </li>
               `).join('')}
