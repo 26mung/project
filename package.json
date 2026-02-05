@@ -17,7 +17,6 @@
     "test": "curl http://localhost:3000"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "hono": "^4.11.7"
   },
   "devDependencies": {

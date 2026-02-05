@@ -19,7 +19,7 @@ app.get('/', (c) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>플랫폼기획팀 - 로그인</title>
+        <title>플랫폼기획팀 - 더 쉬운 기획, AI가 함께합니다</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -31,17 +31,10 @@ app.get('/', (c) => {
         </style>
     </head>
     <body class="bg-toss-gray-50">
-        <div id="auth-container" class="min-h-screen flex items-center justify-center px-4">
-            <!-- 로그인 화면이 여기에 렌더링됩니다 -->
-        </div>
-        
-        <div id="app-container" class="hidden">
-            <!-- 메인 앱 UI -->
-        </div>
+        <!-- 앱 컨테이너 (JS에서 동적으로 로그인 화면 또는 메인 앱을 표시) -->
         
         <script src="https://cdn.jsdelivr.net/npm/axios@1.6.0/dist/axios.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/marked@11.0.0/marked.min.js"></script>
-        <script src="/static/auth.js"></script>
         <script src="/static/app.js"></script>
     </body>
     </html>

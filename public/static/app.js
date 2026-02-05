@@ -3,15 +3,179 @@ let currentProject = null;
 let currentTab = 'overview';
 let projects = [];
 let requirements = [];
+let isAuthenticated = false;
 
 // API 기본 URL
 const API_BASE = window.location.origin + '/api';
 
 // ============ 초기화 ============
-document.addEventListener('DOMContentLoaded', () => {
-  loadProjects();
-  initTabStyles();
+document.addEventListener('DOMContentLoaded', async () => {
+  await checkAuthentication();
 });
+
+// ============ 인증 관리 ============
+
+async function checkAuthentication() {
+  try {
+    const response = await axios.get(`${API_BASE}/auth/check`);
+    isAuthenticated = response.data.authenticated;
+    
+    if (isAuthenticated) {
+      showMainApp();
+      loadProjects();
+      initTabStyles();
+    } else {
+      showLoginScreen();
+    }
+  } catch (error) {
+    console.error('Failed to check authentication:', error);
+    showLoginScreen();
+  }
+}
+
+function showLoginScreen() {
+  document.body.innerHTML = `
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div class="text-center mb-8">
+          <div class="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full p-4 mb-4">
+            <i class="fas fa-lock text-3xl"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800 mb-2">플랫폼기획팀</h1>
+          <p class="text-gray-600 text-sm">비밀번호를 입력하여 접속하세요</p>
+        </div>
+        
+        <form onsubmit="handleLogin(event)" class="space-y-4">
+          <div>
+            <label class="block text-sm font-semibold text-gray-700 mb-2">비밀번호</label>
+            <input 
+              type="password" 
+              id="password-input" 
+              class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition-colors"
+              placeholder="비밀번호를 입력하세요"
+              required
+            >
+          </div>
+          
+          <button 
+            type="submit" 
+            class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 rounded-xl font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-[1.02]"
+          >
+            <i class="fas fa-sign-in-alt mr-2"></i>
+            접속하기
+          </button>
+        </form>
+        
+        <div id="login-error" class="hidden mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
+          <i class="fas fa-exclamation-circle mr-1"></i>
+          <span id="login-error-message"></span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function handleLogin(event) {
+  event.preventDefault();
+  
+  const passwordInput = document.getElementById('password-input');
+  const errorDiv = document.getElementById('login-error');
+  const errorMessage = document.getElementById('login-error-message');
+  
+  const password = passwordInput.value;
+  
+  try {
+    const response = await axios.post(`${API_BASE}/auth/verify`, { password });
+    
+    if (response.data.success) {
+      isAuthenticated = true;
+      location.reload(); // 페이지 새로고침하여 메인 앱 표시
+    }
+  } catch (error) {
+    errorDiv.classList.remove('hidden');
+    errorMessage.textContent = '비밀번호가 올바르지 않습니다';
+    passwordInput.value = '';
+    passwordInput.focus();
+  }
+}
+
+function showMainApp() {
+  // 원래 HTML 구조를 복원
+  document.body.innerHTML = \`
+    <div class="min-h-screen bg-toss-gray-50 flex">
+      <!-- Sidebar -->
+      <div class="w-80 bg-white border-r border-toss-gray-200 flex flex-col">
+        <!-- Header -->
+        <div class="p-6 border-b border-toss-gray-200">
+          <div class="flex items-center justify-between mb-6">
+            <h1 class="text-xl font-bold text-toss-gray-900">
+              <i class="fas fa-lightbulb text-toss-blue mr-2"></i>
+              플랫폼기획팀
+            </h1>
+            <button onclick="handleLogout()" class="text-sm text-gray-500 hover:text-red-500 transition-colors" title="로그아웃">
+              <i class="fas fa-sign-out-alt"></i>
+            </button>
+          </div>
+          <button onclick="createNewProject()" class="btn-primary w-full">
+            <i class="fas fa-plus mr-2"></i>
+            새 프로젝트
+          </button>
+        </div>
+        
+        <!-- Project List -->
+        <div class="flex-1 overflow-y-auto p-4">
+          <div id="project-list" class="space-y-2">
+            <!-- Projects will be loaded here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Main Content -->
+      <div class="flex-1 flex flex-col">
+        <!-- Tabs -->
+        <div class="bg-white border-b border-toss-gray-200">
+          <div class="flex space-x-0 px-8">
+            <button id="tab-overview" onclick="switchTab('overview')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
+              <i class="fas fa-home mr-2"></i>
+              프로젝트 개요
+            </button>
+            <button id="tab-requirements" onclick="switchTab('requirements')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
+              <i class="fas fa-tasks mr-2"></i>
+              요건 관리
+            </button>
+            <button id="tab-prd" onclick="switchTab('prd')" class="tab-button px-6 py-4 font-semibold text-sm transition-all">
+              <i class="fas fa-file-alt mr-2"></i>
+              PRD 문서
+            </button>
+          </div>
+        </div>
+        
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto">
+          <div id="content" class="p-8">
+            <!-- Content will be loaded here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Modal Container -->
+      <div id="modal-container"></div>
+      
+      <!-- Toast Container -->
+      <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+    </div>
+  \`;
+}
+
+async function handleLogout() {
+  try {
+    await axios.post(\`\${API_BASE}/auth/logout\`);
+    isAuthenticated = false;
+    location.reload();
+  } catch (error) {
+    console.error('Failed to logout:', error);
+  }
+}
 
 function initTabStyles() {
   const tabs = document.querySelectorAll('.tab-button');
