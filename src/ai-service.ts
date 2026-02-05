@@ -532,10 +532,10 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
 **완성된 PRD를 마크다운으로 출력하세요.**`;
 
   // 🚀 요건이 많으면 나눠서 생성 (타임아웃 방지)
-  const batchSize = 3; // 한 번에 최대 3개 요건 (타임아웃 방지)
+  const batchSize = 2; // 한 번에 최대 2개 요건 (524 타임아웃 완전 방지)
   
   if (requirementsData.length <= batchSize) {
-    // 3개 이하면 한 번에 생성
+    // 2개 이하면 한 번에 생성
     const content = await chatCompletion(
       [
         { role: 'system', content: systemPrompt },
@@ -545,7 +545,7 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
       baseURL,
       false,
       0.2,
-      5000 // 3개 이하는 5000 토큰 사용
+      4000 // 2개 이하는 4000 토큰 사용
     );
     
     return { content };
@@ -617,7 +617,7 @@ ${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
     baseURL,
     false,
     0.2,
-    4000 // 배치는 4000 토큰 (3개 요건)
+    3000 // 배치는 3000 토큰 (2개 요건, 타임아웃 방지)
   );
 }
 
