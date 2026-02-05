@@ -386,6 +386,8 @@ export async function evaluateProjectCompleteness(
   missing_items: string[]; // 부족한 항목들
   suggestions: string[]; // 개선 제안
   is_ready: boolean; // 분석 진행 가능 여부
+  dev_perspective_items?: string[]; // 개발 관점에서 보완하면 좋을 항목
+  ops_perspective_items?: string[]; // 운영 관점에서 보완하면 좋을 항목
 }> {
   const systemPrompt = `당신은 전문 기획자입니다. 프로젝트 기획안을 평가하고 개선 가이드를 제공하세요.
 
@@ -398,6 +400,29 @@ export async function evaluateProjectCompleteness(
 6. **기술적 제약** (5점): 사용할 기술 스택이나 제약사항이 언급되었는가?
 7. **외부 연동** (5점): 필요한 외부 시스템/API가 언급되었는가?
 
+## 관점별 보완 항목
+### 개발 관점 (dev_perspective_items)
+- API 명세 및 인터페이스 정의
+- 데이터 모델 및 스키마 설계
+- 성능 요구사항 (응답 시간, 동시 사용자 등)
+- 보안 요구사항 (인증, 권한, 암호화 등)
+- 에러 처리 및 예외 상황
+- 테스트 시나리오 및 검증 기준
+- 개발 환경 및 배포 프로세스
+- 코드 품질 기준 및 리뷰 정책
+
+### 운영 관점 (ops_perspective_items)
+- 모니터링 및 알람 정책
+- 로그 수집 및 분석 방안
+- 백업 및 복구 절차
+- 장애 대응 프로세스
+- 성능 튜닝 및 최적화 계획
+- 용량 산정 및 확장 계획
+- 운영 매뉴얼 및 가이드
+- SLA(서비스 수준 협약) 정의
+
+**참고**: 아젠다에 따라 운영 범위가 다르므로, 해당 프로젝트에 적합한 항목만 제안하세요.
+
 ## 출력 형식 (유효한 JSON만)
 {
   "completeness_score": 85,
@@ -407,13 +432,26 @@ export async function evaluateProjectCompleteness(
     "주요 사용자 시나리오를 단계별로 작성해주세요",
     "사용할 기술 스택이 있다면 명시해주세요"
   ],
+  "dev_perspective_items": [
+    "API 엔드포인트 및 파라미터 명세",
+    "데이터베이스 테이블 스키마 정의",
+    "인증/권한 체계 설계"
+  ],
+  "ops_perspective_items": [
+    "서버 모니터링 및 알람 설정",
+    "로그 수집 및 분석 도구 선정",
+    "백업 주기 및 복구 절차"
+  ],
   "is_ready": true
 }
 
 **중요**: 
 - completeness_score가 60점 이상이면 is_ready=true
 - missing_items는 최대 5개까지만
-- suggestions는 구체적이고 실행 가능한 조언으로 최대 5개`;
+- suggestions는 구체적이고 실행 가능한 조언으로 최대 5개
+- dev_perspective_items: 개발자 관점에서 보완하면 좋을 항목 (최대 5개)
+- ops_perspective_items: 운영담당자 관점에서 보완하면 좋을 항목 (최대 5개)
+- 각 관점 항목은 해당 프로젝트에 적합한 것만 선별`;
 
   const userPrompt = `## 프로젝트 정보
 제목: ${projectTitle}

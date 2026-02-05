@@ -1038,7 +1038,7 @@ async function editProjectOverview(evaluationData = null) {
           
           <!-- 개선 제안 -->
           ${evaluation.suggestions && evaluation.suggestions.length > 0 ? `
-          <div style="background: white; border-radius: 12px; padding: 16px;">
+          <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
             <div style="color: var(--blue-500); font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
               <i class="fas fa-lightbulb"></i>
               개선 제안
@@ -1048,6 +1048,45 @@ async function editProjectOverview(evaluationData = null) {
                 <li style="color: var(--grey-700); font-size: 13px; line-height: 1.6; padding: 6px 0; display: flex; align-items: start; gap: 8px;">
                   <i class="fas fa-check" style="color: var(--blue-500); font-size: 10px; margin-top: 5px;"></i>
                   <span>${escapeHtml(suggestion)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          <!-- 개발 관점 보완 항목 -->
+          ${evaluation.dev_perspective_items && evaluation.dev_perspective_items.length > 0 ? `
+          <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;">
+            <div style="color: var(--purple-600); font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-code"></i>
+              개발 관점에서 보완하면 좋을 항목
+            </div>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${evaluation.dev_perspective_items.map(item => `
+                <li style="color: var(--grey-700); font-size: 13px; line-height: 1.6; padding: 6px 0; display: flex; align-items: start; gap: 8px;">
+                  <i class="fas fa-circle" style="color: var(--purple-500); font-size: 6px; margin-top: 7px;"></i>
+                  <span>${escapeHtml(item)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          <!-- 운영 관점 보완 항목 -->
+          ${evaluation.ops_perspective_items && evaluation.ops_perspective_items.length > 0 ? `
+          <div style="background: white; border-radius: 12px; padding: 16px;">
+            <div style="color: var(--green-600); font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-cog"></i>
+              운영 관점에서 보완하면 좋을 항목
+            </div>
+            <p style="color: var(--grey-600); font-size: 11px; margin-bottom: 12px; padding-left: 20px;">
+              💡 아젠다에 따라 운영 범위가 다르므로 참고용으로 활용하세요
+            </p>
+            <ul style="list-style: none; padding: 0; margin: 0;">
+              ${evaluation.ops_perspective_items.map(item => `
+                <li style="color: var(--grey-700); font-size: 13px; line-height: 1.6; padding: 6px 0; display: flex; align-items: start; gap: 8px;">
+                  <i class="fas fa-circle" style="color: var(--green-500); font-size: 6px; margin-top: 7px;"></i>
+                  <span>${escapeHtml(item)}</span>
                 </li>
               `).join('')}
             </ul>
