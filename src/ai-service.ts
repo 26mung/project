@@ -532,10 +532,10 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
 **완성된 PRD를 마크다운으로 출력하세요.**`;
 
   // 🚀 요건이 많으면 나눠서 생성 (타임아웃 방지)
-  const batchSize = 5; // 한 번에 최대 5개 요건
+  const batchSize = 3; // 한 번에 최대 3개 요건 (타임아웃 방지)
   
   if (requirementsData.length <= batchSize) {
-    // 5개 이하면 한 번에 생성
+    // 3개 이하면 한 번에 생성
     const content = await chatCompletion(
       [
         { role: 'system', content: systemPrompt },
@@ -545,26 +545,28 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
       baseURL,
       false,
       0.2,
-      8000 // 5개 이하는 8000 토큰 사용
+      5000 // 3개 이하는 5000 토큰 사용
     );
     
     return { content };
   } else {
-    // 5개 초과면 나눠서 생성
-    console.log(`[PRD 생성] 요건이 ${requirementsData.length}개로 많아서 2번에 나눠 생성합니다`);
+    // 3개 초과면 여러 번에 나눠 생성
+    const batches: any[][] = [];
+    for (let i = 0; i < requirementsData.length; i += batchSize) {
+      batches.push(requirementsData.slice(i, i + batchSize));
+    }
     
-    const midpoint = Math.ceil(requirementsData.length / 2);
-    const batch1 = requirementsData.slice(0, midpoint);
-    const batch2 = requirementsData.slice(midpoint);
+    console.log(`[PRD 생성] 요건이 ${requirementsData.length}개로 많아서 ${batches.length}번에 나눠 생성합니다`);
     
-    console.log(`[PRD 생성] 1차: ${batch1.length}개 요건 생성...`);
-    const content1 = await generatePRDBatch(projectTitle, projectDescription, batch1, systemPrompt, apiKey, baseURL);
+    const contents: string[] = [];
+    for (let i = 0; i < batches.length; i++) {
+      console.log(`[PRD 생성] ${i + 1}/${batches.length}차: ${batches[i].length}개 요건 생성...`);
+      const content = await generatePRDBatch(projectTitle, projectDescription, batches[i], systemPrompt, apiKey, baseURL);
+      contents.push(content);
+    }
     
-    console.log(`[PRD 생성] 2차: ${batch2.length}개 요건 생성...`);
-    const content2 = await generatePRDBatch(projectTitle, projectDescription, batch2, systemPrompt, apiKey, baseURL);
-    
-    // 두 결과를 합침 (4번 섹션만 합치기)
-    const mergedContent = mergePRDSections(content1, content2);
+    // 모든 결과를 합침
+    const mergedContent = mergePRDBatches(contents);
     
     return { content: mergedContent };
   }
@@ -615,22 +617,23 @@ ${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
     baseURL,
     false,
     0.2,
-    6000 // 배치는 6000 토큰
+    4000 // 배치는 4000 토큰 (3개 요건)
   );
 }
 
-// 두 PRD의 4번 섹션을 합침
-function mergePRDSections(content1: string, content2: string): string {
-  // 1번 PRD에서 1-3번 섹션 추출
-  const header = content1.split('# 4. 요건별 상세 정책')[0];
+// 여러 PRD 배치를 합침
+function mergePRDBatches(contents: string[]): string {
+  if (contents.length === 1) return contents[0];
   
-  // 1번 PRD에서 4번 섹션 추출
-  const section4_1 = content1.split('# 4. 요건별 상세 정책')[1] || '';
+  // 첫 번째 PRD에서 1-3번 섹션 추출
+  const header = contents[0].split('# 4. 요건별 상세 정책')[0];
   
-  // 2번 PRD에서 4번 섹션만 추출
-  const section4_2 = content2.split('# 4. 요건별 상세 정책')[1] || '';
+  // 모든 PRD에서 4번 섹션 추출
+  const allSection4 = contents
+    .map(content => content.split('# 4. 요건별 상세 정책')[1] || '')
+    .join('\n\n');
   
-  return `${header}# 4. 요건별 상세 정책${section4_1}\n\n${section4_2}`;
+  return `${header}# 4. 요건별 상세 정책${allSection4}`;
 }
 
 /**
