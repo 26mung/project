@@ -595,6 +595,18 @@ textarea {
   background: var(--toss-gray-50);
 }
 
+/* 클릭 가능한 행 강조 */
+.prd-document tbody tr.hover-highlight {
+  transition: all 0.2s ease;
+}
+
+.prd-document tbody tr.hover-highlight:hover {
+  background: var(--toss-blue-light) !important;
+  cursor: pointer;
+  transform: scale(1.01);
+  box-shadow: 0 2px 8px rgba(49, 130, 246, 0.15);
+}
+
 /* 코드 블록 스타일 */
 .prd-document code {
   background: var(--toss-gray-100);

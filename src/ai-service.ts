@@ -394,9 +394,15 @@ export async function generatePRD(
   projectTitle: string,
   projectDescription: string,
   requirementsData: {
+    requirement_id?: number;
     title: string;
     description: string;
-    questions: { question: string; answer: string }[];
+    questions: { 
+      question_id?: number;
+      question: string; 
+      answer_id?: number;
+      answer: string;
+    }[];
   }[],
   apiKey: string,
   baseURL: string
@@ -406,7 +412,7 @@ export async function generatePRD(
 **PRD 구성:**
 
 # 1. 프로젝트명
-프로젝트 제목을 명확하게 기재
+${projectTitle}
 
 # 2. 프로젝트 목적
 이 프로젝트를 통해 달성하고자 하는 목표를 3-5줄로 명확하게 작성
@@ -417,51 +423,56 @@ export async function generatePRD(
 - 현재 상황과 개선하고자 하는 부분
 
 # 4. 요건별 상세 정책
-각 요건마다 아래 형식으로 정리:
+
+**중요**: 아래 각 요건마다 반드시 다음 형식으로 작성하세요:
 
 ## [요건 제목]
 
 ### 정책 및 기준
 답변 내용을 바탕으로 구체적인 정책을 표로 정리:
 
-| 항목 | 정책/기준 | 근거(답변 요약) |
-|------|----------|----------------|
-| ... | ... | ... |
+| 정책 항목 | 구체적 기준 | 근거 (답변 요약) |
+|----------|------------|------------------|
+| [항목1] | [기준1] | [답변 요약] |
+| [항목2] | [기준2] | [답변 요약] |
 
 ### 주요 결정 사항
 - 핵심 결정사항 1
 - 핵심 결정사항 2
 
-### 질문/답변 원본
+### 확인된 질문/답변
 <details>
-<summary>질문/답변 상세 보기</summary>
+<summary>📋 질문/답변 상세 보기</summary>
 
-**Q1**: [질문]
-**A1**: [답변]
+**Q1**: [질문 내용]
+**A1**: [답변 내용]
 
-**Q2**: [질문]
-**A2**: [답변]
+**Q2**: [질문 내용]
+**A2**: [답변 내용]
 </details>
 
 ---
 
 **작성 규칙:**
-- 노션 스타일로 깔끔하게 작성
-- 기획자 언어 사용 (개발 용어 지양)
-- 답변 내용을 정책으로 승화시켜 표현
-- 적절한 헤딩, 표, 리스트 활용
-- 가독성 최우선`;
+1. **4번 요건별 상세 정책은 반드시 모든 요건에 대해 작성**
+2. 노션 스타일로 깔끔하게 작성
+3. 기획자 언어 사용 (개발 용어 지양)
+4. 답변 내용을 정책으로 승화시켜 표현
+5. 적절한 헤딩, 표, 리스트 활용
+6. 가독성 최우선
+7. **빈 섹션 없이 모든 내용 작성**`;
 
   // 요구사항을 더 상세하게 포맷팅
   const requirementsText = requirementsData
-    .map((req) => {
+    .map((req, idx) => {
       const questionsAndAnswers = req.questions
-        .map((q, idx) => `**Q${idx + 1}**: ${q.question}\n**A${idx + 1}**: ${q.answer}`)
+        .map((q, qIdx) => `**Q${qIdx + 1}**: ${q.question}\n**A${qIdx + 1}**: ${q.answer}`)
         .join('\n\n');
       
       return `
-## 요건: ${req.title}
+### 요건 ${idx + 1}: ${req.title}
 **설명**: ${req.description}
+**질문/답변 개수**: ${req.questions.length}개
 
 **확인된 내용:**
 ${questionsAndAnswers}
@@ -470,19 +481,25 @@ ${questionsAndAnswers}
     })
     .join('\n');
 
-  const userPrompt = `프로젝트: ${projectTitle}
+  const userPrompt = `## 프로젝트 정보
+프로젝트: ${projectTitle}
 설명: ${projectDescription}
+총 요건 개수: ${requirementsData.length}개
 
-아래 요구사항과 답변을 바탕으로 PRD를 작성하세요:
+## 요구사항과 답변
 
 ${requirementsText}
 
-**중요**: 
-1. 프로젝트명, 목적, 배경을 명확하게 구분하여 작성
-2. 각 요건의 답변에서 정책을 도출하여 표로 정리
-3. 질문/답변은 접을 수 있는 details 태그로 정리
-4. 노션처럼 깔끔한 레이아웃으로 작성
-5. 실무에서 바로 참고 가능한 수준으로 작성`;
+## 중요 지침
+1. **프로젝트명, 목적, 배경을 명확하게 구분하여 작성**
+2. **4번 섹션에 위의 ${requirementsData.length}개 요건을 모두 작성**
+3. **각 요건마다 정책 표, 결정사항, details 태그를 반드시 포함**
+4. **빈 섹션이 없도록 모든 내용 작성**
+5. 질문/답변은 details 태그로 접을 수 있게 정리
+6. 노션처럼 깔끔한 레이아웃으로 작성
+7. 실무에서 바로 참고 가능한 수준으로 작성
+
+**완성된 PRD를 마크다운으로 출력하세요. 4번 섹션이 비어있으면 안됩니다!**`;
 
   const content = await chatCompletion(
     [
@@ -490,7 +507,10 @@ ${requirementsText}
       { role: 'user', content: userPrompt },
     ],
     apiKey,
-    baseURL
+    baseURL,
+    false, // JSON 모드 사용 안함 (마크다운 출력)
+    0.3,
+    4000 // 토큰 증가
   );
 
   return { content };

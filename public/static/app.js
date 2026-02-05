@@ -1113,6 +1113,14 @@ async function renderPRD() {
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
     const prd = response.data;
     
+    // 메타데이터 파싱
+    let metadata = null;
+    try {
+      metadata = prd.metadata ? JSON.parse(prd.metadata) : null;
+    } catch (e) {
+      console.error('Failed to parse metadata:', e);
+    }
+    
     content.innerHTML = `
       <div>
         <div class="flex justify-between items-center mb-8">
@@ -1138,12 +1146,29 @@ async function renderPRD() {
           </div>
         </div>
         
+        ${metadata && metadata.requirements ? `
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+            <div class="flex items-center gap-2 mb-2">
+              <i class="fas fa-info-circle text-toss-blue"></i>
+              <p class="text-sm font-semibold text-toss-blue">검증 모드 활성화</p>
+            </div>
+            <p class="text-xs text-toss-gray-700">
+              PRD의 정책 문장을 클릭하면 해당 내용이 어떤 요건의 어떤 질문/답변에서 도출되었는지 확인할 수 있어요
+            </p>
+          </div>
+        ` : ''}
+        
         <!-- 노션 스타일 PRD 문서 -->
-        <div class="prd-document">
+        <div class="prd-document" id="prd-content">
           ${marked.parse(prd.content)}
         </div>
       </div>
     `;
+    
+    // 메타데이터가 있으면 인터랙티브 기능 추가
+    if (metadata && metadata.requirements) {
+      enhancePRDWithMetadata(metadata);
+    }
   } catch (error) {
     content.innerHTML = `
       <div class="flex flex-col items-center justify-center py-20">
@@ -1161,6 +1186,121 @@ async function renderPRD() {
       </div>
     `;
   }
+}
+
+// PRD에 메타데이터 기반 인터랙티브 기능 추가
+function enhancePRDWithMetadata(metadata) {
+  const prdContent = document.getElementById('prd-content');
+  if (!prdContent) return;
+  
+  // 4번 섹션(요건별 상세 정책) 아래의 h2, h3 헤딩 찾기
+  const headings = prdContent.querySelectorAll('h2, h3');
+  const requirements = metadata.requirements || [];
+  
+  // 각 요건에 대한 정보 카드 추가
+  headings.forEach((heading, idx) => {
+    const headingText = heading.textContent.trim();
+    
+    // 요건 제목과 매칭
+    const matchedReq = requirements.find(req => 
+      headingText.includes(req.title) || req.title.includes(headingText)
+    );
+    
+    if (matchedReq && matchedReq.questions && matchedReq.questions.length > 0) {
+      // 요건 정보 뱃지 추가
+      const badge = document.createElement('button');
+      badge.className = 'inline-flex items-center gap-1 ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-semibold hover:bg-purple-200 transition-all';
+      badge.innerHTML = `
+        <i class="fas fa-question-circle"></i>
+        ${matchedReq.questions.length}개 질문
+      `;
+      badge.onclick = (e) => {
+        e.preventDefault();
+        showRequirementDetails(matchedReq);
+      };
+      heading.appendChild(badge);
+    }
+  });
+  
+  // 표의 각 행에 클릭 이벤트 추가
+  const tables = prdContent.querySelectorAll('table');
+  tables.forEach((table) => {
+    const rows = table.querySelectorAll('tbody tr');
+    
+    rows.forEach((row, rowIdx) => {
+      row.style.cursor = 'pointer';
+      row.classList.add('hover-highlight');
+      
+      row.onclick = () => {
+        // 해당 행이 속한 섹션의 요건 찾기
+        let currentElement = table;
+        let requirementTitle = '';
+        
+        while (currentElement && currentElement !== prdContent) {
+          if (currentElement.tagName === 'H2' || currentElement.tagName === 'H3') {
+            requirementTitle = currentElement.textContent.trim();
+            break;
+          }
+          currentElement = currentElement.previousElementSibling;
+        }
+        
+        const matchedReq = requirements.find(req => 
+          requirementTitle.includes(req.title) || req.title.includes(requirementTitle)
+        );
+        
+        if (matchedReq) {
+          showRequirementDetails(matchedReq, rowIdx);
+        }
+      };
+    });
+  });
+}
+
+// 요건 상세 정보 모달 표시
+function showRequirementDetails(requirement, highlightRowIdx = null) {
+  const questionsHtml = requirement.questions.map((q, idx) => `
+    <div class="mb-4 p-4 rounded-lg ${highlightRowIdx === idx ? 'bg-yellow-50 border-2 border-yellow-300' : 'bg-toss-gray-50'}">
+      <div class="flex items-start gap-2 mb-2">
+        <span class="text-xs font-bold text-toss-blue">${highlightRowIdx === idx ? '👉 ' : ''}Q${idx + 1}</span>
+        <p class="text-sm font-semibold text-toss-gray-900 flex-1">${escapeHtml(q.question)}</p>
+      </div>
+      <div class="flex items-start gap-2 ml-6">
+        <span class="text-xs font-bold text-green-600">A${idx + 1}</span>
+        <p class="text-sm text-toss-gray-800 flex-1">${escapeHtml(q.answer)}</p>
+      </div>
+    </div>
+  `).join('');
+  
+  showModal({
+    title: `📋 ${requirement.title}`,
+    size: 'large',
+    content: `
+      <div class="space-y-4">
+        ${requirement.description ? `
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p class="text-sm text-toss-gray-800">${escapeHtml(requirement.description)}</p>
+          </div>
+        ` : ''}
+        
+        <div>
+          <h3 class="font-bold text-toss-gray-900 mb-3 flex items-center gap-2">
+            <i class="fas fa-clipboard-question text-toss-blue"></i>
+            확인 질문 및 답변 (${requirement.questions.length}개)
+          </h3>
+          ${questionsHtml}
+        </div>
+        
+        ${highlightRowIdx !== null ? `
+          <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-3">
+            <p class="text-xs text-yellow-800 flex items-center gap-2">
+              <i class="fas fa-lightbulb"></i>
+              위 ${highlightRowIdx + 1}번째 질문/답변이 PRD의 해당 정책 항목의 근거입니다
+            </p>
+          </div>
+        ` : ''}
+      </div>
+    `
+  });
 }
 
 // PRD 재생성 함수

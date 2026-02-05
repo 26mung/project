@@ -460,18 +460,26 @@ api.post('/projects/:id/generate-prd', async (c) => {
         
         if (answer) {
           questionsWithAnswers.push({
+            question_id: q.id,
             question: q.question_text,
+            answer_id: answer.id,
             answer: answer.answer_text,
           });
         }
       }
       
-      requirementsData.push({
-        title: req.title,
-        description: req.description || '',
-        questions: questionsWithAnswers,
-      });
+      // 답변이 있는 요건만 포함
+      if (questionsWithAnswers.length > 0) {
+        requirementsData.push({
+          requirement_id: req.id,
+          title: req.title,
+          description: req.description || '',
+          questions: questionsWithAnswers,
+        });
+      }
     }
+    
+    console.log('PRD 생성 데이터:', JSON.stringify(requirementsData, null, 2));
     
     // PRD 생성
     const prd = await generatePRD(
@@ -482,10 +490,21 @@ api.post('/projects/:id/generate-prd', async (c) => {
       baseURL
     );
     
-    // PRD 저장
+    // PRD 저장 (메타데이터 포함)
+    const prdData = {
+      content: prd.content,
+      metadata: {
+        requirements: requirementsData,
+        project: {
+          title: project.title,
+          description: project.description,
+        }
+      }
+    };
+    
     const result = await DB.prepare(
-      'INSERT INTO prd_documents (project_id, content) VALUES (?, ?)'
-    ).bind(id, prd.content).run();
+      'INSERT INTO prd_documents (project_id, content, metadata) VALUES (?, ?, ?)'
+    ).bind(id, prd.content, JSON.stringify(prdData.metadata)).run();
     
     // 프로젝트 상태 업데이트
     await DB.prepare(
