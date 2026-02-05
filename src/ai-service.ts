@@ -22,7 +22,7 @@ export interface PRDGenerationResult {
 /**
  * OpenAI 호환 API를 사용하여 채팅 완료
  */
-async function chatCompletion(
+export async function chatCompletion(
   messages: { role: string; content: string }[],
   apiKey: string,
   baseURL: string,
@@ -401,44 +401,77 @@ export async function generatePRD(
   apiKey: string,
   baseURL: string
 ): Promise<PRDGenerationResult> {
-  const systemPrompt = `당신은 기획자입니다. 다음 형식으로 PRD(기획서)를 작성하세요:
+  const systemPrompt = `당신은 시니어 기획자입니다. 주니어 기획자가 작성한 요건과 답변을 바탕으로 실무에서 바로 사용 가능한 PRD를 작성하세요.
 
-**반드시 표 형식으로 작성하고, 기획자가 이해하기 쉬운 비즈니스 언어를 사용하세요.**
+**PRD 구성 (모두 표 형식):**
 
-구성:
-1. 📋 프로젝트 개요
-2. 🎯 핵심 목표 및 기대 효과
-3. 👥 사용자 정의 (페르소나가 있다면 표로 정리)
-4. ⚙️ 주요 기능 목록 (표 형식)
-5. 🔄 사용자 시나리오 및 플로우
-6. 📊 요구사항 상세 (표 형식)
-7. 🚀 우선순위 및 일정 제안
+1. 📋 **프로젝트 개요**
+   - 프로젝트명, 목적, 배경을 표로 정리
 
-**중요**: 
-- 모든 항목을 마크다운 표로 정리하세요
-- 개발자 용어(API, DB, 클래스)가 아닌 기획자 언어(화면, 기능, 사용자 행동)로 작성하세요
-- 각 섹션에 이모지를 사용해 가독성을 높이세요`;
+2. 🎯 **핵심 목표 및 성공 지표**
+   - 달성 목표와 측정 방법을 표로 정리
 
+3. 👥 **사용자 정의**
+   - 타겟 사용자(페르소나)를 표로 정리
+
+4. ⚙️ **주요 기능 목록**
+   - 기능명, 설명, 우선순위를 표로 정리
+
+5. 📋 **요건별 상세 정책 및 기준**
+   **중요**: 각 요건마다 아래 형식으로 정리하세요:
+   
+   ### 요건명
+   **답변 기반 정책:**
+   | 항목 | 정책/기준 | 근거(답변 내용) |
+   |------|----------|----------------|
+   | ... | ... | ... |
+   
+   **주요 결정 사항:**
+   - 답변에서 도출된 구체적인 기준들을 나열
+
+6. 🔄 **사용자 시나리오**
+   - 주요 시나리오를 단계별 표로 정리
+
+7. 🚀 **우선순위 및 일정**
+   - 단계별 구현 계획을 표로 정리
+
+**작성 규칙:**
+- 모든 섹션을 마크다운 표로 작성
+- 답변 내용을 바탕으로 구체적인 정책/기준을 도출
+- 기획자 언어로 작성 (화면, 기능, 사용자 행동)
+- 각 요건의 답변에서 핵심 결정사항을 추출하여 명시
+- 가독성을 위해 적절한 공백과 구분선 사용`;
+
+  // 요구사항을 더 상세하게 포맷팅
   const requirementsText = requirementsData
-    .map(
-      (req) => `
-### ${req.title}
-${req.description}
+    .map((req) => {
+      const questionsAndAnswers = req.questions
+        .map((q, idx) => `**Q${idx + 1}**: ${q.question}\n**A${idx + 1}**: ${q.answer}`)
+        .join('\n\n');
+      
+      return `
+## 요건: ${req.title}
+**설명**: ${req.description}
 
-**확인된 사항:**
-${req.questions.map((q) => `- ${q.question}\n  → ${q.answer}`).join('\n')}
-`
-    )
+**확인된 내용:**
+${questionsAndAnswers}
+
+---`;
+    })
     .join('\n');
 
-  const userPrompt = `프로젝트명: ${projectTitle}
-프로젝트 설명: ${projectDescription}
+  const userPrompt = `프로젝트: ${projectTitle}
+설명: ${projectDescription}
 
-도출된 요구사항:
+아래 요구사항과 답변을 바탕으로 PRD를 작성하세요:
+
 ${requirementsText}
 
-위 정보를 바탕으로 기획자가 이해하기 쉬운 PRD를 작성해주세요.
-반드시 표 형식을 사용하고, 비즈니스 관점의 언어로 작성하세요.`;
+**중요**: 
+1. 각 요건의 답변 내용에서 구체적인 정책/기준을 도출하여 표로 정리하세요
+2. "답변 기반 정책" 표에서 답변 내용을 근거로 명시하세요
+3. 실무에서 바로 참고할 수 있는 수준으로 작성하세요
+4. 모든 내용을 표 형식으로 정리하세요`;
 
   const content = await chatCompletion(
     [

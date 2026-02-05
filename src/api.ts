@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
-import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness } from './ai-service';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion } from './ai-service';
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -513,6 +513,160 @@ api.get('/projects/:id/prd', async (c) => {
   }
   
   return c.json(prd);
+});
+
+// ============ 답변 수정 API ============
+
+// 답변 수정
+api.put('/answers/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body: { answer_text: string } = await c.req.json();
+  
+  try {
+    await DB.prepare(
+      'UPDATE answers SET answer_text = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    ).bind(body.answer_text, id).run();
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Answer update error:', error);
+    return c.json({ error: 'Failed to update answer' }, 500);
+  }
+});
+
+// ============ 질문 삭제 API ============
+
+// 질문 삭제 (관련 답변도 함께 삭제)
+api.delete('/questions/:id', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  
+  try {
+    // 관련 답변 삭제
+    await DB.prepare('DELETE FROM answers WHERE question_id = ?').bind(id).run();
+    
+    // 질문 삭제
+    await DB.prepare('DELETE FROM questions WHERE id = ?').bind(id).run();
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Question delete error:', error);
+    return c.json({ error: 'Failed to delete question' }, 500);
+  }
+});
+
+// ============ 추가 요건 생성 API ============
+
+// 기존 요건과 중복되지 않는 새로운 요건 생성
+api.post('/projects/:id/generate-additional-requirements', async (c) => {
+  const { DB } = c.env;
+  const projectId = c.req.param('id');
+  
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+  
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+  
+  try {
+    // 프로젝트 정보
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(projectId).first() as any;
+    
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
+    // 기존 요건 목록
+    const { results: existingRequirements } = await DB.prepare(
+      'SELECT id, title, description, requirement_type FROM requirements WHERE project_id = ?'
+    ).bind(projectId).all();
+    
+    const existingRequirementsText = existingRequirements
+      .map((req: any) => `- ${req.title}: ${req.description} (${req.requirement_type})`)
+      .join('\n');
+    
+    // AI로 추가 요건 생성
+    const systemPrompt = `당신은 시니어 기획자입니다. 기존 요건을 검토하고 **누락된 중요한 요건**을 찾아 추가하세요.
+
+응답 형식:
+{
+  "requirements": [
+    {
+      "title": "요건명",
+      "description": "설명",
+      "requirement_type": "functional|non_functional|constraint",
+      "priority": "high",
+      "questions": [
+        {
+          "question_text": "질문",
+          "question_type": "open"
+        }
+      ]
+    }
+  ]
+}
+
+규칙:
+- 기존 요건과 중복되지 않는 새로운 요건만 생성
+- 최대 3개까지만 생성
+- 중요하고 실용적인 요건만 추가
+- 기존 요건으로 충분하다면 빈 배열 반환`;
+
+    const userPrompt = `프로젝트: ${project.title}
+기획안: ${project.input_content || ''}
+
+기존 요건:
+${existingRequirementsText}
+
+위 기존 요건을 검토하고, 중복되지 않으면서 꼭 필요한 추가 요건이 있다면 최대 3개 제안하세요.`;
+
+    const content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL,
+      true  // JSON mode
+    );
+    
+    const result = JSON.parse(content);
+    const newRequirements = result.requirements || [];
+    
+    // 새 요건 저장
+    for (const req of newRequirements) {
+      const reqResult = await DB.prepare(
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+      ).bind(
+        projectId,
+        req.title,
+        req.description,
+        req.requirement_type,
+        req.priority,
+        'pending'
+      ).run();
+      
+      const requirementId = reqResult.meta.last_row_id;
+      
+      // 질문 저장
+      for (const q of req.questions || []) {
+        await DB.prepare(
+          'INSERT INTO questions (requirement_id, question_text, question_type, display_order) VALUES (?, ?, ?, ?)'
+        ).bind(requirementId, q.question_text, q.question_type, 0).run();
+      }
+    }
+    
+    return c.json({ 
+      success: true, 
+      added_count: newRequirements.length,
+      requirements: newRequirements 
+    });
+  } catch (error) {
+    console.error('Additional requirements generation error:', error);
+    return c.json({ error: 'Failed to generate additional requirements', message: String(error) }, 500);
+  }
 });
 
 export default api;

@@ -1386,3 +1386,114 @@ async function generateDerivedRequirements(requirementId) {
   }
 }
 
+// ============ 답변 수정 기능 ============
+async function editAnswer(answerId, currentText, questionId) {
+  showModal({
+    title: '답변 수정',
+    size: 'medium',
+    content: `
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-toss-gray-900 mb-2">답변 내용</label>
+          <textarea id="edit-answer-text" rows="6" class="w-full bg-white border-2 border-toss-gray-200 rounded-xl px-4 py-3 text-toss-gray-900 focus:outline-none focus:border-toss-blue transition-colors">${escapeHtml(currentText)}</textarea>
+        </div>
+      </div>
+    `,
+    confirmText: '수정 완료',
+    cancelText: '취소',
+    onConfirm: async () => {
+      const newText = document.getElementById('edit-answer-text').value.trim();
+      
+      if (!newText) {
+        showToast('답변 내용을 입력해주세요', 'error');
+        return false;
+      }
+      
+      try {
+        await axios.put(`${API_BASE}/answers/${answerId}`, {
+          answer_text: newText
+        });
+        
+        showToast('답변이 수정되었습니다', 'success');
+        
+        // 해당 요건 상세 다시 열기
+        openRequirementDetails(questionId);
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to update answer:', error);
+        showToast('답변 수정에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
+}
+
+// ============ 질문 삭제 기능 ============
+async function deleteQuestion(questionId, questionText) {
+  showModal({
+    title: '질문 삭제',
+    content: `
+      <div class="space-y-4">
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+          <div class="flex gap-3">
+            <i class="fas fa-exclamation-triangle text-yellow-600 text-xl"></i>
+            <div>
+              <p class="text-sm font-semibold text-toss-gray-900 mb-2">이 질문을 삭제하시겠어요?</p>
+              <p class="text-sm text-toss-gray-700 mb-3">"${escapeHtml(questionText)}"</p>
+              <p class="text-xs text-toss-gray-600">관련된 답변도 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    `,
+    confirmText: '삭제하기',
+    cancelText: '취소',
+    onConfirm: async () => {
+      try {
+        await axios.delete(`${API_BASE}/questions/${questionId}`);
+        
+        showToast('질문이 삭제되었습니다', 'success');
+        
+        // 요건 목록 새로고침
+        await renderRequirements();
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to delete question:', error);
+        showToast('질문 삭제에 실패했습니다', 'error');
+        return false;
+      }
+    }
+  });
+}
+
+// ============ 추가 요건 생성 기능 ============
+async function generateAdditionalRequirements() {
+  if (!currentProject) return;
+  
+  const loadingToast = showLoadingToast('기존 요건을 분석하고 추가 요건을 찾고 있어요...');
+  
+  try {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/generate-additional-requirements`);
+    
+    hideToast(loadingToast);
+    
+    if (response.data.success) {
+      const count = response.data.added_count;
+      
+      if (count > 0) {
+        await renderRequirements();
+        showToast(`${count}개의 새로운 요건이 추가되었습니다! 🎉`, 'success');
+      } else {
+        showToast('기존 요건으로 충분합니다. 추가 요건이 필요 없어요', 'info');
+      }
+    } else {
+      showToast(response.data.message || '추가 요건 생성에 실패했습니다', 'error');
+    }
+  } catch (error) {
+    console.error('Failed to generate additional requirements:', error);
+    hideToast(loadingToast);
+    showToast('추가 요건 생성에 실패했습니다', 'error');
+  }
+}
