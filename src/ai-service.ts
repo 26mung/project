@@ -38,7 +38,7 @@ export async function chatCompletion(
   console.log(`[AI Service] Max tokens: ${maxTokens}`);
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 100000); // 100초 타임아웃 (게이트웨이 타임아웃 120초보다 짧게)
+  const timeoutId = setTimeout(() => controller.abort(), 50000); // 50초 타임아웃 (1개 요건, 매우 짧게)
   
   try {
     const requestBody: any = {
@@ -532,7 +532,7 @@ ${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
 **완성된 PRD를 마크다운으로 출력하세요.**`;
 
   // 🚀 요건이 많으면 나눠서 생성 (타임아웃 방지)
-  const batchSize = 2; // 한 번에 최대 2개 요건 (524 타임아웃 완전 방지)
+  const batchSize = 1; // 한 번에 최대 1개 요건 (Wrangler 타임아웃 완전 우회)
   
   if (requirementsData.length <= batchSize) {
     // 2개 이하면 한 번에 생성
@@ -617,7 +617,7 @@ ${requirements.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}`;
     baseURL,
     false,
     0.2,
-    2000 // 배치는 2000 토큰 (2개 요건, 각 배치 40초 이내로 완료)
+    1500 // 배치는 1500 토큰 (1개 요건, 각 배치 20-30초 이내로 완료)
   );
 }
 
