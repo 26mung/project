@@ -26,12 +26,16 @@ export async function chatCompletion(
   messages: { role: string; content: string }[],
   apiKey: string,
   baseURL: string,
-  useJsonMode: boolean = false
+  useJsonMode: boolean = false,
+  temperature: number = 0.7,
+  maxTokens: number = 4000
 ): Promise<string> {
   console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
   console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
   console.log(`[AI Service] Using model: gpt-5-mini (faster)`);
   console.log(`[AI Service] JSON mode: ${useJsonMode}`);
+  console.log(`[AI Service] Temperature: ${temperature}`);
+  console.log(`[AI Service] Max tokens: ${maxTokens}`);
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 120000); // 120초 타임아웃 (PRD 생성용)
@@ -40,8 +44,8 @@ export async function chatCompletion(
     const requestBody: any = {
       model: 'gpt-5-mini', // 더 빠른 모델 사용
       messages,
-      temperature: 0.7,
-      max_tokens: 4000, // 충분한 토큰 확보로 완전한 응답 보장
+      temperature: temperature,
+      max_tokens: maxTokens,
     };
     
     // JSON mode 활성화 (OpenAI API가 항상 유효한 JSON 반환 보장)
@@ -422,6 +426,8 @@ export async function generatePRD(
 ): Promise<PRDGenerationResult> {
   const systemPrompt = `당신은 시니어 기획자입니다. 주니어 기획자가 작성한 요건과 답변을 바탕으로 실무에서 바로 사용 가능한 PRD를 작성하세요.
 
+**🚨 절대 규칙: 모든 요건을 반드시 작성해야 합니다. 하나라도 빠뜨리면 안 됩니다!**
+
 **PRD 구성:**
 
 # 1. 프로젝트명
@@ -437,7 +443,9 @@ ${projectTitle}
 
 # 4. 요건별 상세 정책
 
-**중요**: 아래 각 요건마다 반드시 다음 형식으로 작성하세요:
+**🚨 중요: 아래 모든 요건을 빠짐없이 작성하세요!**
+
+각 요건마다 반드시 다음 형식으로 작성:
 
 ## [요건 제목]
 
@@ -467,13 +475,16 @@ ${projectTitle}
 ---
 
 **작성 규칙:**
-1. **4번 요건별 상세 정책은 반드시 모든 요건에 대해 작성**
-2. 노션 스타일로 깔끔하게 작성
-3. 기획자 언어 사용 (개발 용어 지양)
-4. 답변 내용을 정책으로 승화시켜 표현
-5. 적절한 헤딩, 표, 리스트 활용
-6. 가독성 최우선
-7. **빈 섹션 없이 모든 내용 작성**`;
+1. **🚨 4번 섹션에 전달받은 모든 요건을 반드시 작성 (하나도 빠뜨리지 마세요)**
+2. **각 요건은 위 형식을 정확히 따라 작성**
+3. 노션 스타일로 깔끔하게 작성
+4. 기획자 언어 사용 (개발 용어 지양)
+5. 답변 내용을 정책으로 승화시켜 표현
+6. 적절한 헤딩, 표, 리스트 활용
+7. 가독성 최우선
+8. **빈 섹션 없이 모든 내용 작성**
+
+**🚨 다시 강조: 전달받은 요건을 모두 작성해야 합니다. 일부만 작성하면 안 됩니다!**`;
 
   // 요구사항을 더 상세하게 포맷팅
   const requirementsText = requirementsData
@@ -503,16 +514,22 @@ ${questionsAndAnswers}
 
 ${requirementsText}
 
+## 🚨 필수 작성 요건 목록
+다음 ${requirementsData.length}개 요건을 **모두** 4번 섹션에 작성하세요:
+${requirementsData.map((req, idx) => `${idx + 1}. ${req.title}`).join('\n')}
+
 ## 중요 지침
 1. **프로젝트명, 목적, 배경을 명확하게 구분하여 작성**
-2. **4번 섹션에 위의 ${requirementsData.length}개 요건을 모두 작성**
+2. **🚨 4번 섹션에 위의 ${requirementsData.length}개 요건을 빠짐없이 모두 작성**
 3. **각 요건마다 정책 표, 결정사항, details 태그를 반드시 포함**
-4. **빈 섹션이 없도록 모든 내용 작성**
-5. 질문/답변은 details 태그로 접을 수 있게 정리
-6. 노션처럼 깔끔한 레이아웃으로 작성
-7. 실무에서 바로 참고 가능한 수준으로 작성
+4. **요건 순서는 위 목록 순서대로 작성**
+5. **빈 섹션이 없도록 모든 내용 작성**
+6. 질문/답변은 details 태그로 접을 수 있게 정리
+7. 노션처럼 깔끔한 레이아웃으로 작성
+8. 실무에서 바로 참고 가능한 수준으로 작성
 
-**완성된 PRD를 마크다운으로 출력하세요. 4번 섹션이 비어있으면 안됩니다!**`;
+**🚨 경고: ${requirementsData.length}개 요건 중 하나라도 누락하면 안 됩니다!**
+**완성된 PRD를 마크다운으로 출력하세요.**`;
 
   const content = await chatCompletion(
     [
@@ -522,8 +539,8 @@ ${requirementsText}
     apiKey,
     baseURL,
     false, // JSON 모드 사용 안함 (마크다운 출력)
-    0.3,
-    4000 // 토큰 증가
+    0.2, // temperature 낮춤 (더 정확하게 따라함)
+    8000 // 토큰 대폭 증가 (5개 요건 모두 작성 가능)
   );
 
   return { content };
