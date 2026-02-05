@@ -83,7 +83,7 @@ api.post('/projects', async (c) => {
   const body: CreateProjectRequest = await c.req.json();
   
   const result = await DB.prepare(
-    'INSERT INTO projects (title, description, input_content, status) VALUES (?, ?, ?, ?)'
+    'INSERT INTO projects (title, description, input_content, status, created_at, updated_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
   ).bind(body.title, body.description || null, body.input_content || null, 'draft').run();
   
   return c.json({ id: result.meta.last_row_id, ...body, status: 'draft' }, 201);
@@ -96,7 +96,7 @@ api.put('/projects/:id', async (c) => {
   const body = await c.req.json();
   
   await DB.prepare(
-    'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+    'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
   ).bind(body.title, body.description, body.input_content, body.status, id).run();
   
   return c.json({ success: true });
@@ -196,7 +196,7 @@ api.post('/projects/:id/analyze', async (c) => {
   try {
     // 프로젝트 상태 업데이트
     await DB.prepare(
-      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('analyzing', id).run();
     
     // AI 분석 실행
@@ -205,7 +205,7 @@ api.post('/projects/:id/analyze', async (c) => {
     // 요건 및 질문 저장
     for (const req of analysis.requirements) {
       const reqResult = await DB.prepare(
-        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
       ).bind(id, req.title, req.description, req.requirement_type, req.priority, 'pending').run();
       
       const reqId = reqResult.meta.last_row_id;
@@ -214,7 +214,7 @@ api.post('/projects/:id/analyze', async (c) => {
       for (let i = 0; i < req.questions.length; i++) {
         const q = req.questions[i];
         await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type, options, order_index) VALUES (?, ?, ?, ?, ?)'
+          'INSERT INTO questions (requirement_id, question_text, question_type, options, order_index, created_at) VALUES (?, ?, ?, ?, ?, datetime("now", "+9 hours"))'
         ).bind(
           reqId,
           q.question_text,
@@ -227,14 +227,14 @@ api.post('/projects/:id/analyze', async (c) => {
     
     // 프로젝트 상태를 in_progress로 변경
     await DB.prepare(
-      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('in_progress', id).run();
     
     return c.json({ success: true, requirements_count: analysis.requirements.length });
   } catch (error) {
     console.error('Analysis error:', error);
     await DB.prepare(
-      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('draft', id).run();
     
     return c.json({ error: 'Analysis failed', message: String(error) }, 500);
@@ -368,7 +368,7 @@ api.post('/requirements', async (c) => {
   const body: CreateRequirementRequest = await c.req.json();
   
   const result = await DB.prepare(
-    'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
   ).bind(
     body.project_id,
     body.parent_id || null,
@@ -424,7 +424,7 @@ api.post('/questions/:id/answer', async (c) => {
     ).bind(body.answer_text, id).run();
   } else {
     await DB.prepare(
-      'INSERT INTO answers (question_id, answer_text) VALUES (?, ?)'
+      'INSERT INTO answers (question_id, answer_text, created_at) VALUES (?, ?, datetime("now", "+9 hours"))'
     ).bind(id, body.answer_text).run();
   }
   
@@ -457,7 +457,7 @@ api.post('/questions/:id/answer', async (c) => {
           // 파생 질문 저장
           for (const fq of followUpQuestions) {
             await DB.prepare(
-              'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, 0)'
+              'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at) VALUES (?, ?, ?, 0, datetime("now", "+9 hours"))'
             ).bind(question.requirement_id, fq.question_text, fq.question_type).run();
           }
           
@@ -537,7 +537,7 @@ api.post('/requirements/:id/generate-derived', async (c) => {
     // 파생 요건 저장
     for (const req of derivedResult.requirements) {
       await DB.prepare(
-        'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        'INSERT INTO requirements (project_id, parent_id, title, description, requirement_type, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
       ).bind(
         requirement.project_id,
         requirementId, // 원래 요건을 부모로 설정
@@ -672,12 +672,12 @@ api.post('/projects/:id/generate-prd', async (c) => {
     };
     
     const result = await DB.prepare(
-      'INSERT INTO prd_documents (project_id, content, metadata, version) VALUES (?, ?, ?, ?)'
+      'INSERT INTO prd_documents (project_id, content, metadata, version, created_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"))'
     ).bind(id, prd.content, JSON.stringify(prdData), 1).run();
     
     // 프로젝트 상태 업데이트
     await DB.prepare(
-      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('completed', id).run();
     
     console.log(`[PRD 생성] 저장 완료 (ID: ${result.meta.last_row_id})`);
@@ -846,7 +846,7 @@ ${existingRequirementsText}
     // 새 요건 저장
     for (const req of newRequirements) {
       const reqResult = await DB.prepare(
-        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
       ).bind(
         projectId,
         req.title,
@@ -861,7 +861,7 @@ ${existingRequirementsText}
       // 질문 저장
       for (const q of req.questions || []) {
         await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, ?)'
+          'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"))'
         ).bind(requirementId, q.question_text, q.question_type, 0).run();
       }
     }
@@ -963,7 +963,7 @@ api.post('/projects/:id/generate-by-category', async (c) => {
     
     for (const req of result.requirements) {
       const requirementResult = await DB.prepare(
-        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status) VALUES (?, ?, ?, ?, ?, ?)'
+        'INSERT INTO requirements (project_id, title, description, requirement_type, priority, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
       ).bind(
         projectId,
         req.title,
@@ -978,7 +978,7 @@ api.post('/projects/:id/generate-by-category', async (c) => {
       // 질문 저장
       for (const q of req.questions || []) {
         await DB.prepare(
-          'INSERT INTO questions (requirement_id, question_text, question_type, order_index) VALUES (?, ?, ?, ?)'
+          'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"))'
         ).bind(requirementId, q.question_text, q.question_type, 0).run();
       }
       
@@ -990,7 +990,7 @@ api.post('/projects/:id/generate-by-category', async (c) => {
     
     // 프로젝트 상태 업데이트
     await DB.prepare(
-      'UPDATE projects SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
+      'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('in_progress', projectId).run();
     
     return c.json({ 
