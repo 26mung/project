@@ -10,7 +10,7 @@ const api = new Hono<{ Bindings: Bindings }>();
 api.use('/*', cors());
 
 // 간단한 비밀번호 상수
-const APP_PASSWORD = '이호석1!';
+const APP_PASSWORD = 'leehs1!';
 const SESSION_COOKIE_NAME = 'platform_session';
 
 // ============ 인증 API ============
@@ -19,6 +19,12 @@ const SESSION_COOKIE_NAME = 'platform_session';
 api.post('/auth/verify', async (c) => {
   const body = await c.req.json();
   const { password } = body;
+  
+  // 디버깅 로그
+  console.log('Received password:', JSON.stringify(password));
+  console.log('Expected password:', JSON.stringify(APP_PASSWORD));
+  console.log('Password length:', password?.length, 'Expected length:', APP_PASSWORD.length);
+  console.log('Match:', password === APP_PASSWORD);
   
   if (password === APP_PASSWORD) {
     // 세션 쿠키 설정 (7일 유효)
