@@ -379,7 +379,8 @@ export async function evaluateProjectCompleteness(
   projectDescription: string,
   inputContent: string,
   apiKey: string,
-  baseURL: string
+  baseURL: string,
+  imageUrls: string[] = []
 ): Promise<{
   completeness_score: number; // 0-100점
   project_type: string; // 프로젝트 성격 (예: "웹 애플리케이션", "모바일 앱", "API 서비스")
@@ -453,24 +454,62 @@ export async function evaluateProjectCompleteness(
 - ops_perspective_items: 운영담당자 관점에서 보완하면 좋을 항목 (최대 5개)
 - 각 관점 항목은 해당 프로젝트에 적합한 것만 선별`;
 
-  const userPrompt = `## 프로젝트 정보
+  // 이미지가 있는 경우 프롬프트에 추가
+  let userPrompt = `## 프로젝트 정보
 제목: ${projectTitle}
 설명: ${projectDescription}
 
-## 상위 기획안
+## 상위 기획안`;
+
+  if (imageUrls.length > 0) {
+    userPrompt += `\n\n텍스트 기획안과 ${imageUrls.length}장의 이미지를 함께 평가합니다.
+
+텍스트 기획안:
 ${inputContent}
 
-위 기획안을 평가하고 개선 가이드를 제공하세요.
+이미지 정보: PPT 장표 또는 기획안 문서의 스크린샷 ${imageUrls.length}장이 첨부되어 있습니다. 이미지에서 확인 가능한 요구사항, 기능 설명, 화면 디자인, 플로우차트 등을 모두 반영하여 평가하세요.`;
+  } else {
+    userPrompt += `\n${inputContent}`;
+  }
+
+  userPrompt += `\n\n위 기획안을 평가하고 개선 가이드를 제공하세요.
 유효한 JSON만 반환:`;
 
-  const content = await chatCompletion(
-    [
+  // 이미지가 있는 경우 GPT-4 Vision 사용
+  let content: string;
+  
+  if (imageUrls.length > 0) {
+    console.log(`[평가] 이미지 ${imageUrls.length}장 포함 평가 시작`);
+    
+    const messages = [
       { role: 'system', content: systemPrompt },
-      { role: 'user', content: userPrompt },
-    ],
-    apiKey,
-    baseURL
-  );
+      { 
+        role: 'user', 
+        content: [
+          { type: 'text', text: userPrompt },
+          ...imageUrls.map(url => ({
+            type: 'image_url',
+            image_url: { url: url }
+          }))
+        ]
+      }
+    ];
+    
+    content = await chatCompletion(
+      messages as any,
+      apiKey,
+      baseURL
+    );
+  } else {
+    content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      apiKey,
+      baseURL
+    );
+  }
 
   let jsonContent = content.trim();
   if (jsonContent.startsWith('```json')) {

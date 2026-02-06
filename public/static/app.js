@@ -562,10 +562,26 @@ async function deleteProject(projectId, event) {
 async function evaluateProject() {
   if (!currentProject) return;
   
-  const loadingToast = showLoadingToast('기획안을 평가하고 있어요...');
+  // 이미지 URL 파싱
+  let imageUrls = [];
+  if (currentProject.image_urls) {
+    try {
+      imageUrls = JSON.parse(currentProject.image_urls);
+    } catch (error) {
+      console.error('Failed to parse image URLs:', error);
+    }
+  }
+  
+  const loadingMessage = imageUrls.length > 0 
+    ? `기획안과 이미지 ${imageUrls.length}장을 평가하고 있어요...`
+    : '기획안을 평가하고 있어요...';
+  
+  const loadingToast = showLoadingToast(loadingMessage);
   
   try {
-    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`, {}, {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`, {
+      image_urls: imageUrls
+    }, {
       timeout: 60000 // 60초 타임아웃
     });
     const evaluation = response.data;
@@ -637,6 +653,45 @@ async function evaluateProject() {
                 <li style="display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--blue-50); border-radius: 8px; border: 1px solid var(--blue-100);">
                   <i class="fas fa-check" style="font-size: 12px; color: var(--blue-600); margin-top: 4px;"></i>
                   <span class="text-body3" style="color: var(--grey-700); line-height: 1.6;">${escapeHtml(suggestion)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          ${evaluation.dev_perspective_items && evaluation.dev_perspective_items.length > 0 ? `
+          <!-- 개발 관점 보완 항목 -->
+          <div>
+            <h4 class="text-body2" style="color: var(--grey-900); font-weight: 600; margin-bottom: 12px;">
+              <i class="fas fa-code" style="color: var(--purple-600); margin-right: 6px;"></i>
+              개발 관점에서 보완하면 좋을 항목
+            </h4>
+            <ul style="display: flex; flex-direction: column; gap: 8px;">
+              ${evaluation.dev_perspective_items.map(item => `
+                <li style="display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--purple-50); border-radius: 8px; border: 1px solid var(--purple-100);">
+                  <i class="fas fa-circle" style="font-size: 6px; color: var(--purple-600); margin-top: 8px;"></i>
+                  <span class="text-body3" style="color: var(--grey-700); line-height: 1.6;">${escapeHtml(item)}</span>
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+          ` : ''}
+          
+          ${evaluation.ops_perspective_items && evaluation.ops_perspective_items.length > 0 ? `
+          <!-- 운영 관점 보완 항목 -->
+          <div>
+            <h4 class="text-body2" style="color: var(--grey-900); font-weight: 600; margin-bottom: 8px;">
+              <i class="fas fa-cog" style="color: var(--green-600); margin-right: 6px;"></i>
+              운영 관점에서 보완하면 좋을 항목
+            </h4>
+            <p class="text-body3" style="color: var(--grey-600); margin-bottom: 12px; padding-left: 28px;">
+              💡 아젠다에 따라 운영 범위가 다르므로 참고용으로 활용하세요
+            </p>
+            <ul style="display: flex; flex-direction: column; gap: 8px;">
+              ${evaluation.ops_perspective_items.map(item => `
+                <li style="display: flex; align-items: flex-start; gap: 8px; padding: 12px; background: var(--green-50); border-radius: 8px; border: 1px solid var(--green-100);">
+                  <i class="fas fa-circle" style="font-size: 6px; color: var(--green-600); margin-top: 8px;"></i>
+                  <span class="text-body3" style="color: var(--grey-700); line-height: 1.6;">${escapeHtml(item)}</span>
                 </li>
               `).join('')}
             </ul>

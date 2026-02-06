@@ -116,6 +116,7 @@ api.delete('/projects/:id', async (c) => {
 api.post('/projects/:id/evaluate', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
+  const body = await c.req.json();
   
   const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
   const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
@@ -131,18 +132,23 @@ api.post('/projects/:id/evaluate', async (c) => {
       return c.json({ error: 'Project not found' }, 404);
     }
     
+    // 이미지 URL 가져오기
+    const imageUrls = body.image_urls || [];
+    console.log(`[평가] 텍스트 기획안 + 이미지 ${imageUrls.length}장 평가 시작`);
+    
     const evaluation = await evaluateProjectCompleteness(
       project.title,
       project.description || '',
       project.input_content || '',
       apiKey,
-      baseURL
+      baseURL,
+      imageUrls
     );
     
     // 평가 결과를 프로젝트에 저장
     await DB.prepare(`
       UPDATE projects 
-      SET last_evaluation = ?, updated_at = CURRENT_TIMESTAMP 
+      SET last_evaluation = ?, updated_at = datetime("now", "+9 hours")
       WHERE id = ?
     `).bind(JSON.stringify(evaluation), id).run();
     
