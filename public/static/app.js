@@ -810,6 +810,12 @@ function renderContent() {
 function renderOverview() {
   const content = document.getElementById('content');
   
+  // 디버깅: currentProject 상태 확인
+  console.log('[renderOverview] Current project:', currentProject?.title);
+  console.log('[renderOverview] Image URLs:', currentProject?.image_urls);
+  console.log('[renderOverview] Image URLs type:', typeof currentProject?.image_urls);
+  console.log('[renderOverview] Image URLs length:', currentProject?.image_urls?.length);
+  
   // 상태별 주요 액션 버튼 결정
   let primaryAction = '';
   let secondaryActions = '';

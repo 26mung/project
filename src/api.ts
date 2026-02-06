@@ -83,8 +83,8 @@ api.post('/projects', async (c) => {
   const body: CreateProjectRequest = await c.req.json();
   
   const result = await DB.prepare(
-    'INSERT INTO projects (title, description, input_content, status, created_at, updated_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
-  ).bind(body.title, body.description || null, body.input_content || null, 'draft').run();
+    'INSERT INTO projects (title, description, input_content, status, image_urls, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
+  ).bind(body.title, body.description || null, body.input_content || null, 'draft', body.image_urls || null).run();
   
   return c.json({ id: result.meta.last_row_id, ...body, status: 'draft' }, 201);
 });
