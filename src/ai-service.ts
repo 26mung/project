@@ -89,7 +89,7 @@ export async function chatCompletion(
   } catch (error: any) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
-      throw new Error('AI 응답 시간이 초과되었습니다 (120초). 잠시 후 다시 시도해주세요.');
+      throw new Error('AI 응답 시간이 초과되었습니다 (150초). 이미지가 많을 경우 더 오래 걸릴 수 있습니다.');
     }
     throw error;
   }

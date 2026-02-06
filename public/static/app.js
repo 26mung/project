@@ -582,7 +582,7 @@ async function evaluateProject() {
     const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/evaluate`, {
       image_urls: imageUrls
     }, {
-      timeout: 60000 // 60초 타임아웃
+      timeout: 180000 // 180초 (3분) - 이미지 포함 평가 시간 고려
     });
     const evaluation = response.data;
     
