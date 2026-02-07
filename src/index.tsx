@@ -8,11 +8,25 @@ const app = new Hono<{ Bindings: Bindings }>()
 // API 라우트
 app.route('/api', api)
 
-// 정적 파일 서빙
+// 정적 파일 서빙 (캐시 방지)
+app.use('/static/*', async (c, next) => {
+  await next();
+  // JS 파일은 절대 캐시하지 않음
+  if (c.req.path.endsWith('.js')) {
+    c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+    c.header('Pragma', 'no-cache');
+    c.header('Expires', '0');
+  }
+});
 app.use('/static/*', serveStatic({ root: './public' }))
 
 // 메인 페이지
 app.get('/', (c) => {
+  // 캐시 방지 헤더 추가
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
+  
   const timestamp = Date.now();
   return c.html(`
     <!DOCTYPE html>
