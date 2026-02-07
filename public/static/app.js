@@ -1050,6 +1050,9 @@ function showChallengeRecommendationModal(recommendations) {
   // 전역에 저장
   window.currentRecommendations = recommendations;
   window.selectedRecommendationIndex = null; // 선택된 인덱스 추적
+  
+  // 챌린지 추천 캐시 저장
+  saveChallengeCache(recommendations);
 
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
@@ -3959,11 +3962,18 @@ function toggleMobileMenu() {
 
 // 대화 캐시 키
 const CHAT_CACHE_KEY = 'chat_requirement_cache';
+const CHALLENGE_CACHE_KEY = 'challenge_recommendations_cache';
 const CHAT_CACHE_TTL = 30 * 60 * 1000; // 30분
 
 // 대화형 요건 추천 시작
 function startChatRequirement(resumeFromCache = true) {
   closeModalById('modal-challenge-recommendations');
+  
+  // 기존 대화형 모달이 있으면 제거 (중복 방지)
+  const existingModal = document.getElementById('modal-chat-requirement');
+  if (existingModal) {
+    existingModal.remove();
+  }
   
   // 캐시에서 복원 시도
   if (resumeFromCache) {
@@ -4033,6 +4043,46 @@ function clearChatCache() {
   }
 }
 
+// 챌린지 추천 캐시 저장
+function saveChallengeCache(recommendations) {
+  if (!currentProject) return;
+  
+  const cache = {
+    projectId: currentProject.id,
+    recommendations: recommendations,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(CHALLENGE_CACHE_KEY, JSON.stringify(cache));
+    console.log('[Challenge Cache] Saved:', cache);
+  } catch (error) {
+    console.error('[Challenge Cache] Failed to save:', error);
+  }
+}
+
+// 챌린지 추천 캐시 불러오기
+function loadChallengeCache() {
+  try {
+    const cached = localStorage.getItem(CHALLENGE_CACHE_KEY);
+    if (!cached) return null;
+    
+    const data = JSON.parse(cached);
+    
+    // TTL 체크
+    if (Date.now() - data.timestamp > CHAT_CACHE_TTL) {
+      localStorage.removeItem(CHALLENGE_CACHE_KEY);
+      return null;
+    }
+    
+    console.log('[Challenge Cache] Loaded:', data);
+    return data;
+  } catch (error) {
+    console.error('[Challenge Cache] Failed to load:', error);
+    return null;
+  }
+}
+
 // 채팅 모달 표시
 function showChatRequirementModal(isResumed = false) {
   const modalId = 'modal-chat-requirement';
@@ -4078,34 +4128,52 @@ function showChatRequirementModal(isResumed = false) {
             </p>
           </div>
 
-          <div id="chat-messages" style="min-height: 200px; position: relative;">
+          <div id="chat-messages" style="min-height: 200px; position: relative; padding-bottom: 20px;">
             <!-- 메시지가 여기에 추가됩니다 -->
-          </div>
-          
-          <!-- 버튼 고정 영역 -->
-          <div id="chat-action-buttons" style="position: sticky; bottom: 0; background: linear-gradient(to top, white 80%, transparent); padding-top: 20px; margin-top: 20px; text-align: center;">
-            <!-- 추천 요건 확인 버튼이 여기에 추가됩니다 -->
           </div>
         </div>
 
-        <div class="modal-footer p-6 border-t border-toss-gray-100" style="flex-shrink: 0;">
-          <div style="display: flex; gap: 12px; align-items: flex-end;">
+        <!-- 추천 요건 버튼 (footer 위에 고정) -->
+        <div id="chat-action-buttons" style="border-top: 1px solid var(--grey-100); padding: 16px 24px; background: var(--grey-50); display: none;">
+          <!-- 추천 요건 확인 버튼이 여기에 추가됩니다 -->
+        </div>
+
+        <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 20px 24px;">
+          <!-- 입력 영역 (와이드) -->
+          <div style="position: relative; width: 100%;">
             <textarea 
               id="chat-input" 
-              placeholder="예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
-              style="flex: 1; padding: 14px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 60px; max-height: 150px; resize: vertical; font-family: inherit; line-height: 1.5;"
+              placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원하고..."
+              style="width: 100%; padding: 16px 120px 16px 20px; border: 2px solid var(--grey-200); border-radius: 16px; font-size: 15px; min-height: 70px; max-height: 180px; resize: none; font-family: inherit; line-height: 1.6; transition: all 0.2s;"
               onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
-              oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 150) + 'px';"
+              oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 180) + 'px';"
+              onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
+              onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
             ></textarea>
-            <button onclick="sendChatMessage()" class="btn-primary px-8 py-3 rounded-xl font-bold shadow-lg" style="height: fit-content;">
-              <i class="fas fa-paper-plane" style="margin-right: 6px;"></i>
-              전송
+            
+            <!-- 전송 버튼 (입력창 내부 우측) -->
+            <button 
+              onclick="sendChatMessage()" 
+              class="btn-primary rounded-xl font-bold shadow-lg"
+              style="position: absolute; right: 8px; bottom: 8px; padding: 12px 20px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+              onmouseover="this.style.transform = 'scale(1.05)'"
+              onmouseout="this.style.transform = 'scale(1)'"
+            >
+              <i class="fas fa-paper-plane"></i>
+              <span>전송</span>
             </button>
           </div>
-          <p style="color: var(--grey-500); font-size: 12px; margin-top: 8px; text-align: center;">
-            <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
-            Enter: 전송 | Shift + Enter: 줄바꿈
-          </p>
+          
+          <!-- 안내 문구 (우측 하단) -->
+          <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+            <p style="color: var(--grey-500); font-size: 12px; display: flex; align-items: center; gap: 8px;">
+              <span style="background: var(--grey-100); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Enter</span>
+              <span>전송</span>
+              <span style="color: var(--grey-300);">|</span>
+              <span style="background: var(--grey-100); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Shift + Enter</span>
+              <span>줄바꿈</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -4207,17 +4275,17 @@ function addChatMessage(role, content, isThinking = false) {
     avatar = '<i class="fas fa-user"></i>';
     bgColor = 'var(--blue-500)';
     alignStyle = 'flex-direction: row-reverse;';
-    bubbleStyle = 'background: var(--blue-50); text-align: left; max-width: 70%;';
+    bubbleStyle = 'background: var(--blue-500); color: white; text-align: left; max-width: 65%; padding: 10px 14px;';
   } else if (role === 'assistant') {
     avatar = '<i class="fas fa-robot"></i>';
     bgColor = 'var(--indigo-500)';
     alignStyle = '';
-    bubbleStyle = 'background: var(--grey-50); text-align: left; max-width: 85%;';
+    bubbleStyle = 'background: var(--grey-100); text-align: left; max-width: 80%; padding: 12px 16px;';
   } else {
     avatar = '<i class="fas fa-check-circle"></i>';
     bgColor = 'var(--green-500)';
     alignStyle = '';
-    bubbleStyle = 'background: var(--green-50); text-align: center; max-width: 90%;';
+    bubbleStyle = 'background: var(--green-50); border: 1px solid var(--green-200); text-align: left; max-width: 85%; padding: 10px 14px;';
   }
   
   // 마크다운 렌더링 (가독성 향상)
@@ -4229,12 +4297,12 @@ function addChatMessage(role, content, isThinking = false) {
   }
   
   const messageHtml = `
-    <div id="${messageId}" class="chat-message" style="display: flex; gap: 12px; margin-bottom: 16px; ${alignStyle}">
-      <div style="width: 40px; height: 40px; border-radius: 50%; background: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; flex-shrink: 0;">
+    <div id="${messageId}" class="chat-message" style="display: flex; gap: 10px; margin-bottom: 12px; ${alignStyle}">
+      <div style="width: 36px; height: 36px; border-radius: 50%; background: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; flex-shrink: 0;">
         ${avatar}
       </div>
       <div style="flex: 1; ${role === 'user' ? 'display: flex; justify-content: flex-end;' : ''}">
-        <div style="display: inline-block; padding: 12px 16px; border-radius: 12px; ${bubbleStyle}; color: var(--grey-800); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; ${isThinking ? 'font-style: italic; color: var(--grey-500);' : ''}">
+        <div style="display: inline-block; border-radius: 12px; ${bubbleStyle}; color: ${role === 'user' ? 'white' : 'var(--grey-800)'}; font-size: 14px; line-height: 1.5; word-break: break-word; ${isThinking ? 'font-style: italic; opacity: 0.7;' : ''}">
           ${formattedContent}
         </div>
       </div>
@@ -4290,17 +4358,23 @@ function removeChatMessage(messageId) {
 function addRequirementListButton(recommendations) {
   const buttonContainer = document.getElementById('chat-action-buttons');
   
+  // 버튼 컨테이너 표시
+  buttonContainer.style.display = 'block';
+  
   // 이미 버튼이 있으면 제거 (중복 방지)
   buttonContainer.innerHTML = '';
   
   const buttonHtml = `
     <button 
       onclick='showChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, "&#39;")})'
-      class="btn-primary px-8 py-4 rounded-xl font-bold shadow-lg animate-pulse"
-      style="animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"
+      class="btn-primary rounded-xl font-bold shadow-lg"
+      style="width: 100%; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; animation: slideUp 0.3s ease-out;"
+      onmouseover="this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';"
+      onmouseout="this.style.transform = 'translateY(0)'; this.style.boxShadow = '';"
     >
-      <i class="fas fa-list" style="margin-right: 8px;"></i>
-      추천 요건 5개 확인하기
+      <i class="fas fa-list-check"></i>
+      <span>추천 요건 ${recommendations.length}개 확인하기</span>
+      <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
     </button>
   `;
   
@@ -4375,6 +4449,13 @@ function showRequirementPreviewModal(recommendations) {
 // 미리보기 모달 닫기
 function closeRequirementPreviewModal() {
   closeModalById('modal-requirement-preview');
+  
+  // 입력 영역 다시 활성화
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) {
+    chatInput.disabled = false;
+    chatInput.focus();
+  }
 }
 
 // 대화형 요건 확정 및 추가
