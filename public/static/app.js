@@ -3957,7 +3957,6 @@ function toggleMobileMenu() {
   }
 }
 
-
 // ============ 🆕 대화형 요건 추천 기능 ============
 
 // 대화 캐시 키
@@ -4391,12 +4390,15 @@ function showChatRecommendations(recommendations) {
 function showRequirementPreviewModal(recommendations) {
   const modalId = 'modal-requirement-preview';
   const modalContainer = document.getElementById('modal-container');
-  
+
+  // 전역 변수에 저장하여 addEventListener에서 사용 (JSON stringify 문제 방지)
+  window.currentChatRecommendations = recommendations;
+
   let requirementsHtml = '';
   recommendations.forEach((req, index) => {
     const priorityColor = req.priority === 'high' ? 'var(--red-500)' : req.priority === 'medium' ? 'var(--yellow-500)' : 'var(--grey-500)';
     const priorityText = req.priority === 'high' ? '높음' : req.priority === 'medium' ? '보통' : '낮음';
-    
+
     requirementsHtml += `
       <div style="background: var(--grey-50); border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid ${priorityColor};">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
@@ -4411,45 +4413,112 @@ function showRequirementPreviewModal(recommendations) {
     `;
   });
 
-  modalContainer.innerHTML += `
-    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
-      <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
-        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
-          <div>
-            <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
-              <i class="fas fa-check-circle" style="color: var(--green-500); margin-right: 8px;"></i>
-              추천 요건 미리보기
-            </h2>
-            <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">총 ${recommendations.length}개의 요건을 추천드립니다</p>
-          </div>
-          <button onclick="closeRequirementPreviewModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
-            <i class="fas fa-times text-lg"></i>
-          </button>
+  // 컨테이너 생성 (addEventListener 방식으로 이벤트 핸들러 연결)
+  const modalDiv = document.createElement('div');
+  modalDiv.id = modalId;
+  modalDiv.className = 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in';
+  modalDiv.innerHTML = `
+    <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+      <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
+        <div>
+          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+            <i class="fas fa-check-circle" style="color: var(--green-500); margin-right: 8px;"></i>
+            추천 요건 미리보기
+          </h2>
+          <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">총 ${recommendations.length}개의 요건을 추천드립니다</p>
         </div>
-        
-        <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
-          ${requirementsHtml}
-        </div>
-        
-        <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
-          <button onclick="closeRequirementPreviewModal()" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
-            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
-            계속 대화하기
-          </button>
-          <button onclick="confirmChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, '&#39;')})" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
-            <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
-            요건 추가하기
-          </button>
-        </div>
+        <button id="btn-preview-close" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+          <i class="fas fa-times text-lg"></i>
+        </button>
+      </div>
+
+      <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
+        ${requirementsHtml}
+      </div>
+
+      <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
+        <button id="btn-preview-back" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
+          <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+          계속 대화하기
+        </button>
+        <button id="btn-preview-add" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
+          <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+          요건 추가하기
+        </button>
       </div>
     </div>
   `;
+
+  modalContainer.appendChild(modalDiv);
+
+  // 이벤트 리스너 추가 (inline onclick 대신 사용 - JSON stringify 문제 방지)
+  document.getElementById('btn-preview-close').addEventListener('click', () => {
+    closeRequirementPreviewModal();
+  });
+
+  document.getElementById('btn-preview-back').addEventListener('click', () => {
+    closeRequirementPreviewModal();
+  });
+
+  document.getElementById('btn-preview-add').addEventListener('click', () => {
+    addCurrentChatRequirements();
+  });
+}
+
+// 전역 변수에 저장된 요건을 추가하는 함수 (JSON stringify 문제 방지용)
+async function addCurrentChatRequirements() {
+  const recommendations = window.currentChatRecommendations;
+  if (!recommendations || recommendations.length === 0) {
+    showToast('추천할 요건이 없습니다', 'error');
+    return;
+  }
+
+  closeRequirementPreviewModal();
+  closeChatModal();
+
+  const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
+
+  try {
+    // 각 요건을 API로 전송 (올바른 엔드포인트: /requirements)
+    for (const req of recommendations) {
+      await axios.post(`${API_BASE}/requirements`, {
+        project_id: currentProject.id,
+        title: req.title,
+        description: req.description,
+        requirement_type: req.requirement_type || 'functional',
+        priority: req.priority || 'medium'
+      });
+    }
+
+    hideToast(loadingToast);
+
+    // 요건 목록 새로고침
+    await renderRequirements();
+
+    // 캐시 초기화
+    clearChatCache();
+
+    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
+
+  } catch (error) {
+    console.error('Failed to add requirements:', error);
+    hideToast(loadingToast);
+
+    // 에러 메시지 표시
+    let errorMessage = '요건 추가에 실패했습니다';
+    if (error.response?.data?.error) {
+      errorMessage += ': ' + error.response.data.error;
+    } else if (error.response?.data?.message) {
+      errorMessage += ': ' + error.response.data.message;
+    }
+    showToast(errorMessage, 'error');
+  }
 }
 
 // 미리보기 모달 닫기
 function closeRequirementPreviewModal() {
   closeModalById('modal-requirement-preview');
-  
+
   // 입력 영역 다시 활성화
   const chatInput = document.getElementById('chat-input');
   if (chatInput) {
@@ -4457,39 +4526,6 @@ function closeRequirementPreviewModal() {
     chatInput.focus();
   }
 }
-
-// 대화형 요건 확정 및 추가
-async function confirmChatRecommendations(recommendations) {
-  closeRequirementPreviewModal();
-  closeChatModal();
-  
-  showToast('요건을 추가하고 있습니다...', 'info');
-  
-  try {
-    // 각 요건을 API로 전송
-    for (const req of recommendations) {
-      await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
-        title: req.title,
-        description: req.description,
-        requirement_type: req.requirement_type || 'functional',
-        priority: req.priority || 'medium'
-      });
-    }
-    
-    // 요건 목록 새로고침
-    await renderRequirements();
-    
-    // 캐시 초기화
-    clearChatCache();
-    
-    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
-    
-  } catch (error) {
-    console.error('Failed to add requirements:', error);
-    showToast('요건 추가에 실패했습니다', 'error');
-  }
-}
-
 // 채팅 모달 닫기
 function closeChatModal() {
   // 캐시 저장
@@ -4504,4 +4540,3 @@ function closeChatModal() {
     }, 300);
   }
 }
-
