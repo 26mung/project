@@ -32,7 +32,13 @@ export async function chatCompletion(
 ): Promise<string> {
   console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
   console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
-  console.log(`[AI Service] Using model: gpt-5-mini (faster)`);
+  
+  // API 키 유효성 검증
+  if (!apiKey || !apiKey.startsWith('sk-')) {
+    throw new Error(`Invalid OpenAI API key format. Key must start with "sk-". Current key: ${apiKey?.substring(0, 10)}...`);
+  }
+  
+  console.log(`[AI Service] Using model: gpt-4o-mini`);
   console.log(`[AI Service] JSON mode: ${useJsonMode}`);
   console.log(`[AI Service] Temperature: ${temperature}`);
   console.log(`[AI Service] Max tokens: ${maxTokens}`);
@@ -42,7 +48,7 @@ export async function chatCompletion(
   
   try {
     const requestBody: any = {
-      model: 'gpt-5-mini', // 더 빠른 모델 사용
+      model: 'gpt-4o-mini', // OpenAI 지원 모델 사용
       messages,
       temperature: temperature,
       max_tokens: maxTokens,

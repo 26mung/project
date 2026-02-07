@@ -245,13 +245,32 @@ api.post('/projects/:id/analyze', async (c) => {
     ).bind('in_progress', id).run();
     
     return c.json({ success: true, requirements_count: analysis.requirements.length });
-  } catch (error) {
-    console.error('Analysis error:', error);
+  } catch (error: any) {
+    console.error('[Analysis Error] Full error:', error);
+    console.error('[Analysis Error] Stack:', error.stack);
+    console.error('[Analysis Error] API Key present:', !!apiKey);
+    console.error('[Analysis Error] API Key prefix:', apiKey ? apiKey.substring(0, 10) + '...' : 'none');
+    console.error('[Analysis Error] Base URL:', baseURL);
+    
     await DB.prepare(
       'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('draft', id).run();
     
-    return c.json({ error: 'Analysis failed', message: String(error) }, 500);
+    // 더 자세한 에러 메시지 반환
+    let errorMessage = error.message || String(error);
+    if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+      errorMessage = 'OpenAI API 인증 실패: API 키를 확인하세요. 올바른 형식은 sk-... 입니다.';
+    } else if (errorMessage.includes('429')) {
+      errorMessage = 'OpenAI API 호출 한도 초과입니다.';
+    } else if (errorMessage.includes('timeout') || errorMessage.includes('Abort')) {
+      errorMessage = 'AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도하세요.';
+    }
+    
+    return c.json({ 
+      error: 'Analysis failed', 
+      message: errorMessage,
+      details: error.stack || 'No stack trace'
+    }, 500);
   }
 });
 
