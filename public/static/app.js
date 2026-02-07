@@ -926,30 +926,47 @@ function showRequirementModeSelectionModal() {
 
 // 🆕 요건 생성 모드 선택 처리
 async function selectRequirementMode(mode, modalId = null) {
+  console.log('[Mode Selection] Starting mode selection:', mode);
+  console.log('[Mode Selection] Current project:', currentProject);
+  
   if (modalId) {
     closeModalById(modalId);
   } else {
     closeModal();
   }
 
-  if (!currentProject) return;
+  if (!currentProject) {
+    console.error('[Mode Selection] No current project!');
+    showToast('프로젝트를 선택해주세요', 'error');
+    return;
+  }
 
+  console.log('[Mode Selection] Calling API:', `${API_BASE}/projects/${currentProject.id}/select-requirement-mode`);
+  
   try {
     // 모드 저장
-    await axios.post(`${API_BASE}/projects/${currentProject.id}/select-requirement-mode`, { mode });
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/select-requirement-mode`, { mode });
+    console.log('[Mode Selection] API response:', response.data);
     currentProject.requirement_mode = mode;
+    console.log('[Mode Selection] Mode saved successfully:', mode);
   } catch (error) {
-    console.error('Mode selection API error:', error);
+    console.error('[Mode Selection] API error:', error);
+    console.error('[Mode Selection] Error response:', error.response?.data);
+    console.error('[Mode Selection] Error status:', error.response?.status);
     showToast('모드 선택에 실패했습니다', 'error');
     return; // 모드 선택 실패 시 여기서 종료
   }
 
+  console.log('[Mode Selection] Starting analysis with mode:', mode);
+  
   // 모드 선택 성공 후 분석 실행 (각 함수가 에러를 자체 처리)
   if (mode === 'initial') {
     // 기존 방식: 즉시 분석 시작
+    console.log('[Mode Selection] Calling executeInitialAnalysis');
     executeInitialAnalysis();
   } else {
     // 챌린지형: 5개 요건 추천
+    console.log('[Mode Selection] Calling executeChallengeRecommendation');
     executeChallengeRecommendation();
   }
 }
