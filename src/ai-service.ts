@@ -48,7 +48,7 @@ export async function chatCompletion(
   
   try {
     const requestBody: any = {
-      model: 'gpt-4o-mini', // OpenAI 지원 모델 사용
+      model: 'gpt-5-mini', // GenSpark LLM API 지원 모델
       messages,
       temperature: temperature,
       max_tokens: maxTokens,
