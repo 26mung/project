@@ -33,10 +33,13 @@ export async function chatCompletion(
   console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
   console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
   
-  // API 키 유효성 검증 (OpenAI sk- 또는 GenSpark gsk- 키 지원)
-  if (!apiKey || (!apiKey.startsWith('sk-') && !apiKey.startsWith('gsk-'))) {
-    throw new Error(`Invalid API key format. Key must start with "sk-" (OpenAI) or "gsk-" (GenSpark). Current key prefix: ${apiKey?.substring(0, 10)}...`);
+  // API 키 유효성 검증
+  if (!apiKey || apiKey.trim().length === 0) {
+    throw new Error(`API key is required`);
   }
+  
+  // API 키 형식 로그 (디버깅용)
+  console.log(`[AI Service] API Key prefix: ${apiKey.substring(0, 10)}...`);
   
   console.log(`[AI Service] Using model: gpt-4o-mini`);
   console.log(`[AI Service] JSON mode: ${useJsonMode}`);
