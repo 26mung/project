@@ -113,45 +113,34 @@ export async function analyzeProjectRequirements(
   baseURL: string,
   imageUrls: string[] = []
 ): Promise<AIAnalysisResult> {
-  const systemPrompt = `당신은 전문 기획자입니다. 상위 기획안을 분석하여 세부 요건을 JSON 형식으로 도출하세요.
+  // 🚀 최적화: 간결한 시스템 프롬프트
+  const systemPrompt = `전문 기획자로서 기획안을 분석하여 요건 도출.
 
-응답 형식:
+JSON 형식:
 {
-  "requirements": [
-    {
-      "title": "요건명",
-      "description": "간단한 설명",
-      "requirement_type": "functional",
-      "priority": "high",
-      "questions": [
-        {
-          "question_text": "질문",
-          "question_type": "open"
-        }
-      ]
-    }
-  ]
+  "requirements": [{
+    "title": "요건명 (15자 이내)",
+    "description": "설명 (40자 이내)",
+    "requirement_type": "functional|non_functional|constraint",
+    "priority": "high|medium|low",
+    "questions": [{
+      "question_text": "질문",
+      "question_type": "open|choice|boolean"
+    }]
+  }]
 }
 
 규칙:
-- description은 50자 이내로 간결하게
-- 5-7개 핵심 요건 도출
-- 각 요건마다 2-3개 질문 생성
-- 유효한 JSON만 응답`;
+- 5-7개 핵심 요건
+- 각 요건당 2-3개 질문
+- 간결한 표현`;
 
-  // 이미지가 있는 경우 프롬프트에 추가
-  let userPrompt = `기획안: ${inputContent}`;
+  // 🚀 최적화: 간결한 사용자 프롬프트
+  let userPrompt = inputContent;
   
   if (imageUrls.length > 0) {
-    userPrompt = `다음 텍스트 기획안과 ${imageUrls.length}장의 이미지를 분석하여 핵심 요건을 도출하세요.
-
-텍스트 기획안:
-${inputContent}
-
-이미지 정보: PPT 장표 또는 기획안 문서의 스크린샷 ${imageUrls.length}장이 첨부되어 있습니다. 이미지에서 확인 가능한 요구사항, 기능 설명, 화면 디자인, 플로우차트 등을 모두 반영하여 요건을 도출하세요.`;
+    userPrompt = `기획안:\n${inputContent}\n\n이미지: ${imageUrls.length}장 첨부. 화면/플로우/요구사항 모두 반영하여 요건 도출.`;
   }
-  
-  userPrompt += `\n\n위 기획안에서 핵심 요건을 도출하고 각 요건마다 확인 질문을 생성하세요.`;
 
   try {
     // 이미지가 있는 경우 GPT-4 Vision 사용
@@ -853,32 +842,26 @@ export async function recommendChallengeRequirements(
     rationale: string;
   }[];
 }> {
-  const systemPrompt = `당신은 전문 기획자입니다. 프로젝트 상황을 분석하여 **다음으로 구체화해야 할 5개 요건**을 추천하세요.
+  // 🚀 최적화: 간결한 시스템 프롬프트
+  const systemPrompt = `전문 기획자로서 다음 5개 요건 추천.
 
-**추천 기준:**
-1. 기존 요건과 중복되지 않아야 함
-2. 사용자가 거절한 요건은 제외
-3. 현재 프로젝트 단계에서 중요한 요건 우선
-4. 구현 가능하고 명확한 요건
-
-**출력 형식 (JSON):**
+JSON 형식:
 {
-  "requirements": [
-    {
-      "title": "요건명 (30자 이내)",
-      "description": "간단한 설명 (80자 이내)",
-      "requirement_type": "functional|non_functional|constraint",
-      "priority": "high|medium|low",
-      "keywords": ["키워드1", "키워드2"],
-      "rationale": "이 요건을 추천하는 이유 (50자 이내)"
-    }
-  ]
+  "requirements": [{
+    "title": "요건명 (30자 이내)",
+    "description": "설명 (80자 이내)",
+    "requirement_type": "functional|non_functional|constraint",
+    "priority": "high|medium|low",
+    "keywords": ["키워드1", "키워드2"],
+    "rationale": "추천 이유 (50자 이내)"
+  }]
 }
 
-**규칙:**
-- 정확히 5개 요건 생성
-- keywords는 중복 제거에 사용 (각 3-5개)
-- 우선순위 배분: high 2개, medium 2개, low 1개`;
+기준:
+- 기존 요건과 중복 X
+- 거절 요건 제외
+- 현 단계 중요도순
+- 우선순위: high 2, medium 2, low 1`;
 
   const existingTitles = existingRequirements.map(r => r.title).join(', ');
   const completedTitles = completedRequirements.map(r => r.title).join(', ');
