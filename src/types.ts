@@ -12,6 +12,9 @@ export interface Project {
   description?: string;
   input_content?: string;
   status: 'draft' | 'analyzing' | 'in_progress' | 'completed';
+  image_urls?: string; // Base64 JSON 배열
+  last_evaluation?: string; // 평가 결과 JSON
+  requirement_mode?: 'initial' | 'challenge';
   created_at: string;
   updated_at: string;
 }
@@ -26,6 +29,10 @@ export interface Requirement {
   requirement_type: 'functional' | 'non_functional' | 'constraint';
   priority: 'low' | 'medium' | 'high' | 'critical';
   status: 'pending' | 'in_progress' | 'completed';
+  challenge_status?: 'recommended' | 'accepted' | 'declined' | 'completed';
+  direction_analysis?: string; // 방향성 분석 JSON
+  user_feedback?: string; // 사용자 피드백
+  keywords?: string; // 키워드 JSON 배열
   order_index: number;
   created_at: string;
   updated_at: string;
@@ -96,4 +103,28 @@ export interface RequirementTree extends Requirement {
   children?: RequirementTree[];
   questions?: Question[];
   answers?: Answer[];
+}
+
+// 챌린지형 요건 추천 응답
+export interface ChallengeRecommendationResponse {
+  requirements: {
+    title: string;
+    description: string;
+    requirement_type: 'functional' | 'non_functional' | 'constraint';
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    keywords: string[];
+    rationale: string; // 추천 이유
+  }[];
+}
+
+// 방향성 분석 응답
+export interface DirectionAnalysisResponse {
+  direction: string; // 이 요건의 핵심 방향성
+  clarifications: string[]; // 명확히 해야 할 사항
+  suggested_approach: string; // 제안 접근 방식
+  questions: {
+    question_text: string;
+    question_type: 'open' | 'choice' | 'boolean';
+    options?: string[];
+  }[];
 }

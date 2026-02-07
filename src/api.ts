@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { setCookie, getCookie } from 'hono/cookie';
 import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
-import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion, suggestAdditionalCategories, generateRequirementsByCategory } from './ai-service';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion, suggestAdditionalCategories, generateRequirementsByCategory, recommendChallengeRequirements, analyzeChallengeDirection } from './ai-service';
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -1015,6 +1015,188 @@ api.post('/projects/:id/generate-by-category', async (c) => {
   } catch (error) {
     console.error('Requirements generation error:', error);
     return c.json({ error: 'Failed to generate requirements', message: String(error) }, 500);
+  }
+});
+
+
+// ============ 챌린지형 요건 관리 API ============
+
+// 요건 모드 선택 (initial vs challenge)
+api.post('/projects/:id/select-requirement-mode', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const { mode } = await c.req.json() as { mode: 'initial' | 'challenge' };
+
+  try {
+    await DB.prepare(
+      'UPDATE projects SET requirement_mode = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind(mode, id).run();
+
+    return c.json({ success: true, mode });
+  } catch (error) {
+    console.error('Mode selection error:', error);
+    return c.json({ error: 'Failed to set mode' }, 500);
+  }
+});
+
+// 챌린지형: 5개 요건 추천
+api.post('/projects/:id/recommend-requirements', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+
+  try {
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first() as any;
+
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+
+    // 기존 요건 조회
+    const { results: existingRequirements } = await DB.prepare(
+      'SELECT title, keywords FROM requirements WHERE project_id = ?'
+    ).bind(id).all();
+
+    const { results: completedRequirements } = await DB.prepare(
+      'SELECT title FROM requirements WHERE project_id = ? AND challenge_status = "completed"'
+    ).bind(id).all();
+
+    const { results: declinedRequirements } = await DB.prepare(
+      'SELECT title FROM requirements WHERE project_id = ? AND challenge_status = "declined"'
+    ).bind(id).all();
+
+    const imageUrls = project.image_urls ? JSON.parse(project.image_urls) : [];
+
+    // AI로 5개 요건 추천
+    const recommendations = await recommendChallengeRequirements(
+      project.title,
+      project.description || '',
+      project.input_content || '',
+      existingRequirements as any,
+      completedRequirements as any,
+      declinedRequirements as any,
+      imageUrls,
+      apiKey,
+      baseURL
+    );
+
+    return c.json(recommendations);
+  } catch (error) {
+    console.error('Recommendation error:', error);
+    return c.json({ error: 'Failed to recommend requirements', message: String(error) }, 500);
+  }
+});
+
+// 챌린지형: 방향성 분석
+api.post('/requirements/:id/analyze-direction', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+
+  try {
+    const requirement = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(id).first() as any;
+
+    if (!requirement) {
+      return c.json({ error: 'Requirement not found' }, 404);
+    }
+
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(requirement.project_id).first() as any;
+
+    // AI로 방향성 분석
+    const analysis = await analyzeChallengeDirection(
+      requirement.title,
+      requirement.description || '',
+      project.input_content || '',
+      apiKey,
+      baseURL
+    );
+
+    // 방향성 저장
+    await DB.prepare(
+      'UPDATE requirements SET direction_analysis = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind(JSON.stringify(analysis), id).run();
+
+    // 질문 저장
+    for (let i = 0; i < analysis.questions.length; i++) {
+      const q = analysis.questions[i];
+      await DB.prepare(
+        'INSERT INTO questions (requirement_id, question_text, question_type, options, order_index, created_at) VALUES (?, ?, ?, ?, ?, datetime("now", "+9 hours"))'
+      ).bind(
+        id,
+        q.question_text,
+        q.question_type,
+        q.options ? JSON.stringify(q.options) : null,
+        i
+      ).run();
+    }
+
+    return c.json({ success: true, analysis });
+  } catch (error) {
+    console.error('Direction analysis error:', error);
+    return c.json({ error: 'Failed to analyze direction', message: String(error) }, 500);
+  }
+});
+
+// 챌린지형: 요건 수락
+api.post('/requirements/:id/accept', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  try {
+    await DB.prepare(
+      'UPDATE requirements SET challenge_status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind('accepted', id).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Accept error:', error);
+    return c.json({ error: 'Failed to accept requirement' }, 500);
+  }
+});
+
+// 챌린지형: 요건 거절
+api.post('/requirements/:id/decline', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  try {
+    await DB.prepare(
+      'UPDATE requirements SET challenge_status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind('declined', id).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Decline error:', error);
+    return c.json({ error: 'Failed to decline requirement' }, 500);
+  }
+});
+
+// 챌린지형: 요건 완성
+api.post('/requirements/:id/complete', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+
+  try {
+    await DB.prepare(
+      'UPDATE requirements SET challenge_status = ?, status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind('completed', 'completed', id).run();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Complete error:', error);
+    return c.json({ error: 'Failed to complete requirement' }, 500);
   }
 });
 

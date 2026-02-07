@@ -822,6 +822,173 @@ ${existingTitles}
 }
 
 /**
+ * 챌린지형: 5개 요건 추천
+ */
+export async function recommendChallengeRequirements(
+  projectTitle: string,
+  projectDescription: string,
+  inputContent: string,
+  existingRequirements: { title: string; keywords: string[] }[],
+  completedRequirements: { title: string }[],
+  declinedRequirements: { title: string }[],
+  imageUrls: string[],
+  apiKey: string,
+  baseURL: string
+): Promise<{
+  requirements: {
+    title: string;
+    description: string;
+    requirement_type: 'functional' | 'non_functional' | 'constraint';
+    priority: 'low' | 'medium' | 'high' | 'critical';
+    keywords: string[];
+    rationale: string;
+  }[];
+}> {
+  const systemPrompt = `당신은 전문 기획자입니다. 프로젝트 상황을 분석하여 **다음으로 구체화해야 할 5개 요건**을 추천하세요.
+
+**추천 기준:**
+1. 기존 요건과 중복되지 않아야 함
+2. 사용자가 거절한 요건은 제외
+3. 현재 프로젝트 단계에서 중요한 요건 우선
+4. 구현 가능하고 명확한 요건
+
+**출력 형식 (JSON):**
+{
+  "requirements": [
+    {
+      "title": "요건명 (30자 이내)",
+      "description": "간단한 설명 (80자 이내)",
+      "requirement_type": "functional|non_functional|constraint",
+      "priority": "high|medium|low",
+      "keywords": ["키워드1", "키워드2"],
+      "rationale": "이 요건을 추천하는 이유 (50자 이내)"
+    }
+  ]
+}
+
+**규칙:**
+- 정확히 5개 요건 생성
+- keywords는 중복 제거에 사용 (각 3-5개)
+- 우선순위 배분: high 2개, medium 2개, low 1개`;
+
+  const existingTitles = existingRequirements.map(r => r.title).join(', ');
+  const completedTitles = completedRequirements.map(r => r.title).join(', ');
+  const declinedTitles = declinedRequirements.map(r => r.title).join(', ');
+
+  let userPrompt = `## 프로젝트 정보
+제목: ${projectTitle}
+설명: ${projectDescription}
+상위 기획안: ${inputContent}
+
+## 현재 상황
+- 기존 요건: ${existingTitles || '없음'}
+- 완료된 요건: ${completedTitles || '없음'}
+- 거절된 요건: ${declinedTitles || '없음'}`;
+
+  if (imageUrls.length > 0) {
+    userPrompt += `\n- 이미지: ${imageUrls.length}장 (와이어프레임/플로우차트 등)`;
+  }
+
+  userPrompt += `\n\n위 정보를 바탕으로 다음으로 구체화할 5개 요건을 추천하세요.`;
+
+  let content: string;
+
+  if (imageUrls.length > 0) {
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: userPrompt },
+          ...imageUrls.map(url => ({
+            type: 'image_url',
+            image_url: { url: url }
+          }))
+        ]
+      }
+    ];
+
+    content = await chatCompletion(messages as any, apiKey, baseURL, true);
+  } else {
+    content = await chatCompletion(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      apiKey,
+      baseURL,
+      true
+    );
+  }
+
+  return JSON.parse(content);
+}
+
+/**
+ * 챌린지형: 방향성 분석
+ */
+export async function analyzeChallengeDirection(
+  requirementTitle: string,
+  requirementDescription: string,
+  projectContext: string,
+  apiKey: string,
+  baseURL: string
+): Promise<{
+  direction: string;
+  clarifications: string[];
+  suggested_approach: string;
+  questions: {
+    question_text: string;
+    question_type: 'open' | 'choice' | 'boolean';
+    options?: string[];
+  }[];
+}> {
+  const systemPrompt = `당신은 전문 기획자입니다. 요건의 **방향성**을 분석하고 구체화 질문을 생성하세요.
+
+**방향성이란?**
+이 요건을 어떤 관점에서, 어떻게 접근할지에 대한 큰 틀
+
+**출력 형식 (JSON):**
+{
+  "direction": "이 요건의 핵심 방향성 (100자 이내)",
+  "clarifications": ["명확히 해야 할 사항1", "명확히 해야 할 사항2"],
+  "suggested_approach": "제안하는 접근 방식 (100자 이내)",
+  "questions": [
+    {
+      "question_text": "구체화 질문",
+      "question_type": "open|choice|boolean",
+      "options": ["선택지1", "선택지2"]
+    }
+  ]
+}
+
+**규칙:**
+- clarifications: 2-3개
+- questions: 5개 (구체적이고 실행 가능한 질문)`;
+
+  const userPrompt = `## 프로젝트 맥락
+${projectContext}
+
+## 요건 정보
+제목: ${requirementTitle}
+설명: ${requirementDescription}
+
+위 요건의 방향성을 분석하고 구체화 질문을 생성하세요.`;
+
+  const content = await chatCompletion(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    apiKey,
+    baseURL,
+    true
+  );
+
+  return JSON.parse(content);
+}
+
+/**
  * 선택된 카테고리에 대한 상세 요건 생성
  */
 export async function generateRequirementsByCategory(
