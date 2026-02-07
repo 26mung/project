@@ -4445,10 +4445,219 @@ function addRequirementListButton(recommendations) {
   buttonContainer.innerHTML = buttonHtml;
 }
 
-// 채팅으로 생성된 요건 리스트 미리보기
+// 채팅으로 생성된 요건 리스트 표시 (선택 가능)
 function showChatRecommendations(recommendations) {
-  // 미리보기 모달 표시
-  showRequirementPreviewModal(recommendations);
+  closeChatModal();
+  
+  // 전역 변수에 저장
+  window.currentChatRecommendations = recommendations;
+  window.selectedChatRecommendationIndex = null;
+  
+  showChatRecommendationModal(recommendations);
+}
+
+// 대화형 추천 요건 모달 (선택 가능)
+function showChatRecommendationModal(recommendations) {
+  const modalId = 'modal-chat-recommendations';
+  const modalContainer = document.getElementById('modal-container');
+  
+  // 전역 변수에 저장
+  window.currentChatRecommendations = recommendations;
+  window.selectedChatRecommendationIndex = null;
+  
+  let requirementsHtml = '';
+  recommendations.forEach((req, index) => {
+    const priorityColor = req.priority === 'high' ? 'var(--red-500)' : req.priority === 'medium' ? 'var(--yellow-500)' : 'var(--grey-500)';
+    const priorityText = req.priority === 'high' ? '높음' : req.priority === 'medium' ? '보통' : '낮음';
+    
+    requirementsHtml += `
+      <div 
+        id="chat-req-${index}"
+        class="chat-requirement-card" 
+        onclick="selectChatRecommendation(${index})"
+        style="cursor: pointer; background: var(--grey-50); border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all 0.2s;"
+        onmouseover="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--indigo-300)'; this.style.transform = 'translateX(4px)'; }"
+        onmouseout="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--grey-200)'; this.style.transform = 'translateX(0)'; }"
+      >
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900); flex: 1;">${index + 1}. ${escapeHtml(req.title)}</h4>
+          <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-left: 12px;">${priorityText}</span>
+        </div>
+        <p style="color: var(--grey-700); font-size: 14px; line-height: 1.6; margin-bottom: 8px;">${escapeHtml(req.description)}</p>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${(req.keywords || []).map(kw => `<span style="background: var(--indigo-100); color: var(--indigo-700); padding: 4px 10px; border-radius: 6px; font-size: 12px;">#${escapeHtml(kw)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  });
+  
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
+          <div>
+            <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+              <i class="fas fa-robot" style="color: var(--indigo-500); margin-right: 8px;"></i>
+              AI 추천 요건 (${recommendations.length}개)
+            </h2>
+            <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">원하는 요건을 선택하면 예상 질문지를 확인할 수 있습니다</p>
+          </div>
+          <button onclick="closeChatRecommendationModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times text-lg"></i>
+          </button>
+        </div>
+        
+        <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
+          ${requirementsHtml}
+        </div>
+        
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
+          <button onclick="closeChatRecommendationModal()" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+            계속 대화하기
+          </button>
+          <button id="chat-preview-btn" onclick="previewChatRecommendation()" disabled class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-eye" style="margin-right: 6px;"></i>
+            질문지 미리보기
+          </button>
+          <button id="chat-add-btn" onclick="addChatRecommendation()" disabled class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+            요건 추가하기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 대화형 추천 요건 선택
+function selectChatRecommendation(index) {
+  // 이전 선택 해제
+  document.querySelectorAll('.chat-requirement-card').forEach(card => {
+    card.classList.remove('selected');
+    card.style.borderColor = 'var(--grey-200)';
+    card.style.background = 'var(--grey-50)';
+  });
+  
+  // 새로운 선택
+  const selectedCard = document.getElementById(`chat-req-${index}`);
+  selectedCard.classList.add('selected');
+  selectedCard.style.borderColor = 'var(--indigo-500)';
+  selectedCard.style.background = 'var(--indigo-50)';
+  selectedCard.style.transform = 'translateX(0)';
+  
+  window.selectedChatRecommendationIndex = index;
+  
+  // 버튼 활성화
+  const previewBtn = document.getElementById('chat-preview-btn');
+  const addBtn = document.getElementById('chat-add-btn');
+  
+  if (previewBtn) {
+    previewBtn.disabled = false;
+    previewBtn.style.opacity = '1';
+    previewBtn.style.cursor = 'pointer';
+  }
+  
+  if (addBtn) {
+    addBtn.disabled = false;
+    addBtn.style.opacity = '1';
+    addBtn.style.cursor = 'pointer';
+  }
+}
+
+// 대화형 추천 모달 닫기
+function closeChatRecommendationModal() {
+  closeModalById('modal-chat-recommendations');
+  
+  // 대화 모달 다시 열기
+  setTimeout(() => {
+    showChatRequirementModal(true);
+  }, 100);
+}
+
+// 대화형 추천 요건 미리보기
+async function previewChatRecommendation() {
+  if (window.selectedChatRecommendationIndex === null) {
+    showToast('요건을 선택해주세요', 'warning');
+    return;
+  }
+  
+  const selectedReq = window.currentChatRecommendations[window.selectedChatRecommendationIndex];
+  
+  // 캐시 확인
+  const cacheKey = `chat_question_cache_${currentProject.id}_${selectedReq.title}`;
+  const cached = localStorage.getItem(cacheKey);
+  
+  if (cached) {
+    try {
+      const data = JSON.parse(cached);
+      console.log('[Chat Question Cache] Loaded from cache');
+      showDirectionPreviewModal(data);
+      return;
+    } catch (error) {
+      console.error('[Chat Question Cache] Failed to load:', error);
+    }
+  }
+  
+  const loadingToast = showLoadingToast('질문지를 생성하고 있습니다...');
+  
+  try {
+    const response = await axios.post(`${API_BASE}/requirements/preview-direction`, {
+      project_id: currentProject.id,
+      title: selectedReq.title,
+      description: selectedReq.description,
+      requirement_type: selectedReq.requirement_type || 'functional',
+      priority: selectedReq.priority || 'medium'
+    }, { timeout: 180000 });
+    
+    hideToast(loadingToast);
+    
+    // 캐시 저장
+    localStorage.setItem(cacheKey, JSON.stringify(response.data));
+    
+    showDirectionPreviewModal(response.data);
+    
+  } catch (error) {
+    hideToast(loadingToast);
+    console.error('Failed to preview direction:', error);
+    showToast('질문지 생성에 실패했습니다', 'error');
+  }
+}
+
+// 대화형 추천 요건 추가
+async function addChatRecommendation() {
+  if (window.selectedChatRecommendationIndex === null) {
+    showToast('요건을 선택해주세요', 'warning');
+    return;
+  }
+  
+  const selectedReq = window.currentChatRecommendations[window.selectedChatRecommendationIndex];
+  
+  closeChatRecommendationModal();
+  closeModalById('modal-chat-requirement');
+  
+  showToast('요건을 추가하고 있습니다...', 'info');
+  
+  try {
+    await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+      title: selectedReq.title,
+      description: selectedReq.description,
+      requirement_type: selectedReq.requirement_type || 'functional',
+      priority: selectedReq.priority || 'medium'
+    });
+    
+    // 요건 목록 새로고침
+    await renderRequirements();
+    
+    // 캐시 초기화
+    clearChatCache();
+    
+    showToast('요건이 추가되었습니다! 🎉', 'success');
+    
+  } catch (error) {
+    console.error('Failed to add requirement:', error);
+    showToast('요건 추가에 실패했습니다', 'error');
+  }
 }
 
 // 요건 미리보기 모달
