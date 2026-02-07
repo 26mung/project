@@ -1075,6 +1075,14 @@ function showChallengeRecommendationModal(recommendations) {
   
   // 챌린지 추천 캐시 저장
   saveChallengeCache(recommendations);
+  
+  // 이미 추가된 요건 제목 목록 가져오기
+  const existingTitles = new Set();
+  if (window.currentRequirements && Array.isArray(window.currentRequirements)) {
+    window.currentRequirements.forEach(req => {
+      existingTitles.add(req.title.trim().toLowerCase());
+    });
+  }
 
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
@@ -1093,18 +1101,23 @@ function showChallengeRecommendationModal(recommendations) {
           <div style="background: linear-gradient(135deg, var(--blue-50) 0%, var(--indigo-50) 100%); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--blue-500);">
             <p style="color: var(--grey-800); font-size: 14px; line-height: 1.6; margin: 0;">
               <i class="fas fa-info-circle" style="color: var(--blue-500); margin-right: 8px;"></i>
-              <strong>요건을 선택하고 질문지를 미리 확인해보세요.</strong><br>
+              <strong>요건을 선택하고 질문지를 미리 확인하거나 바로 추가하세요.</strong><br>
               <span style="color: var(--grey-600); font-size: 13px;">마음에 들면 등록하고, 아니면 뒤로가기로 다른 요건을 탐색할 수 있어요.</span>
             </p>
           </div>
 
           <div id="recommendation-list-${modalId}">
-            ${recommendations.map((req, idx) => `
+            ${recommendations.map((req, idx) => {
+              const isAlreadyAdded = existingTitles.has(req.title.trim().toLowerCase());
+              const disabledStyle = isAlreadyAdded ? 'opacity: 0.5; cursor: not-allowed; pointer-events: none;' : 'cursor: pointer;';
+              const disabledBadge = isAlreadyAdded ? '<span class="badge badge-small badge-fill-grey" style="margin-left: 8px;">이미 추가됨</span>' : '';
+              
+              return `
               <div class="recommendation-item" 
                    id="recommendation-item-${idx}"
                    data-index="${idx}" 
-                   onclick="selectRecommendationItem(${idx})"
-                   style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
+                   onclick="${isAlreadyAdded ? '' : `selectRecommendationItem(${idx})`}"
+                   style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all 0.2s; ${disabledStyle}">
                 <div style="display: flex; align-items: start; gap: 12px;">
                   <!-- 라디오 버튼 -->
                   <div style="flex-shrink: 0; margin-top: 2px;">
@@ -1117,7 +1130,7 @@ function showChallengeRecommendationModal(recommendations) {
                   <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                       <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); flex: 1; padding-right: 8px;">
-                        ${req.title}
+                        ${req.title} ${disabledBadge}
                       </h4>
                       <span class="badge badge-small badge-fill-${req.priority === 'high' ? 'red' : req.priority === 'medium' ? 'blue' : 'grey'}">${req.priority === 'high' ? '높음' : req.priority === 'medium' ? '중간' : '낮음'}</span>
                     </div>
@@ -1130,7 +1143,7 @@ function showChallengeRecommendationModal(recommendations) {
                   </div>
                 </div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </div>
 
@@ -1145,10 +1158,16 @@ function showChallengeRecommendationModal(recommendations) {
               대화형 요건 추천
             </button>
           </div>
-          <button id="preview-questions-btn" onclick="previewSelectedRecommendation()" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg opacity-50" style="cursor: not-allowed;" disabled>
-            <i class="fas fa-search" style="margin-right: 6px;"></i>
-            질문지 미리보기
-          </button>
+          <div class="flex gap-3">
+            <button id="preview-questions-btn" onclick="previewSelectedRecommendation()" class="btn-secondary px-6 py-3 rounded-xl font-bold opacity-50" style="cursor: not-allowed;" disabled>
+              <i class="fas fa-eye" style="margin-right: 6px;"></i>
+              질문지 미리보기
+            </button>
+            <button id="add-requirement-btn" onclick="addSelectedRecommendation()" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg opacity-50" style="cursor: not-allowed;" disabled>
+              <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+              요건 추가하기
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1157,18 +1176,21 @@ function showChallengeRecommendationModal(recommendations) {
   // 호버 효과 (CSS 클래스로 관리)
   setTimeout(() => {
     document.querySelectorAll('.recommendation-item').forEach((card, idx) => {
-      card.addEventListener('mouseenter', () => {
-        if (window.selectedRecommendationIndex !== idx) {
-          card.style.borderColor = 'var(--blue-300)';
-          card.style.backgroundColor = 'var(--blue-25)';
-        }
-      });
-      card.addEventListener('mouseleave', () => {
-        if (window.selectedRecommendationIndex !== idx) {
-          card.style.borderColor = 'var(--grey-200)';
-          card.style.backgroundColor = 'transparent';
-        }
-      });
+      const isAlreadyAdded = existingTitles.has(recommendations[idx].title.trim().toLowerCase());
+      if (!isAlreadyAdded) {
+        card.addEventListener('mouseenter', () => {
+          if (window.selectedRecommendationIndex !== idx) {
+            card.style.borderColor = 'var(--blue-300)';
+            card.style.backgroundColor = 'var(--blue-25)';
+          }
+        });
+        card.addEventListener('mouseleave', () => {
+          if (window.selectedRecommendationIndex !== idx) {
+            card.style.borderColor = 'var(--grey-200)';
+            card.style.backgroundColor = 'transparent';
+          }
+        });
+      }
     });
   }, 0);
 }
@@ -1204,12 +1226,19 @@ function selectRecommendationItem(index) {
   if (radio) radio.style.borderColor = 'var(--blue-500)';
   if (radioInner) radioInner.style.opacity = '1';
 
-  // 미리보기 버튼 활성화
+  // 미리보기 버튼과 추가 버튼 활성화
   const previewBtn = document.getElementById('preview-questions-btn');
   if (previewBtn) {
     previewBtn.disabled = false;
     previewBtn.style.opacity = '1';
     previewBtn.style.cursor = 'pointer';
+  }
+  
+  const addBtn = document.getElementById('add-requirement-btn');
+  if (addBtn) {
+    addBtn.disabled = false;
+    addBtn.style.opacity = '1';
+    addBtn.style.cursor = 'pointer';
   }
 }
 
@@ -1222,6 +1251,43 @@ async function previewSelectedRecommendation() {
   }
 
   previewRecommendationDirection(index);
+}
+
+// 선택된 챌린지 요건 바로 추가
+async function addSelectedRecommendation() {
+  const index = window.selectedRecommendationIndex;
+  if (index === null) {
+    showToast('요건을 선택해주세요', 'warning');
+    return;
+  }
+
+  const recommendation = window.currentRecommendations[index];
+  
+  closeModalById('modal-challenge-recommendations');
+  
+  const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
+  
+  try {
+    // 요건 추가 API 호출
+    await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+      title: recommendation.title,
+      description: recommendation.description,
+      requirement_type: recommendation.requirement_type || 'functional',
+      priority: recommendation.priority || 'medium'
+    });
+    
+    hideToast(loadingToast);
+    
+    // 요건 목록 새로고침
+    await renderRequirements();
+    
+    showToast('요건이 추가되었습니다! 🎉', 'success');
+    
+  } catch (error) {
+    console.error('Failed to add requirement:', error);
+    hideToast(loadingToast);
+    showToast('요건 추가에 실패했습니다', 'error');
+  }
 }
 
 // 🆕 추천 요건 방향성 미리보기 (저장하지 않고 분석만)
@@ -4164,16 +4230,17 @@ function showChatRequirementModal(isResumed = false) {
   const modalId = 'modal-chat-requirement';
   const modalContainer = document.getElementById('modal-container');
 
-  // 새로 시작 버튼 (항상 표시, 고정)
+  // 대화 새로 시작 버튼 (항상 표시, 고정, 중앙선 정렬)
   const newStartButton = isResumed ? `
     <button 
       onclick="startChatRequirement(false); clearChatCache();"
-      style="position: absolute; top: 16px; right: 60px; z-index: 10; padding: 8px 16px; border-radius: 10px; background: var(--green-500); border: none; font-size: 13px; font-weight: 600; color: white; cursor: pointer; box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2); transition: all 0.2s;"
-      onmouseover="this.style.transform = 'scale(1.05)'; this.style.boxShadow = '0 4px 12px rgba(34, 197, 94, 0.3)';"
-      onmouseout="this.style.transform = 'scale(1)'; this.style.boxShadow = '0 2px 8px rgba(34, 197, 94, 0.2)';"
+      class="btn-secondary font-bold"
+      style="padding: 12px 20px; border-radius: 10px; font-size: 14px; display: flex; align-items: center; gap: 6px; transition: all 0.2s; height: 48px;"
+      onmouseover="this.style.transform = 'scale(1.03)';"
+      onmouseout="this.style.transform = 'scale(1)';"
     >
-      <i class="fas fa-redo" style="margin-right: 6px;"></i>
-      새로 시작
+      <i class="fas fa-redo"></i>
+      <span>대화 새로 시작</span>
     </button>
   ` : '';
   
@@ -4187,15 +4254,15 @@ function showChatRequirementModal(isResumed = false) {
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
       <div class="modal-content bg-white rounded-3xl" style="max-width: 1100px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; margin: 20px;">
-        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center" style="flex-shrink: 0; position: relative;">
-          ${newStartButton}
-          <div>
+        <div class="modal-header p-6 border-b border-toss-gray-100" style="flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+          <div style="flex: 1;">
             <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
               <i class="fas fa-robot" style="color: #667eea; margin-right: 8px;"></i>
               AI와 대화하며 요건 찾기
             </h2>
             <p style="color: var(--grey-600); font-size: 13px; margin-top: 4px;">프로젝트: ${escapeHtml(currentProject.title)}</p>
           </div>
+          ${newStartButton}
           <button onclick="closeChatModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
             <i class="fas fa-times text-lg"></i>
           </button>
@@ -4224,7 +4291,7 @@ function showChatRequirementModal(isResumed = false) {
 
         <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 20px 24px 24px 24px; background: white;">
           <div style="display: flex; gap: 12px; align-items: center;">
-            <!-- 입력창 (와이드, 리사이즈 가능, 스크롤) -->
+            <!-- 입력창 (최대한 넓게) -->
             <textarea 
               id="chat-input" 
               placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
@@ -4245,12 +4312,6 @@ function showChatRequirementModal(isResumed = false) {
               <i class="fas fa-paper-plane" style="font-size: 16px;"></i>
               <span>전송</span>
             </button>
-          </div>
-          
-          <!-- 안내 문구 (하단에 별도 표시) -->
-          <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--grey-500);">
-            <span><kbd style="background: var(--grey-200); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Enter</kbd> 전송</span>
-            <span><kbd style="background: var(--grey-200); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Shift + Enter</kbd> 줄바꿈</span>
           </div>
         </div>
       </div>
