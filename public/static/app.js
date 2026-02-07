@@ -970,11 +970,27 @@ async function selectRequirementMode(mode, modalId = null) {
   
   // 모드 선택 성공 후 분석 실행 (각 함수가 에러를 자체 처리)
   if (mode === 'initial') {
-    // 기존 방식: 즉시 분석 시작
+    // 초기 기획용: 캐시 확인
+    const cached = loadInitialCache();
+    if (cached && cached.projectId === currentProject.id && cached.requirements && cached.requirements.length > 0) {
+      console.log('[Initial Cache] Found cached requirements, showing immediately');
+      showToast('이전 분석 결과를 불러왔습니다', 'success');
+      switchTab('requirements');
+      await renderRequirements();
+      return;
+    }
+    
     console.log('[Mode Selection] Calling executeInitialAnalysis');
     executeInitialAnalysis();
   } else {
-    // 챌린지형: 5개 요건 추천
+    // 챌린지형: 캐시 확인
+    const cached = loadChallengeCache();
+    if (cached && cached.projectId === currentProject.id && cached.recommendations && cached.recommendations.length > 0) {
+      console.log('[Challenge Cache] Found cached recommendations, showing modal');
+      showChallengeRecommendationModal(cached.recommendations);
+      return;
+    }
+    
     console.log('[Mode Selection] Calling executeChallengeRecommendation');
     executeChallengeRecommendation();
   }
@@ -1008,6 +1024,12 @@ async function executeInitialAnalysis() {
     
     hideToast(loadingToast);
     await selectProject(currentProject.id);
+    
+    // 캐시 저장 (요건 데이터 포함)
+    if (currentProject.requirements && currentProject.requirements.length > 0) {
+      saveInitialCache(currentProject.requirements);
+    }
+    
     switchTab('requirements');
     
     if (imageUrls.length > 0) {
@@ -3957,11 +3979,13 @@ function toggleMobileMenu() {
   }
 }
 
+
 // ============ 🆕 대화형 요건 추천 기능 ============
 
 // 대화 캐시 키
 const CHAT_CACHE_KEY = 'chat_requirement_cache';
 const CHALLENGE_CACHE_KEY = 'challenge_recommendations_cache';
+const INITIAL_CACHE_KEY = 'initial_requirements_cache';
 const CHAT_CACHE_TTL = 30 * 60 * 1000; // 30분
 
 // 대화형 요건 추천 시작
@@ -4082,6 +4106,46 @@ function loadChallengeCache() {
   }
 }
 
+// 초기 기획용 캐시 저장
+function saveInitialCache(requirements) {
+  if (!currentProject) return;
+  
+  const cache = {
+    projectId: currentProject.id,
+    requirements: requirements,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(INITIAL_CACHE_KEY, JSON.stringify(cache));
+    console.log('[Initial Cache] Saved:', cache);
+  } catch (error) {
+    console.error('[Initial Cache] Failed to save:', error);
+  }
+}
+
+// 초기 기획용 캐시 불러오기
+function loadInitialCache() {
+  try {
+    const cached = localStorage.getItem(INITIAL_CACHE_KEY);
+    if (!cached) return null;
+    
+    const data = JSON.parse(cached);
+    
+    // TTL 체크
+    if (Date.now() - data.timestamp > CHAT_CACHE_TTL) {
+      localStorage.removeItem(INITIAL_CACHE_KEY);
+      return null;
+    }
+    
+    console.log('[Initial Cache] Loaded:', data);
+    return data;
+  } catch (error) {
+    console.error('[Initial Cache] Failed to load:', error);
+    return null;
+  }
+}
+
 // 채팅 모달 표시
 function showChatRequirementModal(isResumed = false) {
   const modalId = 'modal-chat-requirement';
@@ -4137,41 +4201,42 @@ function showChatRequirementModal(isResumed = false) {
           <!-- 추천 요건 확인 버튼이 여기에 추가됩니다 -->
         </div>
 
-        <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 20px 24px;">
-          <!-- 입력 영역 (와이드) -->
-          <div style="position: relative; width: 100%;">
-            <textarea 
-              id="chat-input" 
-              placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원하고..."
-              style="width: 100%; padding: 16px 120px 16px 20px; border: 2px solid var(--grey-200); border-radius: 16px; font-size: 15px; min-height: 70px; max-height: 180px; resize: none; font-family: inherit; line-height: 1.6; transition: all 0.2s;"
-              onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
-              oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 180) + 'px';"
-              onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
-              onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
-            ></textarea>
+        <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 16px 24px 20px 24px; background: white;">
+          <div style="display: flex; gap: 12px; align-items: flex-end;">
+            <!-- 입력창 -->
+            <div style="flex: 1; position: relative;">
+              <textarea 
+                id="chat-input" 
+                placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요..."
+                style="width: 100%; padding: 14px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 56px; max-height: 160px; resize: none; font-family: inherit; line-height: 1.5; transition: all 0.2s;"
+                onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
+                oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px';"
+                onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
+                onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
+              ></textarea>
+              
+              <!-- 안내 문구 (입력창 하단에 오버레이) -->
+              <div style="position: absolute; bottom: 8px; right: 12px; display: flex; align-items: center; gap: 6px; pointer-events: none;">
+                <span style="background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--grey-500); font-weight: 500;">
+                  <kbd style="background: var(--grey-200); padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;">Enter</kbd> 전송
+                </span>
+                <span style="background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--grey-500); font-weight: 500;">
+                  <kbd style="background: var(--grey-200); padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;">Shift+Enter</kbd> 줄바꿈
+                </span>
+              </div>
+            </div>
             
-            <!-- 전송 버튼 (입력창 내부 우측) -->
+            <!-- 전송 버튼 (독립) -->
             <button 
               onclick="sendChatMessage()" 
               class="btn-primary rounded-xl font-bold shadow-lg"
-              style="position: absolute; right: 8px; bottom: 8px; padding: 12px 20px; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
-              onmouseover="this.style.transform = 'scale(1.05)'"
-              onmouseout="this.style.transform = 'scale(1)'"
+              style="padding: 14px 24px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; height: 56px;"
+              onmouseover="this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.3)';"
+              onmouseout="this.style.transform = 'translateY(0)'; this.style.boxShadow = '';"
             >
               <i class="fas fa-paper-plane"></i>
               <span>전송</span>
             </button>
-          </div>
-          
-          <!-- 안내 문구 (우측 하단) -->
-          <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-            <p style="color: var(--grey-500); font-size: 12px; display: flex; align-items: center; gap: 8px;">
-              <span style="background: var(--grey-100); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Enter</span>
-              <span>전송</span>
-              <span style="color: var(--grey-300);">|</span>
-              <span style="background: var(--grey-100); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Shift + Enter</span>
-              <span>줄바꿈</span>
-            </p>
           </div>
         </div>
       </div>
@@ -4356,65 +4421,49 @@ function removeChatMessage(messageId) {
 // 요건 리스트 표시 버튼 추가
 function addRequirementListButton(recommendations) {
   const buttonContainer = document.getElementById('chat-action-buttons');
-
+  
   // 버튼 컨테이너 표시
   buttonContainer.style.display = 'block';
-
+  
   // 이미 버튼이 있으면 제거 (중복 방지)
   buttonContainer.innerHTML = '';
-
-  // 전역 변수에 저장 (클로저 제대 변수에서 사용)
-  window.currentChatRecommendations = recommendations;
-
-  // addEventListener 방식으로 버튼 생성 (JSON stringify 문제 회피)
-  const button = document.createElement('button');
-  button.className = 'btn-primary rounded-xl font-bold shadow-lg';
-  button.style.cssText = 'width: 100%; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; animation: slideUp 0.3s ease-out;';
-
-  button.innerHTML = `
-    <i class="fas fa-list-check"></i>
-    <span>추천 요건 ${recommendations.length}개 확인하기</span>
-    <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
+  
+  const buttonHtml = `
+    <button 
+      onclick='showChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, "&#39;")})'
+      class="btn-primary rounded-xl font-bold shadow-lg"
+      style="width: 100%; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; animation: slideUp 0.3s ease-out;"
+      onmouseover="this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';"
+      onmouseout="this.style.transform = 'translateY(0)'; this.style.boxShadow = '';"
+    >
+      <i class="fas fa-list-check"></i>
+      <span>추천 요건 ${recommendations.length}개 확인하기</span>
+      <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
+    </button>
   `;
-
-  // 호버 효과
-  button.addEventListener('mouseover', () => {
-    button.style.transform = 'translateY(-2px)';
-    button.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';
-  });
-
-  button.addEventListener('mouseout', () => {
-    button.style.transform = 'translateY(0)';
-    button.style.boxShadow = '';
-  });
-
-  // 클릭 이벤트 - 전역 변수를 사용하여 JSON stringify 문제 회피
-  button.addEventListener('click', () => {
-    if (window.currentChatRecommendations && window.currentChatRecommendations.length > 0) {
-      showRequirementPreviewModal(window.currentChatRecommendations);
-    } else {
-      showToast('추천 요건 데이터를 찾을 수 없습니다', 'error');
-    }
-  });
-
-  buttonContainer.appendChild(button);
+  
+  buttonContainer.innerHTML = buttonHtml;
 }
 
-
+// 채팅으로 생성된 요건 리스트 미리보기
+function showChatRecommendations(recommendations) {
+  // 미리보기 모달 표시
+  showRequirementPreviewModal(recommendations);
+}
 
 // 요건 미리보기 모달
 function showRequirementPreviewModal(recommendations) {
   const modalId = 'modal-requirement-preview';
   const modalContainer = document.getElementById('modal-container');
-
-  // 전역 변수에 저장하여 addEventListener에서 사용 (JSON stringify 문제 방지)
-  window.currentChatRecommendations = recommendations;
-
+  
+  // 전역 변수에 저장 (onclick에서 사용)
+  window.previewRecommendations = recommendations;
+  
   let requirementsHtml = '';
   recommendations.forEach((req, index) => {
     const priorityColor = req.priority === 'high' ? 'var(--red-500)' : req.priority === 'medium' ? 'var(--yellow-500)' : 'var(--grey-500)';
     const priorityText = req.priority === 'high' ? '높음' : req.priority === 'medium' ? '보통' : '낮음';
-
+    
     requirementsHtml += `
       <div style="background: var(--grey-50); border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid ${priorityColor};">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
@@ -4429,112 +4478,45 @@ function showRequirementPreviewModal(recommendations) {
     `;
   });
 
-  // 컨테이너 생성 (addEventListener 방식으로 이벤트 핸들러 연결)
-  const modalDiv = document.createElement('div');
-  modalDiv.id = modalId;
-  modalDiv.className = 'fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in';
-  modalDiv.innerHTML = `
-    <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
-      <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
-        <div>
-          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
-            <i class="fas fa-check-circle" style="color: var(--green-500); margin-right: 8px;"></i>
-            추천 요건 미리보기
-          </h2>
-          <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">총 ${recommendations.length}개의 요건을 추천드립니다</p>
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
+          <div>
+            <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+              <i class="fas fa-check-circle" style="color: var(--green-500); margin-right: 8px;"></i>
+              추천 요건 미리보기
+            </h2>
+            <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">총 ${recommendations.length}개의 요건을 추천드립니다</p>
+          </div>
+          <button onclick="closeRequirementPreviewModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times text-lg"></i>
+          </button>
         </div>
-        <button id="btn-preview-close" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
-          <i class="fas fa-times text-lg"></i>
-        </button>
-      </div>
-
-      <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
-        ${requirementsHtml}
-      </div>
-
-      <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
-        <button id="btn-preview-back" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
-          <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
-          계속 대화하기
-        </button>
-        <button id="btn-preview-add" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
-          <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
-          요건 추가하기
-        </button>
+        
+        <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
+          ${requirementsHtml}
+        </div>
+        
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
+          <button onclick="closeRequirementPreviewModal()" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+            계속 대화하기
+          </button>
+          <button onclick="confirmChatRecommendations()" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
+            <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+            요건 추가하기
+          </button>
+        </div>
       </div>
     </div>
   `;
-
-  modalContainer.appendChild(modalDiv);
-
-  // 이벤트 리스너 추가 (inline onclick 대신 사용 - JSON stringify 문제 방지)
-  document.getElementById('btn-preview-close').addEventListener('click', () => {
-    closeRequirementPreviewModal();
-  });
-
-  document.getElementById('btn-preview-back').addEventListener('click', () => {
-    closeRequirementPreviewModal();
-  });
-
-  document.getElementById('btn-preview-add').addEventListener('click', () => {
-    addCurrentChatRequirements();
-  });
-}
-
-// 전역 변수에 저장된 요건을 추가하는 함수 (JSON stringify 문제 방지용)
-async function addCurrentChatRequirements() {
-  const recommendations = window.currentChatRecommendations;
-  if (!recommendations || recommendations.length === 0) {
-    showToast('추천할 요건이 없습니다', 'error');
-    return;
-  }
-
-  closeRequirementPreviewModal();
-  closeChatModal();
-
-  const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
-
-  try {
-    // 각 요건을 API로 전송 (올바른 엔드포인트: /requirements)
-    for (const req of recommendations) {
-      await axios.post(`${API_BASE}/requirements`, {
-        project_id: currentProject.id,
-        title: req.title,
-        description: req.description,
-        requirement_type: req.requirement_type || 'functional',
-        priority: req.priority || 'medium'
-      });
-    }
-
-    hideToast(loadingToast);
-
-    // 요건 목록 새로고침
-    await renderRequirements();
-
-    // 캐시 초기화
-    clearChatCache();
-
-    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
-
-  } catch (error) {
-    console.error('Failed to add requirements:', error);
-    hideToast(loadingToast);
-
-    // 에러 메시지 표시
-    let errorMessage = '요건 추가에 실패했습니다';
-    if (error.response?.data?.error) {
-      errorMessage += ': ' + error.response.data.error;
-    } else if (error.response?.data?.message) {
-      errorMessage += ': ' + error.response.data.message;
-    }
-    showToast(errorMessage, 'error');
-  }
 }
 
 // 미리보기 모달 닫기
 function closeRequirementPreviewModal() {
   closeModalById('modal-requirement-preview');
-
+  
   // 입력 영역 다시 활성화
   const chatInput = document.getElementById('chat-input');
   if (chatInput) {
@@ -4542,6 +4524,46 @@ function closeRequirementPreviewModal() {
     chatInput.focus();
   }
 }
+
+// 대화형 요건 확정 및 추가
+async function confirmChatRecommendations() {
+  const recommendations = window.previewRecommendations;
+  
+  if (!recommendations || recommendations.length === 0) {
+    showToast('추천 요건이 없습니다', 'error');
+    return;
+  }
+  
+  closeRequirementPreviewModal();
+  closeChatModal();
+  
+  showToast('요건을 추가하고 있습니다...', 'info');
+  
+  try {
+    // 각 요건을 API로 전송
+    for (const req of recommendations) {
+      await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+        title: req.title,
+        description: req.description,
+        requirement_type: req.requirement_type || 'functional',
+        priority: req.priority || 'medium'
+      });
+    }
+    
+    // 요건 목록 새로고침
+    await renderRequirements();
+    
+    // 캐시 초기화
+    clearChatCache();
+    
+    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
+    
+  } catch (error) {
+    console.error('Failed to add requirements:', error);
+    showToast('요건 추가에 실패했습니다', 'error');
+  }
+}
+
 // 채팅 모달 닫기
 function closeChatModal() {
   // 캐시 저장
@@ -4556,3 +4578,4 @@ function closeChatModal() {
     }, 300);
   }
 }
+
