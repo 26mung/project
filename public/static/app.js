@@ -2440,6 +2440,22 @@ function renderTree() {
 async function renderPRD() {
   const content = document.getElementById('content');
   
+  // currentProject 유효성 검증
+  if (!currentProject || !currentProject.id) {
+    content.innerHTML = `
+      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px;">
+        <div style="width: 80px; height: 80px; background: var(--red-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 24px;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 36px; color: var(--red-500);"></i>
+        </div>
+        <h2 class="text-title2" style="color: var(--grey-900); margin-bottom: 12px;">프로젝트를 선택해주세요</h2>
+        <p class="text-body2" style="color: var(--grey-600); text-align: center; max-width: 400px;">
+          좌측 사이드바에서 프로젝트를 선택하거나 새로 생성하세요
+        </p>
+      </div>
+    `;
+    return;
+  }
+  
   try {
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/prd`);
     const prd = response.data;
