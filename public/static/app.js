@@ -820,15 +820,20 @@ async function evaluateProject() {
 
 async function analyzeProject() {
   if (!currentProject) return;
-  
+
   const inputContent = currentProject.input_content;
   if (!inputContent) {
     showToast('분석할 기획안이 없습니다', 'error');
     return;
   }
-  
-  // 🆕 요건 생성 모드 선택 모달 표시
-  showRequirementModeSelectionModal();
+
+  // 먼저 열려있는 모든 모달 닫기
+  closeModal();
+
+  // 기존 모달이 완전히 닫힌 후 모드 선택 모달 열기 (애니메이션 시간 고려)
+  setTimeout(() => {
+    showRequirementModeSelectionModal();
+  }, 100);
 }
 
 // 🆕 요건 생성 모드 선택 모달
