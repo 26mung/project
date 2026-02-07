@@ -454,6 +454,33 @@ api.delete('/requirements/:id', async (c) => {
 
 // ============ 질문/답변 API ============
 
+// 질문 생성 (요건에 매핑)
+api.post('/questions', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json() as {
+    requirement_id: number;
+    question_text: string;
+    question_type: string;
+    question_order: number;
+  };
+  
+  try {
+    const result = await DB.prepare(
+      'INSERT INTO questions (requirement_id, question_text, question_type, question_order, created_at, updated_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
+    ).bind(
+      body.requirement_id,
+      body.question_text,
+      body.question_type || 'open',
+      body.question_order || 1
+    ).run();
+    
+    return c.json({ id: result.meta.last_row_id, ...body }, 201);
+  } catch (error) {
+    console.error('Failed to create question:', error);
+    return c.json({ error: 'Failed to create question', message: String(error) }, 500);
+  }
+});
+
 // 질문에 답변하기
 api.post('/questions/:id/answer', async (c) => {
   const { DB } = c.env;

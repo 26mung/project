@@ -274,26 +274,31 @@ function showMainApp() {
       </button>
       
       <!-- Sidebar -->
-      <div id="sidebar" style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column;">
+      <div id="sidebar" style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column; transition: all 0.3s ease;">
         <!-- Header -->
         <div style="padding: 20px; border-bottom: 1px solid var(--grey-100);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-            <h1 class="text-title3" style="color: var(--grey-900);">
+            <h1 class="text-title3 sidebar-title" style="color: var(--grey-900);">
               <i class="fas fa-lightbulb" style="color: var(--blue-500); margin-right: 8px; font-size: 20px;"></i>
               플랫폼기획팀
             </h1>
-            <button onclick="handleLogout()" class="btn-icon" title="로그아웃">
-              <i class="fas fa-sign-out-alt" style="font-size: 14px;"></i>
-            </button>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="toggleSidebar()" class="btn-icon" title="사이드바 접기/펼치기">
+                <i id="sidebar-toggle-icon" class="fas fa-chevron-left" style="font-size: 14px;"></i>
+              </button>
+              <button onclick="handleLogout()" class="btn-icon" title="로그아웃">
+                <i class="fas fa-sign-out-alt" style="font-size: 14px;"></i>
+              </button>
+            </div>
           </div>
-          <button onclick="createNewProject()" class="btn-primary btn-large w-full">
+          <button onclick="createNewProject()" class="btn-primary btn-large w-full sidebar-content">
             <i class="fas fa-plus" style="margin-right: 6px; font-size: 14px;"></i>
             새 프로젝트
           </button>
         </div>
         
         <!-- 프로젝트 검색 필터 -->
-        <div style="padding: 12px; border-bottom: 1px solid var(--grey-200);">
+        <div class="sidebar-content" style="padding: 12px; border-bottom: 1px solid var(--grey-200);">
           <!-- 프로젝트명 검색 -->
           <div style="margin-bottom: 8px;">
             <div style="position: relative;">
@@ -334,7 +339,7 @@ function showMainApp() {
         </div>
         
         <!-- Project List -->
-        <div style="flex: 1; overflow-y: auto; padding: 12px;">
+        <div class="sidebar-content" style="flex: 1; overflow-y: auto; padding: 12px;">
           <div id="project-list" style="display: flex; flex-direction: column; gap: 8px;">
             <!-- Projects will be loaded here -->
           </div>
@@ -547,6 +552,35 @@ function handleSortOrder(order) {
   });
   
   renderProjectList();
+}
+
+// 사이드바 토글
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const icon = document.getElementById('sidebar-toggle-icon');
+  const isCollapsed = sidebar.style.width === '60px';
+  
+  if (isCollapsed) {
+    // 펼치기
+    sidebar.style.width = '280px';
+    icon.className = 'fas fa-chevron-left';
+    document.querySelectorAll('.sidebar-content').forEach(el => {
+      el.style.display = '';
+    });
+    document.querySelectorAll('.sidebar-title').forEach(el => {
+      el.style.display = '';
+    });
+  } else {
+    // 접기
+    sidebar.style.width = '60px';
+    icon.className = 'fas fa-chevron-right';
+    document.querySelectorAll('.sidebar-content').forEach(el => {
+      el.style.display = 'none';
+    });
+    document.querySelectorAll('.sidebar-title').forEach(el => {
+      el.style.display = 'none';
+    });
+  }
 }
 
 function getStatusBadge(status) {
@@ -1743,7 +1777,10 @@ function switchTab(tab) {
   renderContent();
 }
 
-function renderContent() {
+// navigateToTab은 switchTab의 별칭
+const navigateToTab = switchTab;
+
+async function renderContent() {
   const content = document.getElementById('content');
   content.className = 'animate-fade-in';
   
@@ -1765,10 +1802,10 @@ function renderContent() {
   
   switch (currentTab) {
     case 'overview':
-      renderOverview();
+      await renderOverview();
       break;
     case 'requirements':
-      renderRequirements();
+      await renderRequirements();
       break;
     case 'tree':
       renderTree();
@@ -1783,8 +1820,20 @@ function renderContent() {
 
 // ============ 개요 탭 ============
 
-function renderOverview() {
+async function renderOverview() {
   const content = document.getElementById('content');
+  
+  // 요건 목록 로드 (버튼 전환 판단용)
+  if (currentProject && currentProject.id) {
+    try {
+      const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/requirements`);
+      window.currentRequirements = response.data || [];
+      console.log('[renderOverview] Loaded requirements:', window.currentRequirements.length);
+    } catch (error) {
+      console.error('[renderOverview] Failed to load requirements:', error);
+      window.currentRequirements = [];
+    }
+  }
   
   // 디버깅: currentProject 상태 확인
   console.log('[renderOverview] Current project:', currentProject?.title);
@@ -2259,6 +2308,9 @@ async function renderRequirements(page = 1) {
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/requirements`);
     requirements = response.data || [];
     totalRequirements = requirements.length;
+    
+    // 전역 변수에도 저장 (중복 체크용)
+    window.currentRequirements = requirements;
     
     const loadTime = performance.now() - startTime;
     console.log(`[Performance] Requirements loaded in ${loadTime.toFixed(0)}ms (${requirements.length}개)`);
