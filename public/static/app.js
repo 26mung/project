@@ -532,13 +532,29 @@ function createNewProject() {
           image_urls: imageUrls.length > 0 ? JSON.stringify(imageUrls) : null
         });
         
-        currentProject = response.data;
-        await loadProjects();
+        console.log('[프로젝트 생성] 응답 데이터:', response.data);
+        
+        // response.data에 id가 있는지 확인
+        if (!response.data || !response.data.id) {
+          console.error('[프로젝트 생성] 서버 응답에 id가 없습니다:', response.data);
+          showToast('프로젝트 생성에 실패했습니다: 유효하지 않은 응답', 'error');
+          return false;
+        }
+        
+        // 생성된 프로젝트 설정
+        const projectId = response.data.id;
+        console.log('[프로젝트 생성] 생성된 프로젝트 ID:', projectId);
         
         // 이미지 업로드 상태 초기화
         uploadedImages = [];
         
-        // 프로젝트 생성 후 Overview로 이동 (자동 평가 제거)
+        // 프로젝트 목록 새로고침
+        await loadProjects();
+        
+        // 생성된 프로젝트 선택 (서버에서 다시 가져오기)
+        await selectProject(projectId);
+        
+        // Overview 탭으로 이동
         switchTab('overview');
         
         if (imageUrls.length > 0) {
@@ -549,8 +565,19 @@ function createNewProject() {
         
         return true;
       } catch (error) {
-        console.error('Failed to create project:', error);
-        showToast('프로젝트 생성에 실패했습니다', 'error');
+        console.error('[프로젝트 생성] 실패:', error);
+        console.error('[프로젝트 생성] 에러 상세:', error.response?.data);
+        
+        let errorMessage = '프로젝트 생성에 실패했습니다';
+        if (error.response?.data?.error) {
+          errorMessage += ': ' + error.response.data.error;
+        } else if (error.response?.data?.message) {
+          errorMessage += ': ' + error.response.data.message;
+        } else if (error.message) {
+          errorMessage += ': ' + error.message;
+        }
+        
+        showToast(errorMessage, 'error');
         return false;
       }
     }
@@ -1730,15 +1757,33 @@ async function renderRequirements(page = 1) {
   const content = document.getElementById('content');
   
   try {
+    console.log('[요건 조회] 페이지:', page, '프로젝트 ID:', currentProject?.id);
+    
+    if (!currentProject || !currentProject.id) {
+      console.error('[요건 조회] currentProject가 설정되지 않았습니다');
+      content.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-20">
+          <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+            <i class="fas fa-exclamation-triangle text-4xl text-red-500"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-toss-gray-900 mb-3">프로젝트를 선택해주세요</h2>
+          <p class="text-toss-gray-600 text-center max-w-md mb-6">
+            좌측 사이드바에서 프로젝트를 선택하거나 새로 생성하세요
+          </p>
+        </div>
+      `;
+      return;
+    }
+    
     console.log('[Performance] Loading requirements for page:', page);
     const startTime = performance.now();
     
     const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/requirements`);
-    requirements = response.data;
+    requirements = response.data || [];
     totalRequirements = requirements.length;
     
     const loadTime = performance.now() - startTime;
-    console.log(`[Performance] Requirements loaded in ${loadTime.toFixed(0)}ms`);
+    console.log(`[Performance] Requirements loaded in ${loadTime.toFixed(0)}ms (${requirements.length}개)`);
     
     if (!requirements.length) {
       content.innerHTML = `
@@ -1805,11 +1850,43 @@ async function renderRequirements(page = 1) {
     const renderTime = performance.now() - startTime;
     console.log(`[Performance] Total render time: ${renderTime.toFixed(0)}ms`);
   } catch (error) {
-    console.error('Failed to load requirements:', error);
+    console.error('[요건 조회] 실패:', error);
+    console.error('[요건 조회] 에러 상세:', error.response?.data);
+    
+    let errorMessage = '요건을 불러오는데 실패했습니다';
+    let errorDetail = '';
+    
+    if (error.response) {
+      // 서버 응답 에러
+      if (error.response.status === 404) {
+        errorMessage = '프로젝트를 찾을 수 없습니다';
+        errorDetail = '프로젝트가 삭제되었거나 존재하지 않습니다';
+      } else if (error.response.status === 500) {
+        errorMessage = '서버 오류가 발생했습니다';
+        errorDetail = error.response.data?.message || error.response.data?.error || '';
+      } else {
+        errorDetail = error.response.data?.message || error.response.data?.error || '';
+      }
+    } else if (error.request) {
+      // 네트워크 에러
+      errorMessage = '네트워크 연결을 확인해주세요';
+      errorDetail = '서버에 연결할 수 없습니다';
+    } else {
+      // 기타 에러
+      errorDetail = error.message || '';
+    }
+    
     content.innerHTML = `
-      <div class="card p-8 text-center">
-        <i class="fas fa-exclamation-circle text-4xl text-red-500 mb-4"></i>
-        <p class="text-toss-gray-700">요건을 불러오는데 실패했습니다</p>
+      <div class="flex flex-col items-center justify-center py-20">
+        <div class="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-6">
+          <i class="fas fa-exclamation-circle text-4xl text-red-500"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-toss-gray-900 mb-3">${errorMessage}</h2>
+        ${errorDetail ? `<p class="text-toss-gray-600 text-center max-w-md mb-6">${errorDetail}</p>` : ''}
+        <button onclick="renderRequirements(1)" class="btn-secondary btn-medium">
+          <i class="fas fa-redo" style="margin-right: 6px; font-size: 14px;"></i>
+          다시 시도
+        </button>
       </div>
     `;
   }
@@ -2048,7 +2125,7 @@ async function openRequirementDetails(requirementId) {
               </h3>
               
               <div class="space-y-3">
-                ${renderQuestionTree(questionTree)}
+                ${renderQuestionTree(questionTree, 0, requirementId)}
               </div>
               
               ${hasAnswers ? `
@@ -2107,7 +2184,7 @@ function buildQuestionTree(questions) {
 }
 
 // 질문 트리 렌더링 (재귀) - 그룹핑 강화
-function renderQuestionTree(nodes, level = 0) {
+function renderQuestionTree(nodes, level = 0, requirementId = null) {
   return nodes.map((node, index) => {
     const isRoot = level === 0;
     const hasAnswer = node.answer && node.answer.answer_text;
@@ -2146,7 +2223,7 @@ function renderQuestionTree(nodes, level = 0) {
                         <i class="fas fa-check-circle"></i>
                         답변 완료
                       </p>
-                      <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}); event.stopPropagation();" 
+                      <button onclick="editAnswer(${node.answer.id}, '${escapeHtml(node.answer.answer_text).replace(/'/g, "\\'")}', ${node.id}, ${requirementId}); event.stopPropagation();" 
                               class="text-toss-blue hover:text-blue-700 text-xs font-semibold flex items-center gap-1"
                               title="답변 수정">
                         <i class="fas fa-edit"></i>
@@ -2179,7 +2256,7 @@ function renderQuestionTree(nodes, level = 0) {
                   파생 질문 (${childrenCount}개)
                 </span>
               </div>
-              ${renderQuestionTree(node.children, level + 1)}
+              ${renderQuestionTree(node.children, level + 1, requirementId)}
             </div>
           ` : ''}
         ` : `
@@ -2231,7 +2308,7 @@ function renderQuestionTree(nodes, level = 0) {
             
             ${hasChildren ? `
               <div class="mt-3 ml-10 space-y-2">
-                ${renderQuestionTree(node.children, level + 1)}
+                ${renderQuestionTree(node.children, level + 1, requirementId)}
               </div>
             ` : ''}
           </div>
@@ -2793,6 +2870,47 @@ async function regeneratePRD() {
 }
 
 async function generatePRD() {
+  // PRD 생성 전 검증: 답변된 요건이 있는지 확인
+  try {
+    const response = await axios.get(`${API_BASE}/projects/${currentProject.id}/requirements`);
+    const reqs = response.data || [];
+    
+    if (reqs.length === 0) {
+      showToast('요건이 없어서 PRD를 생성할 수 없어요. AI 분석을 먼저 실행하세요', 'error');
+      return;
+    }
+    
+    // 답변된 요건 확인 (적어도 한 개의 질문에 답변이 있는지)
+    const hasAnsweredQuestions = reqs.some(req => 
+      req.question_stats && req.question_stats.answered > 0
+    );
+    
+    if (!hasAnsweredQuestions) {
+      showModal({
+        title: 'PRD 생성',
+        content: `
+          <div class="text-center py-6">
+            <div class="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-exclamation-triangle text-2xl text-yellow-600"></i>
+            </div>
+            <p class="text-toss-gray-900 font-semibold mb-2">답변된 질문이 없어요</p>
+            <p class="text-sm text-toss-gray-600 mb-3">적어도 한 개 이상의 질문에 답변하면<br>PRD를 생성할 수 있어요</p>
+          </div>
+        `,
+        confirmText: '요건 확인하기',
+        onConfirm: async () => {
+          switchTab('requirements');
+          return true;
+        }
+      });
+      return;
+    }
+  } catch (error) {
+    console.error('Failed to check requirements:', error);
+    showToast('요건을 확인하는데 실패했습니다', 'error');
+    return;
+  }
+  
   showModal({
     title: 'PRD 생성',
     content: `
@@ -3319,7 +3437,7 @@ async function generateDerivedRequirements(requirementId) {
 }
 
 // ============ 답변 수정 기능 ============
-async function editAnswer(answerId, currentText, questionId) {
+async function editAnswer(answerId, currentText, questionId, requirementId) {
   showModal({
     title: '답변 수정',
     size: 'medium',
@@ -3348,8 +3466,10 @@ async function editAnswer(answerId, currentText, questionId) {
         
         showToast('답변이 수정되었습니다', 'success');
         
-        // 해당 요건 상세 다시 열기
-        openRequirementDetails(questionId);
+        // 해당 요건 상세 다시 열기 (requirementId 사용)
+        if (requirementId) {
+          openRequirementDetails(requirementId);
+        }
         
         return true;
       } catch (error) {
