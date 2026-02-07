@@ -33,13 +33,13 @@ export async function chatCompletion(
   console.log(`[AI Service] Calling API: ${baseURL}/chat/completions`);
   console.log(`[AI Service] API Key length: ${apiKey?.length || 0}`);
   
-  // API 키 유효성 검증
+  // API 키 기본 검증 (빈 값만 체크)
   if (!apiKey || apiKey.trim().length === 0) {
     throw new Error(`API key is required`);
   }
   
   // API 키 형식 로그 (디버깅용)
-  console.log(`[AI Service] API Key prefix: ${apiKey.substring(0, 10)}...`);
+  console.log(`[AI Service] API Key prefix: ${apiKey.substring(0, 20)}...`);
   
   console.log(`[AI Service] Using model: gpt-4o-mini`);
   console.log(`[AI Service] JSON mode: ${useJsonMode}`);
