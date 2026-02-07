@@ -4356,35 +4356,51 @@ function removeChatMessage(messageId) {
 // 요건 리스트 표시 버튼 추가
 function addRequirementListButton(recommendations) {
   const buttonContainer = document.getElementById('chat-action-buttons');
-  
+
   // 버튼 컨테이너 표시
   buttonContainer.style.display = 'block';
-  
+
   // 이미 버튼이 있으면 제거 (중복 방지)
   buttonContainer.innerHTML = '';
-  
-  const buttonHtml = `
-    <button 
-      onclick='showChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, "&#39;")})'
-      class="btn-primary rounded-xl font-bold shadow-lg"
-      style="width: 100%; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; animation: slideUp 0.3s ease-out;"
-      onmouseover="this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';"
-      onmouseout="this.style.transform = 'translateY(0)'; this.style.boxShadow = '';"
-    >
-      <i class="fas fa-list-check"></i>
-      <span>추천 요건 ${recommendations.length}개 확인하기</span>
-      <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
-    </button>
+
+  // 전역 변수에 저장 (클로저 제대 변수에서 사용)
+  window.currentChatRecommendations = recommendations;
+
+  // addEventListener 방식으로 버튼 생성 (JSON stringify 문제 회피)
+  const button = document.createElement('button');
+  button.className = 'btn-primary rounded-xl font-bold shadow-lg';
+  button.style.cssText = 'width: 100%; padding: 14px 24px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; animation: slideUp 0.3s ease-out;';
+
+  button.innerHTML = `
+    <i class="fas fa-list-check"></i>
+    <span>추천 요건 ${recommendations.length}개 확인하기</span>
+    <i class="fas fa-arrow-right" style="margin-left: 4px;"></i>
   `;
-  
-  buttonContainer.innerHTML = buttonHtml;
+
+  // 호버 효과
+  button.addEventListener('mouseover', () => {
+    button.style.transform = 'translateY(-2px)';
+    button.style.boxShadow = '0 8px 20px rgba(102, 126, 234, 0.3)';
+  });
+
+  button.addEventListener('mouseout', () => {
+    button.style.transform = 'translateY(0)';
+    button.style.boxShadow = '';
+  });
+
+  // 클릭 이벤트 - 전역 변수를 사용하여 JSON stringify 문제 회피
+  button.addEventListener('click', () => {
+    if (window.currentChatRecommendations && window.currentChatRecommendations.length > 0) {
+      showRequirementPreviewModal(window.currentChatRecommendations);
+    } else {
+      showToast('추천 요건 데이터를 찾을 수 없습니다', 'error');
+    }
+  });
+
+  buttonContainer.appendChild(button);
 }
 
-// 채팅으로 생성된 요건 리스트 미리보기
-function showChatRecommendations(recommendations) {
-  // 미리보기 모달 표시
-  showRequirementPreviewModal(recommendations);
-}
+
 
 // 요건 미리보기 모달
 function showRequirementPreviewModal(recommendations) {
