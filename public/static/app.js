@@ -297,8 +297,8 @@ function showMainApp() {
           </button>
         </div>
         
-        <!-- 프로젝트 검색 필터 -->
-        <div class="sidebar-content" style="padding: 12px; border-bottom: 1px solid var(--grey-200);">
+        <!-- 프로젝트 검색 필터 (상단 고정) -->
+        <div class="sidebar-filter-area" style="padding: 12px; border-bottom: 1px solid var(--grey-200); background: white;">
           <!-- 프로젝트명 검색 -->
           <div style="margin-bottom: 8px;">
             <div style="position: relative;">
@@ -338,9 +338,13 @@ function showMainApp() {
           </div>
         </div>
         
-        <!-- Project List -->
-        <div class="sidebar-content" style="flex: 1; overflow-y: auto; padding: 12px;">
+        <!-- Project List (스크롤 영역) -->
+        <div style="flex: 1; overflow-y: auto; padding: 12px;">
           <div id="project-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <!-- Projects will be loaded here -->
+          </div>
+          <!-- 접힌 상태용 프로젝트 아이콘 리스트 -->
+          <div id="project-list-icons" style="display: none; flex-direction: column; gap: 8px;">
             <!-- Projects will be loaded here -->
           </div>
         </div>
@@ -558,6 +562,9 @@ function handleSortOrder(order) {
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const icon = document.getElementById('sidebar-toggle-icon');
+  const projectList = document.getElementById('project-list');
+  const projectListIcons = document.getElementById('project-list-icons');
+  const filterArea = document.querySelector('.sidebar-filter-area');
   const isCollapsed = sidebar.style.width === '60px';
   
   if (isCollapsed) {
@@ -570,6 +577,9 @@ function toggleSidebar() {
     document.querySelectorAll('.sidebar-title').forEach(el => {
       el.style.display = '';
     });
+    if (filterArea) filterArea.style.display = '';
+    if (projectList) projectList.style.display = 'flex';
+    if (projectListIcons) projectListIcons.style.display = 'none';
   } else {
     // 접기
     sidebar.style.width = '60px';
@@ -580,7 +590,47 @@ function toggleSidebar() {
     document.querySelectorAll('.sidebar-title').forEach(el => {
       el.style.display = 'none';
     });
+    if (filterArea) filterArea.style.display = 'none';
+    if (projectList) projectList.style.display = 'none';
+    if (projectListIcons) projectListIcons.style.display = 'flex';
+    
+    // 아이콘 리스트 렌더링
+    renderProjectIcons();
   }
+}
+
+// 접힌 상태용 프로젝트 아이콘 리스트 렌더링
+function renderProjectIcons() {
+  const container = document.getElementById('project-list-icons');
+  if (!container) return;
+  
+  let filteredProjects = [...projects];
+  
+  // 현재 프로젝트가 있으면 맨 위에 표시
+  if (currentProject) {
+    filteredProjects = filteredProjects.sort((a, b) => {
+      if (a.id === currentProject.id) return -1;
+      if (b.id === currentProject.id) return 1;
+      return 0;
+    });
+  }
+  
+  container.innerHTML = filteredProjects.map(project => {
+    const isActive = currentProject?.id === project.id;
+    const icon = project.requirement_mode === 'challenge' ? 'fa-trophy' : 'fa-lightbulb';
+    const color = isActive ? 'var(--blue-500)' : 'var(--grey-600)';
+    const bgColor = isActive ? 'var(--blue-50)' : 'transparent';
+    
+    return `
+      <div onclick="selectProject(${project.id})" 
+           title="${escapeHtml(project.title)}"
+           style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; background: ${bgColor}; cursor: pointer; transition: all 0.2s;"
+           onmouseover="this.style.background='var(--blue-50)'; this.style.transform='scale(1.1)';"
+           onmouseout="this.style.background='${bgColor}'; this.style.transform='scale(1)';">
+        <i class="fas ${icon}" style="color: ${color}; font-size: 18px;"></i>
+      </div>
+    `;
+  }).join('');
 }
 
 function getStatusBadge(status) {
@@ -4800,22 +4850,34 @@ function showChatRecommendationModal(recommendations) {
   window.currentChatRecommendations = recommendations;
   window.selectedChatRecommendationIndex = null;
   
+  // 이미 추가된 요건 제목 목록 가져오기
+  const existingTitles = new Set();
+  if (window.currentRequirements && Array.isArray(window.currentRequirements)) {
+    window.currentRequirements.forEach(req => {
+      existingTitles.add(req.title.trim().toLowerCase());
+    });
+  }
+  
   let requirementsHtml = '';
   recommendations.forEach((req, index) => {
     const priorityColor = req.priority === 'high' ? 'var(--red-500)' : req.priority === 'medium' ? 'var(--yellow-500)' : 'var(--grey-500)';
     const priorityText = req.priority === 'high' ? '높음' : req.priority === 'medium' ? '보통' : '낮음';
     
+    // 중복 체크
+    const isAlreadyAdded = existingTitles.has(req.title.trim().toLowerCase());
+    const disabledStyle = isAlreadyAdded ? 'opacity: 0.5; cursor: not-allowed; pointer-events: none;' : 'cursor: pointer;';
+    const disabledBadge = isAlreadyAdded ? '<span class="badge badge-small badge-fill-grey" style="margin-left: 8px;">이미 추가됨</span>' : '';
+    
     requirementsHtml += `
       <div 
         id="chat-req-${index}"
         class="chat-requirement-card" 
-        onclick="selectChatRecommendation(${index})"
-        style="cursor: pointer; background: var(--grey-50); border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all 0.2s;"
-        onmouseover="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--indigo-300)'; this.style.transform = 'translateX(4px)'; }"
-        onmouseout="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--grey-200)'; this.style.transform = 'translateX(0)'; }"
+        onclick="${isAlreadyAdded ? '' : `selectChatRecommendation(${index})`}"
+        style="${disabledStyle} background: var(--grey-50); border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; transition: all 0.2s;"
+        ${isAlreadyAdded ? '' : `onmouseover="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--indigo-300)'; this.style.transform = 'translateX(4px)'; }" onmouseout="if(!this.classList.contains('selected')) { this.style.borderColor = 'var(--grey-200)'; this.style.transform = 'translateX(0)'; }"`}
       >
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-          <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900); flex: 1;">${index + 1}. ${escapeHtml(req.title)}</h4>
+          <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900); flex: 1;">${index + 1}. ${escapeHtml(req.title)} ${disabledBadge}</h4>
           <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; margin-left: 12px;">${priorityText}</span>
         </div>
         <p style="color: var(--grey-700); font-size: 14px; line-height: 1.6; margin-bottom: 8px;">${escapeHtml(req.description)}</p>
@@ -5140,8 +5202,10 @@ async function addChatRecommendation() {
           priority: selectedReq.priority || 'medium'
         }, { timeout: 180000 });
         
+        // API 응답 구조 확인
+        console.log('[API Response]', directionResponse.data);
         analysis = directionResponse.data.analysis || directionResponse.data;
-        console.log('Questions generated for requirement:', requirementId);
+        console.log('[Analysis]', analysis);
         
         // 캐시 저장
         localStorage.setItem(cacheKey, JSON.stringify(analysis));
@@ -5152,9 +5216,12 @@ async function addChatRecommendation() {
     }
     
     // 3단계: 질문지를 요건에 매핑
-    if (analysis && analysis.questions && analysis.questions.length > 0) {
+    console.log('[Mapping Questions] analysis:', analysis);
+    if (analysis && analysis.questions && Array.isArray(analysis.questions) && analysis.questions.length > 0) {
       try {
+        console.log(`[Mapping Questions] ${analysis.questions.length}개의 질문을 매핑합니다`);
         for (const question of analysis.questions) {
+          console.log('[Mapping Question]', question);
           await axios.post(`${API_BASE}/questions`, {
             requirement_id: requirementId,
             question_text: question.question_text,
@@ -5162,10 +5229,12 @@ async function addChatRecommendation() {
             question_order: question.order || 1
           });
         }
-        console.log(`${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        console.log(`✅ ${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
       } catch (error) {
-        console.error('Failed to map questions to requirement:', requirementId, error);
+        console.error('❌ Failed to map questions to requirement:', requirementId, error);
       }
+    } else {
+      console.warn('⚠️ No questions found in analysis:', analysis);
     }
     
     hideToast(loadingToast);
