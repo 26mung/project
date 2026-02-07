@@ -1014,13 +1014,14 @@ async function executeChallengeRecommendation() {
   }
 }
 
-// 🆕 챌린지형 추천 결과 모달
+// 🆕 챌린지형 추천 결과 모달 - 라디오 버튼 + 질문지 미리보기 패턴
 function showChallengeRecommendationModal(recommendations) {
   const modalId = 'modal-challenge-recommendations';
   const modalContainer = document.getElementById('modal-container');
 
   // 전역에 저장
   window.currentRecommendations = recommendations;
+  window.selectedRecommendationIndex = null; // 선택된 인덱스 추적
 
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
@@ -1036,44 +1037,132 @@ function showChallengeRecommendationModal(recommendations) {
         </div>
 
         <div class="modal-body p-6">
-          <p style="color: var(--grey-700); margin-bottom: 20px; font-size: 14px;">
-            AI가 분석한 결과, 다음 요건들을 구체화하는 것을 추천해요. 원하는 요건을 선택하면 방향성을 먼저 분석한 후 등록할지 결정할 수 있어요.
-          </p>
+          <div style="background: linear-gradient(135deg, var(--blue-50) 0%, var(--indigo-50) 100%); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--blue-500);">
+            <p style="color: var(--grey-800); font-size: 14px; line-height: 1.6; margin: 0;">
+              <i class="fas fa-info-circle" style="color: var(--blue-500); margin-right: 8px;"></i>
+              <strong>요건을 선택하고 질문지를 미리 확인해보세요.</strong><br>
+              <span style="color: var(--grey-600); font-size: 13px;">마음에 들면 등록하고, 아니면 뒤로가기로 다른 요건을 탐색할 수 있어요.</span>
+            </p>
+          </div>
 
           <div id="recommendation-list-${modalId}">
             ${recommendations.map((req, idx) => `
-              <div class="recommendation-item" data-index="${idx}" style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;"
-                   onmouseenter="this.style.borderColor='var(--blue-500)'; this.style.backgroundColor='var(--blue-50)'; this.style.transform='translateY(-2px)'"
-                   onmouseleave="this.style.borderColor='var(--grey-200)'; this.style.backgroundColor='transparent'; this.style.transform='translateY(0)'">
-                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                  <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); flex: 1;">
-                    ${req.title}
-                  </h4>
-                  <span class="badge badge-small badge-fill-${req.priority === 'high' ? 'red' : req.priority === 'medium' ? 'blue' : 'grey'}">${req.priority === 'high' ? '높음' : req.priority === 'medium' ? '중간' : '낮음'}</span>
-                </div>
-                <p style="font-size: 13px; color: var(--grey-600); line-height: 20px; margin-bottom: 8px;">
-                  ${req.description}
-                </p>
-                <p style="font-size: 12px; color: var(--grey-500); line-height: 18px;">
-                  💡 ${req.rationale}
-                </p>
-                <div style="margin-top: 12px; text-align: right;">
-                  <button onclick="previewRecommendationDirection(${idx})" class="btn-primary btn-small" style="padding: 8px 16px; font-size: 13px;">
-                    <i class="fas fa-search" style="margin-right: 6px;"></i>
-                    방향성 분석 및 등록
-                  </button>
+              <div class="recommendation-item" 
+                   id="recommendation-item-${idx}"
+                   data-index="${idx}" 
+                   onclick="selectRecommendationItem(${idx})"
+                   style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
+                <div style="display: flex; align-items: start; gap: 12px;">
+                  <!-- 라디오 버튼 -->
+                  <div style="flex-shrink: 0; margin-top: 2px;">
+                    <div id="radio-${idx}" class="recommendation-radio" style="width: 22px; height: 22px; border: 2px solid var(--grey-300); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                      <div id="radio-inner-${idx}" style="width: 12px; height: 12px; border-radius: 50%; background: var(--blue-500); opacity: 0; transition: opacity 0.2s;"></div>
+                    </div>
+                  </div>
+                  
+                  <!-- 내용 -->
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                      <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); flex: 1; padding-right: 8px;">
+                        ${req.title}
+                      </h4>
+                      <span class="badge badge-small badge-fill-${req.priority === 'high' ? 'red' : req.priority === 'medium' ? 'blue' : 'grey'}">${req.priority === 'high' ? '높음' : req.priority === 'medium' ? '중간' : '낮음'}</span>
+                    </div>
+                    <p style="font-size: 13px; color: var(--grey-600); line-height: 20px; margin-bottom: 8px;">
+                      ${req.description}
+                    </p>
+                    <p style="font-size: 12px; color: var(--grey-500); line-height: 18px;">
+                      💡 ${req.rationale}
+                    </p>
+                  </div>
                 </div>
               </div>
             `).join('')}
           </div>
         </div>
 
-        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-center sticky bottom-0 bg-white">
-          <button onclick="closeModalById('${modalId}')" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">나중에</button>
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-between sticky bottom-0 bg-white">
+          <button onclick="closeModalById('${modalId}')" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">
+            <i class="fas fa-times" style="margin-right: 6px;"></i>
+            닫기
+          </button>
+          <button id="preview-questions-btn" onclick="previewSelectedRecommendation()" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg opacity-50" style="cursor: not-allowed;" disabled>
+            <i class="fas fa-search" style="margin-right: 6px;"></i>
+            질문지 미리보기
+          </button>
         </div>
       </div>
     </div>
   `;
+
+  // 호버 효과 (CSS 클래스로 관리)
+  setTimeout(() => {
+    document.querySelectorAll('.recommendation-item').forEach((card, idx) => {
+      card.addEventListener('mouseenter', () => {
+        if (window.selectedRecommendationIndex !== idx) {
+          card.style.borderColor = 'var(--blue-300)';
+          card.style.backgroundColor = 'var(--blue-25)';
+        }
+      });
+      card.addEventListener('mouseleave', () => {
+        if (window.selectedRecommendationIndex !== idx) {
+          card.style.borderColor = 'var(--grey-200)';
+          card.style.backgroundColor = 'transparent';
+        }
+      });
+    });
+  }, 0);
+}
+
+// 🆕 추천 요건 선택 (라디오 버튼 스타일)
+function selectRecommendationItem(index) {
+  // 이전 선택 해제
+  if (window.selectedRecommendationIndex !== null) {
+    const prevCard = document.getElementById(`recommendation-item-${window.selectedRecommendationIndex}`);
+    const prevRadio = document.getElementById(`radio-${window.selectedRecommendationIndex}`);
+    const prevRadioInner = document.getElementById(`radio-inner-${window.selectedRecommendationIndex}`);
+    if (prevCard) {
+      prevCard.style.borderColor = 'var(--grey-200)';
+      prevCard.style.backgroundColor = 'transparent';
+      prevCard.style.transform = 'translateY(0)';
+    }
+    if (prevRadio) prevRadio.style.borderColor = 'var(--grey-300)';
+    if (prevRadioInner) prevRadioInner.style.opacity = '0';
+  }
+
+  // 새로운 선택 적용
+  window.selectedRecommendationIndex = index;
+  const card = document.getElementById(`recommendation-item-${index}`);
+  const radio = document.getElementById(`radio-${index}`);
+  const radioInner = document.getElementById(`radio-inner-${index}`);
+  
+  if (card) {
+    card.style.borderColor = 'var(--blue-500)';
+    card.style.backgroundColor = 'var(--blue-50)';
+    card.style.transform = 'translateY(-2px)';
+    card.style.boxShadow = '0 4px 12px rgba(49, 130, 246, 0.15)';
+  }
+  if (radio) radio.style.borderColor = 'var(--blue-500)';
+  if (radioInner) radioInner.style.opacity = '1';
+
+  // 미리보기 버튼 활성화
+  const previewBtn = document.getElementById('preview-questions-btn');
+  if (previewBtn) {
+    previewBtn.disabled = false;
+    previewBtn.style.opacity = '1';
+    previewBtn.style.cursor = 'pointer';
+  }
+}
+
+// 🆕 선택된 추천 요건의 질문지 미리보기
+async function previewSelectedRecommendation() {
+  const index = window.selectedRecommendationIndex;
+  if (index === null) {
+    showToast('요건을 선택해주세요', 'warning');
+    return;
+  }
+
+  previewRecommendationDirection(index);
 }
 
 // 🆕 추천 요건 방향성 미리보기 (저장하지 않고 분석만)
@@ -1112,38 +1201,49 @@ async function previewRecommendationDirection(index) {
   }
 }
 
-// 🆕 방향성 미리보기 모달 (저장하기/뒤로가기 선택)
+// 🆕 방향성 미리보기 모달 - 개선된 UX (뒤로가기/등록 명확한 구분)
 function showDirectionPreviewModal(recommendationIndex, analysis) {
   const modalId = 'modal-direction-preview';
   const modalContainer = document.getElementById('modal-container');
   const recommendation = window.currentRecommendations[recommendationIndex];
+  
+  // 현재 선택 인덱스 저장
+  window.selectedRecommendationIndex = recommendationIndex;
 
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
       <div class="modal-content bg-white rounded-3xl" style="max-width: 750px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 20px;">
         <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
           <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
-            <i class="fas fa-compass" style="color: #667eea; margin-right: 8px;"></i>
-            방향성 분석 결과
+            <i class="fas fa-clipboard-question" style="color: #667eea; margin-right: 8px;"></i>
+            예상 질문지 미리보기
           </h2>
-          <button onclick="closeModalById('${modalId}'); showChallengeRecommendationModal(window.currentRecommendations);" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
-            <i class="fas fa-times"></i>
+          <button onclick="goBackToRecommendations()" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors" title="추천 목록으로 돌아가기">
+            <i class="fas fa-arrow-left"></i>
           </button>
         </div>
 
         <div class="modal-body p-6">
-          <!-- 요건 정보 헤더 -->
-          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 16px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #3182f6;">
-            <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); margin-bottom: 8px;">
-              ${recommendation.title}
-            </h4>
-            <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
+          <!-- 선택된 요건 정보 -->
+          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #3182f6; padding: 20px; border-radius: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 32px; height: 32px; background: #3182f6; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check" style="color: white; font-size: 16px;"></i>
+              </div>
+              <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900);">
+                ${recommendation.title}
+              </h4>
+              <span class="badge badge-small badge-fill-${recommendation.priority === 'high' ? 'red' : recommendation.priority === 'medium' ? 'blue' : 'grey'}">
+                ${recommendation.priority === 'high' ? '높음' : recommendation.priority === 'medium' ? '중간' : '낮음'}
+              </span>
+            </div>
+            <p style="font-size: 14px; color: var(--grey-700); line-height: 22px; margin-left: 44px;">
               ${recommendation.description}
             </p>
           </div>
 
           <!-- 핵심 방향성 -->
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
             <h4 style="font-size: 14px; font-weight: 700; color: white; opacity: 0.9; margin-bottom: 8px;">
               <i class="fas fa-compass" style="margin-right: 6px;"></i>
               핵심 방향성
@@ -1153,23 +1253,41 @@ function showDirectionPreviewModal(recommendationIndex, analysis) {
             </p>
           </div>
 
-          <!-- 명확히 해야 할 사항 -->
-          <div style="margin-bottom: 20px;">
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
-              <i class="fas fa-check-circle" style="color: #00c853; margin-right: 6px;"></i>
-              명확히 해야 할 사항
+          <!-- 예상 질문지 섹션 -->
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-list-ol" style="color: #3182f6;"></i>
+              예상 질문지 (${analysis.questions.length}개)
+              <span style="font-size: 12px; font-weight: 500; color: var(--grey-500); margin-left: 8px;">
+                등록 시 자동 생성됩니다
+              </span>
             </h4>
-            <ul style="padding-left: 20px; margin: 0;">
-              ${analysis.clarifications.map(item => `
-                <li style="color: var(--grey-700); font-size: 14px; line-height: 24px; margin-bottom: 8px;">${item}</li>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              ${analysis.questions.map((q, idx) => `
+                <div style="background: white; border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; transition: all 0.2s;" onmouseenter="this.style.borderColor='var(--blue-300)'; this.style.boxShadow='0 2px 8px rgba(49, 130, 246, 0.08)';" onmouseleave="this.style.borderColor='var(--grey-200)'; this.style.boxShadow='none';">
+                  <div style="display: flex; align-items: start; gap: 12px;">
+                    <div style="width: 28px; height: 28px; background: var(--blue-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                      <span style="font-size: 13px; font-weight: 700; color: var(--blue-600);">${idx + 1}</span>
+                    </div>
+                    <div style="flex: 1;">
+                      <p style="font-size: 14px; color: var(--grey-800); line-height: 22px; font-weight: 500;">
+                        ${q.question_text}
+                      </p>
+                      <p style="font-size: 12px; color: var(--grey-500); margin-top: 4px;">
+                        유형: ${q.question_type === 'open' ? '서술형' : q.question_type === 'choice' ? '선택형' : '예/아니오'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               `).join('')}
-            </ul>
+            </div>
           </div>
 
-          <!-- 제안 접근 방식 -->
-          <div style="background: var(--grey-50); padding: 16px; border-radius: 10px; margin-bottom: 20px;">
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 8px;">
-              <i class="fas fa-lightbulb" style="color: #FFB300; margin-right: 6px;"></i>
+          <!-- 명확히 해야 할 사항 -->
+          <div style="background: var(--green-50); border: 1px solid var(--green-200); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--green-800); margin-bottom: 12px;">
+              <i class="fas fa-lightbulb" style="color: var(--green-600); margin-right: 6px;"></i>
               제안하는 접근 방식
             </h4>
             <p style="font-size: 14px; color: var(--grey-700); line-height: 22px;">
@@ -1177,40 +1295,49 @@ function showDirectionPreviewModal(recommendationIndex, analysis) {
             </p>
           </div>
 
-          <!-- 구체화 질문 -->
-          <div>
-            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
-              <i class="fas fa-question-circle" style="color: #3182f6; margin-right: 6px;"></i>
-              구체화 질문 (${analysis.questions.length}개)
+          <!-- 명확화 사항 -->
+          <div style="background: var(--yellow-50); border: 1px solid var(--yellow-200); border-radius: 12px; padding: 16px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--yellow-800); margin-bottom: 12px;">
+              <i class="fas fa-exclamation-circle" style="color: var(--yellow-600); margin-right: 6px;"></i>
+              명확히 해야 할 사항
             </h4>
-            <div style="background: var(--grey-50); padding: 16px; border-radius: 10px;">
-              <ul style="padding-left: 20px; margin: 0;">
-                ${analysis.questions.map((q, idx) => `
-                  <li style="color: var(--grey-700); font-size: 13px; line-height: 22px; margin-bottom: 6px;">
-                    ${idx + 1}. ${q.question_text}
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-            <p style="font-size: 12px; color: var(--grey-500); margin-top: 8px;">
-              💡 요건을 등록하면 위 질문들이 자동으로 생성됩니다.
-            </p>
+            <ul style="padding-left: 20px; margin: 0;">
+              ${analysis.clarifications.map(item => `
+                <li style="color: var(--grey-700); font-size: 13px; line-height: 22px; margin-bottom: 6px;">${item}</li>
+              `).join('')}
+            </ul>
           </div>
         </div>
 
-        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-between sticky bottom-0 bg-white">
-          <button onclick="closeModalById('${modalId}'); showChallengeRecommendationModal(window.currentRecommendations);" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">
-            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
-            다른 추천 보기
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-between sticky bottom-0 bg-white" style="background: linear-gradient(to top, white 0%, white 90%, transparent 100%);">
+          <button onclick="goBackToRecommendations()" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors" style="display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-arrow-left"></i>
+            <div style="text-align: left;">
+              <div style="font-size: 14px;">뒤로가기</div>
+              <div style="font-size: 11px; font-weight: 500; color: var(--grey-500);">다른 요건 보기</div>
+            </div>
           </button>
-          <button onclick="saveRecommendationAndGo(${recommendationIndex})" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
-            <i class="fas fa-save" style="margin-right: 6px;"></i>
-            이 요건으로 등록하기
+          <button onclick="saveRecommendationAndGo(${recommendationIndex})" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg" style="display: flex; align-items: center; gap: 8px;">
+            <i class="fas fa-check-circle"></i>
+            <div style="text-align: left;">
+              <div style="font-size: 14px;">이 요건으로 등록하기</div>
+              <div style="font-size: 11px; font-weight: 500; opacity: 0.9;">질문지 자동 생성</div>
+            </div>
           </button>
         </div>
       </div>
     </div>
   `;
+}
+
+// 🆕 추천 목록으로 돌아가기
+function goBackToRecommendations() {
+  closeModalById('modal-direction-preview');
+  // 원래 추천 모달이 없으면 다시 열기
+  const existingModal = document.getElementById('modal-challenge-recommendations');
+  if (!existingModal && window.currentRecommendations) {
+    showChallengeRecommendationModal(window.currentRecommendations);
+  }
 }
 
 // 🆕 추천 요건 저장 및 이동
