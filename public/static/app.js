@@ -3754,8 +3754,18 @@ async function generateAdditionalRequirements() {
   }
 }
 
-// 🆕 챌린지형 추가 요건 생성 (기존 요건과 중복 방지)
+// 🆕 챌린지형 추가 요건 생성 (기존 요건과 중복 방지 + 캐시)
 async function generateChallengeAdditionalRequirements() {
+  // 캐시 확인
+  const cachedData = loadChallengeCache();
+  if (cachedData && cachedData.projectId === currentProject.id) {
+    console.log('[Challenge Cache] Using cached recommendations');
+    window.currentRecommendations = cachedData.recommendations;
+    showChallengeRecommendationModal(cachedData.recommendations);
+    showToast('이전 추천 요건을 불러왔습니다', 'info');
+    return;
+  }
+  
   const loadingToast = showLoadingToast('추가 요건을 추천하고 있어요...');
   
   try {
@@ -3773,6 +3783,9 @@ async function generateChallengeAdditionalRequirements() {
       showToast('추가할 요건이 없습니다', 'info');
       return;
     }
+    
+    // 캐시 저장
+    saveChallengeCache(recommendations);
     
     // 챌린지 추천 모달 표시
     window.currentRecommendations = recommendations;
@@ -4151,23 +4164,31 @@ function showChatRequirementModal(isResumed = false) {
   const modalId = 'modal-chat-requirement';
   const modalContainer = document.getElementById('modal-container');
 
+  // 새로 시작 버튼 (항상 표시, 고정)
+  const newStartButton = isResumed ? `
+    <button 
+      onclick="startChatRequirement(false); clearChatCache();"
+      style="position: absolute; top: 16px; right: 60px; z-index: 10; padding: 8px 16px; border-radius: 10px; background: var(--green-500); border: none; font-size: 13px; font-weight: 600; color: white; cursor: pointer; box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2); transition: all 0.2s;"
+      onmouseover="this.style.transform = 'scale(1.05)'; this.style.boxShadow = '0 4px 12px rgba(34, 197, 94, 0.3)';"
+      onmouseout="this.style.transform = 'scale(1)'; this.style.boxShadow = '0 2px 8px rgba(34, 197, 94, 0.2)';"
+    >
+      <i class="fas fa-redo" style="margin-right: 6px;"></i>
+      새로 시작
+    </button>
+  ` : '';
+  
   const resumeInfo = isResumed ? `
-    <div style="background: var(--green-50); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; border-left: 4px solid var(--green-500); display: flex; justify-content: space-between; align-items: center;">
-      <div>
-        <i class="fas fa-history" style="color: var(--green-600); margin-right: 8px;"></i>
-        <span style="color: var(--grey-800); font-size: 14px; font-weight: 600;">이전 대화를 불러왔습니다</span>
-      </div>
-      <button onclick="startChatRequirement(false); clearChatCache();" style="padding: 6px 12px; border-radius: 8px; background: white; border: 1px solid var(--grey-300); font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer;">
-        <i class="fas fa-redo" style="margin-right: 4px;"></i>
-        새로 시작
-      </button>
+    <div style="background: var(--green-50); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; border-left: 4px solid var(--green-500); display: flex; align-items: center;">
+      <i class="fas fa-history" style="color: var(--green-600); margin-right: 8px;"></i>
+      <span style="color: var(--grey-800); font-size: 14px; font-weight: 600;">이전 대화를 불러왔습니다</span>
     </div>
   ` : '';
 
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
-      <div class="modal-content bg-white rounded-3xl" style="max-width: 900px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; margin: 20px;">
-        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center" style="flex-shrink: 0;">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 1100px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center" style="flex-shrink: 0; position: relative;">
+          ${newStartButton}
           <div>
             <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
               <i class="fas fa-robot" style="color: #667eea; margin-right: 8px;"></i>
@@ -4201,42 +4222,35 @@ function showChatRequirementModal(isResumed = false) {
           <!-- 추천 요건 확인 버튼이 여기에 추가됩니다 -->
         </div>
 
-        <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 16px 24px 20px 24px; background: white;">
-          <div style="display: flex; gap: 12px; align-items: flex-end;">
-            <!-- 입력창 -->
-            <div style="flex: 1; position: relative;">
-              <textarea 
-                id="chat-input" 
-                placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요..."
-                style="width: 100%; padding: 14px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 56px; max-height: 160px; resize: none; font-family: inherit; line-height: 1.5; transition: all 0.2s;"
-                onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
-                oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px';"
-                onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
-                onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
-              ></textarea>
-              
-              <!-- 안내 문구 (입력창 하단에 오버레이) -->
-              <div style="position: absolute; bottom: 8px; right: 12px; display: flex; align-items: center; gap: 6px; pointer-events: none;">
-                <span style="background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--grey-500); font-weight: 500;">
-                  <kbd style="background: var(--grey-200); padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;">Enter</kbd> 전송
-                </span>
-                <span style="background: rgba(255,255,255,0.9); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--grey-500); font-weight: 500;">
-                  <kbd style="background: var(--grey-200); padding: 2px 5px; border-radius: 3px; font-size: 10px; font-weight: 600;">Shift+Enter</kbd> 줄바꿈
-                </span>
-              </div>
-            </div>
+        <div class="modal-footer border-t border-toss-gray-100" style="flex-shrink: 0; padding: 20px 24px 24px 24px; background: white;">
+          <div style="display: flex; gap: 12px; align-items: center;">
+            <!-- 입력창 (와이드, 리사이즈 가능, 스크롤) -->
+            <textarea 
+              id="chat-input" 
+              placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
+              style="flex: 1; padding: 16px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 80px; max-height: 300px; resize: vertical; font-family: inherit; line-height: 1.6; transition: all 0.2s; overflow-y: auto;"
+              onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
+              onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
+              onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
+            ></textarea>
             
-            <!-- 전송 버튼 (독립) -->
+            <!-- 전송 버튼 (중심선 정렬) -->
             <button 
               onclick="sendChatMessage()" 
               class="btn-primary rounded-xl font-bold shadow-lg"
-              style="padding: 14px 24px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; height: 56px;"
-              onmouseover="this.style.transform = 'translateY(-2px)'; this.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.3)';"
-              onmouseout="this.style.transform = 'translateY(0)'; this.style.boxShadow = '';"
+              style="padding: 16px 28px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; height: 80px; align-self: stretch;"
+              onmouseover="this.style.transform = 'scale(1.03)'; this.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.35)';"
+              onmouseout="this.style.transform = 'scale(1)'; this.style.boxShadow = '';"
             >
-              <i class="fas fa-paper-plane"></i>
+              <i class="fas fa-paper-plane" style="font-size: 16px;"></i>
               <span>전송</span>
             </button>
+          </div>
+          
+          <!-- 안내 문구 (하단에 별도 표시) -->
+          <div style="margin-top: 8px; display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--grey-500);">
+            <span><kbd style="background: var(--grey-200); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Enter</kbd> 전송</span>
+            <span><kbd style="background: var(--grey-200); padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">Shift + Enter</kbd> 줄바꿈</span>
           </div>
         </div>
       </div>
@@ -4278,7 +4292,7 @@ async function sendChatMessage() {
   input.disabled = true;
   
   // AI 응답 대기 메시지
-  const thinkingId = addChatMessage('assistant', '<i class="fas fa-circle-notch fa-spin"></i> 생각 중...', true);
+  const thinkingId = addChatMessage('assistant', '<i class="fas fa-circle-notch fa-spin"></i> 생각 중...(최대 1분)', true);
   
   try {
     // 메시지 배열에 추가
@@ -4592,7 +4606,7 @@ async function previewChatRecommendation() {
     try {
       const data = JSON.parse(cached);
       console.log('[Chat Question Cache] Loaded from cache');
-      showDirectionPreviewModal(data);
+      showChatDirectionPreviewModal(selectedReq, data);
       return;
     } catch (error) {
       console.error('[Chat Question Cache] Failed to load:', error);
@@ -4615,13 +4629,119 @@ async function previewChatRecommendation() {
     // 캐시 저장
     localStorage.setItem(cacheKey, JSON.stringify(response.data));
     
-    showDirectionPreviewModal(response.data);
+    showChatDirectionPreviewModal(selectedReq, response.data);
     
   } catch (error) {
     hideToast(loadingToast);
     console.error('Failed to preview direction:', error);
     showToast('질문지 생성에 실패했습니다', 'error');
   }
+}
+
+// 대화형 추천 요건 미리보기 모달 (챌린지형과 별도)
+function showChatDirectionPreviewModal(requirement, analysis) {
+  const modalId = 'modal-chat-direction-preview';
+  const modalContainer = document.getElementById('modal-container');
+
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 750px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+            <i class="fas fa-clipboard-question" style="color: #667eea; margin-right: 8px;"></i>
+            예상 질문지 미리보기
+          </h2>
+          <button onclick="closeChatDirectionPreview()" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors" title="닫기">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body p-6">
+          <!-- 선택된 요건 정보 -->
+          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px solid #3182f6; padding: 20px; border-radius: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+              <div style="width: 32px; height: 32px; background: #3182f6; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                <i class="fas fa-check" style="color: white; font-size: 16px;"></i>
+              </div>
+              <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900);">
+                ${escapeHtml(requirement.title)}
+              </h4>
+              <span class="badge badge-small badge-fill-${requirement.priority === 'high' ? 'red' : requirement.priority === 'medium' ? 'blue' : 'grey'}">
+                ${requirement.priority === 'high' ? '높음' : requirement.priority === 'medium' ? '중간' : '낮음'}
+              </span>
+            </div>
+            <p style="font-size: 14px; color: var(--grey-700); line-height: 22px; margin-left: 44px;">
+              ${escapeHtml(requirement.description)}
+            </p>
+          </div>
+
+          <!-- 핵심 방향성 -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: white; opacity: 0.9; margin-bottom: 8px;">
+              <i class="fas fa-compass" style="margin-right: 6px;"></i>
+              핵심 방향성
+            </h4>
+            <p style="font-size: 15px; color: white; line-height: 24px;">
+              ${escapeHtml(analysis.direction)}
+            </p>
+          </div>
+
+          <!-- 예상 질문지 섹션 -->
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-list-ol" style="color: #3182f6;"></i>
+              예상 질문지 (${analysis.questions.length}개)
+              <span style="font-size: 12px; font-weight: 500; color: var(--grey-500); margin-left: 8px;">
+                등록 시 자동 생성됩니다
+              </span>
+            </h4>
+            
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              ${analysis.questions.map((q, idx) => `
+                <div style="background: white; border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; transition: all 0.2s;" onmouseenter="this.style.borderColor='var(--blue-300)'; this.style.boxShadow='0 2px 8px rgba(49, 130, 246, 0.08)';" onmouseleave="this.style.borderColor='var(--grey-200)'; this.style.boxShadow='none';">
+                  <div style="display: flex; align-items: start; gap: 12px;">
+                    <div style="width: 28px; height: 28px; background: var(--blue-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                      <span style="font-size: 13px; font-weight: 700; color: var(--blue-600);">${idx + 1}</span>
+                    </div>
+                    <div style="flex: 1;">
+                      <p style="font-size: 14px; color: var(--grey-800); line-height: 22px; font-weight: 500;">
+                        ${escapeHtml(q.question_text)}
+                      </p>
+                      <p style="font-size: 12px; color: var(--grey-500); margin-top: 4px;">
+                        유형: ${q.question_type === 'open' ? '서술형' : q.question_type === 'choice' ? '선택형' : '예/아니오'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
+          <button onclick="closeChatDirectionPreview()" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+            돌아가기
+          </button>
+          <button onclick="confirmAddChatRecommendation()" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
+            <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+            요건 추가하기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 대화형 미리보기 모달 닫기
+function closeChatDirectionPreview() {
+  closeModalById('modal-chat-direction-preview');
+}
+
+// 대화형 추천 요건 미리보기에서 추가 확정
+async function confirmAddChatRecommendation() {
+  closeChatDirectionPreview();
+  await addChatRecommendation();
 }
 
 // 대화형 추천 요건 추가
