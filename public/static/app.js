@@ -3762,8 +3762,6 @@ async function generateChallengeAdditionalRequirements() {
 
 // 🆕 카테고리 기반 추가 요건 생성 (초기 기획용)
 async function generateCategoryBasedAdditionalRequirements() {
-// 🆕 카테고리 기반 추가 요건 생성 (초기 기획용)
-async function generateCategoryBasedAdditionalRequirements() {
   if (!currentProject) return;
   
   showModal({
