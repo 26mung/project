@@ -1031,9 +1031,22 @@ textarea {
     padding: 0 16px;
   }
   
+  .btn-medium {
+    height: 36px;
+    font-size: 14px;
+    padding: 0 12px;
+  }
+  
+  .btn-small {
+    height: 32px;
+    font-size: 13px;
+    padding: 0 10px;
+  }
+  
   /* 카드 패딩 */
   .card {
     border-radius: var(--radius-12);
+    padding: 16px !important;
   }
   
   /* 타이포그래피 */
@@ -1070,5 +1083,43 @@ textarea {
   /* 프로젝트 아이템 */
   .project-item {
     padding: 12px;
+  }
+  
+  /* 요건 관리 모바일 최적화 */
+  .requirement-card-mobile {
+    display: block !important;
+  }
+  
+  .requirement-card-mobile .requirement-header {
+    display: block !important;
+    margin-bottom: 12px;
+  }
+  
+  .requirement-card-mobile .requirement-actions {
+    display: flex !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--grey-200);
+  }
+  
+  .requirement-card-mobile .requirement-actions button {
+    flex: 1;
+  }
+  
+  /* Badge 작게 */
+  .badge {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  
+  /* 진행바 숨김 (공간 절약) */
+  .mobile-hide-progress {
+    display: none !important;
+  }
+  
+  .requirement-card-mobile .mobile-hide-progress + div {
+    display: block !important;
   }
 }

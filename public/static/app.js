@@ -1508,10 +1508,10 @@ function renderRequirementCard(requirement) {
   };
   
   return `
-    <div class="card p-6 card-hover" data-requirement-id="${requirement.id}">
-      <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
+    <div class="card p-6 card-hover requirement-card-mobile" data-requirement-id="${requirement.id}">
+      <div class="requirement-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
         <div style="flex: 1;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
             <h3 class="text-title4" style="color: var(--grey-900);">${escapeHtml(requirement.title)}</h3>
             <span class="${priorityBadges[requirement.priority] || priorityBadges.medium}">
               <i class="fas ${priorityIcons[requirement.priority] || priorityIcons.medium}" style="margin-right: 4px; font-size: 10px;"></i>${requirement.priority.toUpperCase()}
@@ -1523,13 +1523,13 @@ function renderRequirementCard(requirement) {
           ${requirement.description ? `<p class="text-body2" style="color: var(--grey-600); line-height: 1.6; margin-bottom: 12px;">${escapeHtml(requirement.description)}</p>` : ''}
           
           ${stats.total > 0 ? `
-            <div style="margin-top: 12px; padding: 12px; background: var(--grey-50); border-radius: var(--radius-8);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <div class="mobile-hide-progress" style="margin-top: 12px; padding: 12px; background: var(--grey-50); border-radius: var(--radius-8);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
                 <div style="display: flex; align-items: center; gap: 8px;">
                   <i class="fas fa-clipboard-list" style="color: var(--blue-500); font-size: 13px;"></i>
                   <span class="text-body3" style="color: var(--grey-700); font-weight: 600;">질문 진행률</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                   <span class="text-body3" style="color: var(--blue-600); font-weight: 700;">${progressPercent}%</span>
                   <span class="text-body3" style="color: var(--grey-600);">
                     <span style="color: var(--green-600); font-weight: 600;">${stats.answered}</span>
@@ -1555,8 +1555,15 @@ function renderRequirementCard(requirement) {
               </div>
             </div>
           ` : ''}
+          ${stats.total > 0 ? `
+            <div style="display: none; margin-top: 8px;">
+              <span class="text-xs text-grey-600">
+                ${stats.answered}/${stats.total} 답변 (${progressPercent}%)
+              </span>
+            </div>
+          ` : ''}
         </div>
-        <div style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
+        <div class="requirement-actions" style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
           <button onclick="editRequirement(${requirement.id})" class="btn-icon" title="편집">
             <i class="fas fa-edit" style="font-size: 13px;"></i>
           </button>
