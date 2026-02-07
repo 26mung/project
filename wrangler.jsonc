@@ -10,7 +10,11 @@
     {
       "binding": "DB",
       "database_name": "webapp-production",
-      "database_id": ""
+      "database_id": "local-webapp-production"
     }
-  ]
+  ],
+  "vars": {
+    "SUPABASE_URL": "https://bsjhyxholkrkrftcsyeq.supabase.co",
+    "APP_PASSWORD": "6116"
+  }
 }
