@@ -938,17 +938,19 @@ async function selectRequirementMode(mode, modalId = null) {
     // 모드 저장
     await axios.post(`${API_BASE}/projects/${currentProject.id}/select-requirement-mode`, { mode });
     currentProject.requirement_mode = mode;
-
-    if (mode === 'initial') {
-      // 기존 방식: 즉시 분석 시작
-      await executeInitialAnalysis();
-    } else {
-      // 챌린지형: 5개 요건 추천
-      await executeChallengeRecommendation();
-    }
   } catch (error) {
-    console.error('Mode selection error:', error);
+    console.error('Mode selection API error:', error);
     showToast('모드 선택에 실패했습니다', 'error');
+    return; // 모드 선택 실패 시 여기서 종료
+  }
+
+  // 모드 선택 성공 후 분석 실행 (각 함수가 에러를 자체 처리)
+  if (mode === 'initial') {
+    // 기존 방식: 즉시 분석 시작
+    executeInitialAnalysis();
+  } else {
+    // 챌린지형: 5개 요건 추천
+    executeChallengeRecommendation();
   }
 }
 
