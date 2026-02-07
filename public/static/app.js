@@ -1256,25 +1256,37 @@ async function previewSelectedRecommendation() {
 // 선택된 챌린지 요건 바로 추가
 async function addSelectedRecommendation() {
   const index = window.selectedRecommendationIndex;
-  if (index === null) {
+  if (index === null || index === undefined) {
     showToast('요건을 선택해주세요', 'warning');
     return;
   }
 
   const recommendation = window.currentRecommendations[index];
   
+  if (!recommendation) {
+    showToast('선택된 요건 정보를 찾을 수 없습니다', 'error');
+    console.error('Recommendation not found at index:', index);
+    console.error('Current recommendations:', window.currentRecommendations);
+    return;
+  }
+  
   closeModalById('modal-challenge-recommendations');
   
   const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
   
   try {
+    console.log('Adding requirement:', recommendation);
+    console.log('API URL:', `${API_BASE}/projects/${currentProject.id}/requirements`);
+    
     // 요건 추가 API 호출
-    await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
       title: recommendation.title,
       description: recommendation.description,
       requirement_type: recommendation.requirement_type || 'functional',
       priority: recommendation.priority || 'medium'
     });
+    
+    console.log('Requirement added successfully:', response.data);
     
     hideToast(loadingToast);
     
@@ -1285,8 +1297,11 @@ async function addSelectedRecommendation() {
     
   } catch (error) {
     console.error('Failed to add requirement:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
     hideToast(loadingToast);
-    showToast('요건 추가에 실패했습니다', 'error');
+    const errorMsg = error.response?.data?.message || error.response?.data?.error || '요건 추가에 실패했습니다';
+    showToast(errorMsg, 'error');
   }
 }
 
@@ -4295,7 +4310,7 @@ function showChatRequirementModal(isResumed = false) {
             <textarea 
               id="chat-input" 
               placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
-              style="flex: 1; padding: 16px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 80px; max-height: 300px; resize: vertical; font-family: inherit; line-height: 1.6; transition: all 0.2s; overflow-y: auto;"
+              style="flex: 1; min-width: 800px; width: 100%; padding: 16px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 80px; max-height: 300px; resize: vertical; font-family: inherit; line-height: 1.6; transition: all 0.2s; overflow-y: auto;"
               onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
               onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
               onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
@@ -4305,7 +4320,7 @@ function showChatRequirementModal(isResumed = false) {
             <button 
               onclick="sendChatMessage()" 
               class="btn-primary rounded-xl font-bold shadow-lg"
-              style="padding: 16px 28px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; height: 80px; align-self: stretch;"
+              style="padding: 16px 28px; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; height: 80px; align-self: stretch; flex-shrink: 0;"
               onmouseover="this.style.transform = 'scale(1.03)'; this.style.boxShadow = '0 8px 24px rgba(102, 126, 234, 0.35)';"
               onmouseout="this.style.transform = 'scale(1)'; this.style.boxShadow = '';"
             >
@@ -4652,12 +4667,19 @@ function closeChatRecommendationModal() {
 
 // 대화형 추천 요건 미리보기
 async function previewChatRecommendation() {
-  if (window.selectedChatRecommendationIndex === null) {
+  if (window.selectedChatRecommendationIndex === null || window.selectedChatRecommendationIndex === undefined) {
     showToast('요건을 선택해주세요', 'warning');
     return;
   }
   
   const selectedReq = window.currentChatRecommendations[window.selectedChatRecommendationIndex];
+  
+  if (!selectedReq) {
+    showToast('선택된 요건 정보를 찾을 수 없습니다', 'error');
+    console.error('Selected recommendation not found at index:', window.selectedChatRecommendationIndex);
+    console.error('Current chat recommendations:', window.currentChatRecommendations);
+    return;
+  }
   
   // 캐시 확인
   const cacheKey = `chat_question_cache_${currentProject.id}_${selectedReq.title}`;
@@ -4677,6 +4699,9 @@ async function previewChatRecommendation() {
   const loadingToast = showLoadingToast('질문지를 생성하고 있습니다...');
   
   try {
+    console.log('Generating questions for:', selectedReq);
+    console.log('API URL:', `${API_BASE}/requirements/preview-direction`);
+    
     const response = await axios.post(`${API_BASE}/requirements/preview-direction`, {
       project_id: currentProject.id,
       title: selectedReq.title,
@@ -4684,6 +4709,8 @@ async function previewChatRecommendation() {
       requirement_type: selectedReq.requirement_type || 'functional',
       priority: selectedReq.priority || 'medium'
     }, { timeout: 180000 });
+    
+    console.log('Questions generated successfully:', response.data);
     
     hideToast(loadingToast);
     
@@ -4695,7 +4722,10 @@ async function previewChatRecommendation() {
   } catch (error) {
     hideToast(loadingToast);
     console.error('Failed to preview direction:', error);
-    showToast('질문지 생성에 실패했습니다', 'error');
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    const errorMsg = error.response?.data?.message || error.response?.data?.error || '질문지 생성에 실패했습니다';
+    showToast(errorMsg, 'error');
   }
 }
 
@@ -4814,18 +4844,25 @@ async function addChatRecommendation() {
   
   const selectedReq = window.currentChatRecommendations[window.selectedChatRecommendationIndex];
   
+  if (!selectedReq) {
+    showToast('선택된 요건 정보를 찾을 수 없습니다', 'error');
+    return;
+  }
+  
   closeChatRecommendationModal();
   closeModalById('modal-chat-requirement');
   
-  showToast('요건을 추가하고 있습니다...', 'info');
+  const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
   
   try {
-    await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
       title: selectedReq.title,
       description: selectedReq.description,
       requirement_type: selectedReq.requirement_type || 'functional',
       priority: selectedReq.priority || 'medium'
     });
+    
+    hideToast(loadingToast);
     
     // 요건 목록 새로고침
     await renderRequirements();
@@ -4836,8 +4873,10 @@ async function addChatRecommendation() {
     showToast('요건이 추가되었습니다! 🎉', 'success');
     
   } catch (error) {
+    hideToast(loadingToast);
     console.error('Failed to add requirement:', error);
-    showToast('요건 추가에 실패했습니다', 'error');
+    const errorMsg = error.response?.data?.message || '요건 추가에 실패했습니다';
+    showToast(errorMsg, 'error');
   }
 }
 
