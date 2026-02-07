@@ -806,103 +806,112 @@ async function analyzeProject() {
 
 // 🆕 요건 생성 모드 선택 모달
 function showRequirementModeSelectionModal() {
-  const modal = document.getElementById('modal-container');
-  modal.style.display = 'flex';
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 600px;">
-      <div class="modal-header">
-        <h2 class="modal-title">
-          <i class="fas fa-lightbulb" style="color: #FFB300; margin-right: 8px;"></i>
-          요건 생성 방식 선택
-        </h2>
-        <button onclick="closeModal()" class="modal-close">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      
-      <div class="modal-body" style="padding: 32px;">
-        <p style="color: var(--grey-700); margin-bottom: 24px; font-size: 15px; line-height: 24px;">
-          AI가 기획안을 분석하여 요건을 생성하는 방식을 선택하세요
-        </p>
-        
-        <!-- 초기 기획용 모드 -->
-        <div class="mode-card" onclick="selectRequirementMode('initial')" style="cursor: pointer; border: 2px solid var(--grey-200); border-radius: 12px; padding: 20px; margin-bottom: 16px; transition: all 0.2s;">
-          <div style="display: flex; align-items: start; margin-bottom: 12px;">
-            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-              <i class="fas fa-bolt" style="color: white; font-size: 18px;"></i>
+  const modalId = 'modal-mode-selection';
+  const modalContainer = document.getElementById('modal-container');
+
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+            <i class="fas fa-lightbulb" style="color: #FFB300; margin-right: 8px;"></i>
+            요건 생성 방식 선택
+          </h2>
+          <button onclick="closeModalById('${modalId}')" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body p-8">
+          <p style="color: var(--grey-700); margin-bottom: 24px; font-size: 15px; line-height: 24px;">
+            AI가 기획안을 분석하여 요건을 생성하는 방식을 선택하세요
+          </p>
+
+          <!-- 초기 기획용 모드 -->
+          <div class="mode-card" onclick="selectRequirementMode('initial', '${modalId}')" style="cursor: pointer; border: 2px solid var(--grey-200); border-radius: 12px; padding: 20px; margin-bottom: 16px; transition: all 0.2s;">
+            <div style="display: flex; align-items: start; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                <i class="fas fa-bolt" style="color: white; font-size: 18px;"></i>
+              </div>
+              <div style="flex: 1;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--grey-900); margin-bottom: 4px;">
+                  초기 기획용 (빠른 분석)
+                </h3>
+                <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
+                  한 번에 15개 요건을 자동 생성하고 각 요건마다 질문을 제공해요
+                </p>
+              </div>
             </div>
-            <div style="flex: 1;">
-              <h3 style="font-size: 16px; font-weight: 700; color: var(--grey-900); margin-bottom: 4px;">
-                초기 기획용 (빠른 분석)
-              </h3>
-              <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
-                한 번에 15개 요건을 자동 생성하고 각 요건마다 질문을 제공해요
-              </p>
+            <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; font-size: 13px; color: var(--grey-700); line-height: 20px;">
+              ✅ 빠른 분석 (약 60초)<br>
+              ✅ 전체 요건 한눈에 파악<br>
+              ✅ 기획 초기 단계에 적합
             </div>
           </div>
-          <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; font-size: 13px; color: var(--grey-700); line-height: 20px;">
-            ✅ 빠른 분석 (약 60초)<br>
-            ✅ 전체 요건 한눈에 파악<br>
-            ✅ 기획 초기 단계에 적합
+
+          <!-- 챌린지형 모드 -->
+          <div class="mode-card" onclick="selectRequirementMode('challenge', '${modalId}')" style="cursor: pointer; border: 2px solid var(--grey-200); border-radius: 12px; padding: 20px; transition: all 0.2s;">
+            <div style="display: flex; align-items: start; margin-bottom: 12px;">
+              <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+                <i class="fas fa-trophy" style="color: white; font-size: 18px;"></i>
+              </div>
+              <div style="flex: 1;">
+                <h3 style="font-size: 16px; font-weight: 700; color: var(--grey-900); margin-bottom: 4px;">
+                  챌린지형 (상세 구체화)
+                </h3>
+                <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
+                  5개씩 추천하고 하나씩 방향성을 분석하며 상세하게 구체화해요
+                </p>
+              </div>
+            </div>
+            <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; font-size: 13px; color: var(--grey-700); line-height: 20px;">
+              ✅ 단계별 상세 구체화<br>
+              ✅ 방향성 분석 및 피드백<br>
+              ✅ 중복 없는 정확한 요건<br>
+              ✅ 구현 상세화 단계에 적합
+            </div>
           </div>
         </div>
-        
-        <!-- 챌린지형 모드 -->
-        <div class="mode-card" onclick="selectRequirementMode('challenge')" style="cursor: pointer; border: 2px solid var(--grey-200); border-radius: 12px; padding: 20px; transition: all 0.2s;">
-          <div style="display: flex; align-items: start; margin-bottom: 12px;">
-            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-              <i class="fas fa-trophy" style="color: white; font-size: 18px;"></i>
-            </div>
-            <div style="flex: 1;">
-              <h3 style="font-size: 16px; font-weight: 700; color: var(--grey-900); margin-bottom: 4px;">
-                챌린지형 (상세 구체화)
-              </h3>
-              <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
-                5개씩 추천하고 하나씩 방향성을 분석하며 상세하게 구체화해요
-              </p>
-            </div>
-          </div>
-          <div style="background: var(--grey-50); padding: 12px; border-radius: 8px; font-size: 13px; color: var(--grey-700); line-height: 20px;">
-            ✅ 단계별 상세 구체화<br>
-            ✅ 방향성 분석 및 피드백<br>
-            ✅ 중복 없는 정확한 요건<br>
-            ✅ 구현 상세화 단계에 적합
-          </div>
+
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-center sticky bottom-0 bg-white">
+          <button onclick="closeModalById('${modalId}')" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">취소</button>
         </div>
-      </div>
-      
-      <div class="modal-footer" style="justify-content: center;">
-        <button onclick="closeModal()" class="btn-secondary">취소</button>
       </div>
     </div>
   `;
-  
+
   // 호버 효과
-  document.querySelectorAll('.mode-card').forEach(card => {
-    card.addEventListener('mouseenter', () => {
-      card.style.borderColor = 'var(--blue-500)';
-      card.style.transform = 'translateY(-2px)';
-      card.style.boxShadow = '0 4px 12px rgba(49, 130, 246, 0.15)';
+  setTimeout(() => {
+    document.querySelectorAll('.mode-card').forEach(card => {
+      card.addEventListener('mouseenter', () => {
+        card.style.borderColor = 'var(--blue-500)';
+        card.style.transform = 'translateY(-2px)';
+        card.style.boxShadow = '0 4px 12px rgba(49, 130, 246, 0.15)';
+      });
+      card.addEventListener('mouseleave', () => {
+        card.style.borderColor = 'var(--grey-200)';
+        card.style.transform = 'translateY(0)';
+        card.style.boxShadow = 'none';
+      });
     });
-    card.addEventListener('mouseleave', () => {
-      card.style.borderColor = 'var(--grey-200)';
-      card.style.transform = 'translateY(0)';
-      card.style.boxShadow = 'none';
-    });
-  });
+  }, 0);
 }
 
 // 🆕 요건 생성 모드 선택 처리
-async function selectRequirementMode(mode) {
-  closeModal();
-  
+async function selectRequirementMode(mode, modalId = null) {
+  if (modalId) {
+    closeModalById(modalId);
+  } else {
+    closeModal();
+  }
+
   if (!currentProject) return;
-  
+
   try {
     // 모드 저장
     await axios.post(`${API_BASE}/projects/${currentProject.id}/select-requirement-mode`, { mode });
     currentProject.requirement_mode = mode;
-    
+
     if (mode === 'initial') {
       // 기존 방식: 즉시 분석 시작
       await executeInitialAnalysis();
@@ -980,77 +989,211 @@ async function executeChallengeRecommendation() {
 
 // 🆕 챌린지형 추천 결과 모달
 function showChallengeRecommendationModal(recommendations) {
-  const modal = document.getElementById('modal-container');
-  modal.style.display = 'flex';
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
-      <div class="modal-header">
-        <h2 class="modal-title">
-          <i class="fas fa-magic" style="color: #f5576c; margin-right: 8px;"></i>
-          다음 요건 추천 (5개)
-        </h2>
-        <button onclick="closeModal()" class="modal-close">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      
-      <div class="modal-body" style="padding: 24px;">
-        <p style="color: var(--grey-700); margin-bottom: 20px; font-size: 14px;">
-          AI가 분석한 결과, 다음 요건들을 구체화하는 것을 추천해요. 원하는 요건을 선택하세요.
-        </p>
-        
-        <div id="recommendation-list">
-          ${recommendations.map((req, idx) => `
-            <div class="recommendation-item" style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;" onclick="selectRecommendation(${idx}, this)">
-              <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-                <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); flex: 1;">
-                  ${req.title}
-                </h4>
-                <span class="badge badge-small badge-fill-${req.priority === 'high' ? 'red' : req.priority === 'medium' ? 'blue' : 'grey'}">${req.priority === 'high' ? '높음' : req.priority === 'medium' ? '중간' : '낮음'}</span>
-              </div>
-              <p style="font-size: 13px; color: var(--grey-600); line-height: 20px; margin-bottom: 8px;">
-                ${req.description}
-              </p>
-              <p style="font-size: 12px; color: var(--grey-500); line-height: 18px;">
-                💡 ${req.rationale}
-              </p>
-            </div>
-          `).join('')}
+  const modalId = 'modal-challenge-recommendations';
+  const modalContainer = document.getElementById('modal-container');
+
+  // 전역에 저장
+  window.currentRecommendations = recommendations;
+
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+            <i class="fas fa-magic" style="color: #f5576c; margin-right: 8px;"></i>
+            다음 요건 추천 (5개)
+          </h2>
+          <button onclick="closeModalById('${modalId}')" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-      </div>
-      
-      <div class="modal-footer">
-        <button onclick="closeModal()" class="btn-secondary">나중에</button>
+
+        <div class="modal-body p-6">
+          <p style="color: var(--grey-700); margin-bottom: 20px; font-size: 14px;">
+            AI가 분석한 결과, 다음 요건들을 구체화하는 것을 추천해요. 원하는 요건을 선택하면 방향성을 먼저 분석한 후 등록할지 결정할 수 있어요.
+          </p>
+
+          <div id="recommendation-list-${modalId}">
+            ${recommendations.map((req, idx) => `
+              <div class="recommendation-item" data-index="${idx}" style="border: 2px solid var(--grey-200); border-radius: 12px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;"
+                   onmouseenter="this.style.borderColor='var(--blue-500)'; this.style.backgroundColor='var(--blue-50)'; this.style.transform='translateY(-2px)'"
+                   onmouseleave="this.style.borderColor='var(--grey-200)'; this.style.backgroundColor='transparent'; this.style.transform='translateY(0)'">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                  <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); flex: 1;">
+                    ${req.title}
+                  </h4>
+                  <span class="badge badge-small badge-fill-${req.priority === 'high' ? 'red' : req.priority === 'medium' ? 'blue' : 'grey'}">${req.priority === 'high' ? '높음' : req.priority === 'medium' ? '중간' : '낮음'}</span>
+                </div>
+                <p style="font-size: 13px; color: var(--grey-600); line-height: 20px; margin-bottom: 8px;">
+                  ${req.description}
+                </p>
+                <p style="font-size: 12px; color: var(--grey-500); line-height: 18px;">
+                  💡 ${req.rationale}
+                </p>
+                <div style="margin-top: 12px; text-align: right;">
+                  <button onclick="previewRecommendationDirection(${idx})" class="btn-primary btn-small" style="padding: 8px 16px; font-size: 13px;">
+                    <i class="fas fa-search" style="margin-right: 6px;"></i>
+                    방향성 분석 및 등록
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-center sticky bottom-0 bg-white">
+          <button onclick="closeModalById('${modalId}')" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">나중에</button>
+        </div>
       </div>
     </div>
   `;
-  
-  // 호버 효과
-  document.querySelectorAll('.recommendation-item').forEach(item => {
-    item.addEventListener('mouseenter', () => {
-      item.style.borderColor = 'var(--blue-500)';
-      item.style.backgroundColor = 'var(--blue-50)';
-    });
-    item.addEventListener('mouseleave', () => {
-      if (!item.classList.contains('selected')) {
-        item.style.borderColor = 'var(--grey-200)';
-        item.style.backgroundColor = 'transparent';
-      }
-    });
-  });
-  
-  // 전역에 저장
-  window.currentRecommendations = recommendations;
 }
 
-// 🆕 추천 요건 선택
-async function selectRecommendation(index, element) {
+// 🆕 추천 요건 방향성 미리보기 (저장하지 않고 분석만)
+async function previewRecommendationDirection(index) {
   const recommendation = window.currentRecommendations[index];
-  
-  closeModal();
-  
-  const loadingToast = showLoadingToast('요건을 저장하고 방향성을 분석하고 있어요...');
-  
+
+  closeModalById('modal-challenge-recommendations');
+
+  const loadingToast = showLoadingToast('요건 방향성을 분석하고 있어요...');
+
+  try {
+    // 요건 저장 없이 방향성 분석만 실행하는 새로운 API 사용
+    const apiKey = window.API_KEY || ''; // If needed, pass API key
+
+    // 새로운 엔드포인트: 저장 없이 방향성만 분석
+    const response = await axios.post(`${API_BASE}/requirements/preview-direction`, {
+      project_id: currentProject.id,
+      title: recommendation.title,
+      description: recommendation.description,
+      requirement_type: recommendation.requirement_type,
+      priority: recommendation.priority
+    }, { timeout: 180000 });
+
+    hideToast(loadingToast);
+
+    // 방향성 미리보기 모달 표시 (저장하기/뒤로가기 선택 가능)
+    showDirectionPreviewModal(index, response.data.analysis);
+
+  } catch (error) {
+    console.error('Failed to preview direction:', error);
+    hideToast(loadingToast);
+
+    // API 호출 실패 시 원래 추천 모달로 복귀
+    showToast('방향성 분석에 실패했습니다. 다시 시도해주세요.', 'error');
+    showChallengeRecommendationModal(window.currentRecommendations);
+  }
+}
+
+// 🆕 방향성 미리보기 모달 (저장하기/뒤로가기 선택)
+function showDirectionPreviewModal(recommendationIndex, analysis) {
+  const modalId = 'modal-direction-preview';
+  const modalContainer = document.getElementById('modal-container');
+  const recommendation = window.currentRecommendations[recommendationIndex];
+
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 750px; width: 100%; max-height: 90vh; overflow-y: auto; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center sticky top-0 bg-white z-10">
+          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+            <i class="fas fa-compass" style="color: #667eea; margin-right: 8px;"></i>
+            방향성 분석 결과
+          </h2>
+          <button onclick="closeModalById('${modalId}'); showChallengeRecommendationModal(window.currentRecommendations);" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body p-6">
+          <!-- 요건 정보 헤더 -->
+          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 16px; border-radius: 12px; margin-bottom: 20px; border-left: 4px solid #3182f6;">
+            <h4 style="font-size: 15px; font-weight: 700; color: var(--grey-900); margin-bottom: 8px;">
+              ${recommendation.title}
+            </h4>
+            <p style="font-size: 13px; color: var(--grey-600); line-height: 20px;">
+              ${recommendation.description}
+            </p>
+          </div>
+
+          <!-- 핵심 방향성 -->
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: white; opacity: 0.9; margin-bottom: 8px;">
+              <i class="fas fa-compass" style="margin-right: 6px;"></i>
+              핵심 방향성
+            </h4>
+            <p style="font-size: 15px; color: white; line-height: 24px;">
+              ${analysis.direction}
+            </p>
+          </div>
+
+          <!-- 명확히 해야 할 사항 -->
+          <div style="margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
+              <i class="fas fa-check-circle" style="color: #00c853; margin-right: 6px;"></i>
+              명확히 해야 할 사항
+            </h4>
+            <ul style="padding-left: 20px; margin: 0;">
+              ${analysis.clarifications.map(item => `
+                <li style="color: var(--grey-700); font-size: 14px; line-height: 24px; margin-bottom: 8px;">${item}</li>
+              `).join('')}
+            </ul>
+          </div>
+
+          <!-- 제안 접근 방식 -->
+          <div style="background: var(--grey-50); padding: 16px; border-radius: 10px; margin-bottom: 20px;">
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 8px;">
+              <i class="fas fa-lightbulb" style="color: #FFB300; margin-right: 6px;"></i>
+              제안하는 접근 방식
+            </h4>
+            <p style="font-size: 14px; color: var(--grey-700); line-height: 22px;">
+              ${analysis.suggested_approach}
+            </p>
+          </div>
+
+          <!-- 구체화 질문 -->
+          <div>
+            <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
+              <i class="fas fa-question-circle" style="color: #3182f6; margin-right: 6px;"></i>
+              구체화 질문 (${analysis.questions.length}개)
+            </h4>
+            <div style="background: var(--grey-50); padding: 16px; border-radius: 10px;">
+              <ul style="padding-left: 20px; margin: 0;">
+                ${analysis.questions.map((q, idx) => `
+                  <li style="color: var(--grey-700); font-size: 13px; line-height: 22px; margin-bottom: 6px;">
+                    ${idx + 1}. ${q.question_text}
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+            <p style="font-size: 12px; color: var(--grey-500); margin-top: 8px;">
+              💡 요건을 등록하면 위 질문들이 자동으로 생성됩니다.
+            </p>
+          </div>
+        </div>
+
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex justify-between sticky bottom-0 bg-white">
+          <button onclick="closeModalById('${modalId}'); showChallengeRecommendationModal(window.currentRecommendations);" class="btn-secondary px-6 py-3 rounded-xl bg-toss-gray-100 hover:bg-toss-gray-200 text-toss-gray-900 font-bold transition-colors">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+            다른 추천 보기
+          </button>
+          <button onclick="saveRecommendationAndGo(${recommendationIndex})" class="btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
+            <i class="fas fa-save" style="margin-right: 6px;"></i>
+            이 요건으로 등록하기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 🆕 추천 요건 저장 및 이동
+async function saveRecommendationAndGo(recommendationIndex) {
+  const recommendation = window.currentRecommendations[recommendationIndex];
+
+  closeModalById('modal-direction-preview');
+
+  const loadingToast = showLoadingToast('요건을 저장하고 있습니다...');
+
   try {
     // 요건 저장
     const createResponse = await axios.post(`${API_BASE}/requirements`, {
@@ -1060,119 +1203,39 @@ async function selectRecommendation(index, element) {
       requirement_type: recommendation.requirement_type,
       priority: recommendation.priority
     });
-    
+
     const requirementId = createResponse.data.id;
-    
+
     // 요건 수락 상태로 변경
     await axios.post(`${API_BASE}/requirements/${requirementId}/accept`);
-    
-    // 방향성 분석
-    const analysisResponse = await axios.post(`${API_BASE}/requirements/${requirementId}/analyze-direction`, {}, { timeout: 180000 });
-    
+
+    // 방향성 분석 (질문 생성용)
+    await axios.post(`${API_BASE}/requirements/${requirementId}/analyze-direction`, {}, { timeout: 180000 });
+
     hideToast(loadingToast);
-    
-    // 방향성 결과 모달 표시
-    showDirectionAnalysisModal(requirementId, analysisResponse.data.analysis);
-    
+
+    // 요건 관리 탭으로 이동
+    await selectProject(currentProject.id);
+    switchTab('requirements');
+
+    showToast('요건이 등록되었습니다! 질문에 답변하여 요건을 완성하세요.', 'success');
+
+    // 약간의 지연 후 상세 모달 열기
+    setTimeout(() => {
+      openRequirementDetails(requirementId);
+    }, 300);
+
   } catch (error) {
-    console.error('Failed to select recommendation:', error);
+    console.error('Failed to save recommendation:', error);
     hideToast(loadingToast);
-    showToast('요건 선택에 실패했습니다', 'error');
+    showToast('요건 저장에 실패했습니다', 'error');
   }
 }
 
-// 🆕 방향성 분석 결과 모달
-function showDirectionAnalysisModal(requirementId, analysis) {
-  const modal = document.getElementById('modal-container');
-  modal.style.display = 'flex';
-  modal.innerHTML = `
-    <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
-      <div class="modal-header">
-        <h2 class="modal-title">
-          <i class="fas fa-compass" style="color: #667eea; margin-right: 8px;"></i>
-          방향성 분석 결과
-        </h2>
-        <button onclick="closeDirectionModal(${requirementId})" class="modal-close">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      
-      <div class="modal-body" style="padding: 24px;">
-        <!-- 핵심 방향성 -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-          <h4 style="font-size: 14px; font-weight: 700; color: white; opacity: 0.9; margin-bottom: 8px;">
-            핵심 방향성
-          </h4>
-          <p style="font-size: 15px; color: white; line-height: 24px;">
-            ${analysis.direction}
-          </p>
-        </div>
-        
-        <!-- 명확히 해야 할 사항 -->
-        <div style="margin-bottom: 20px;">
-          <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
-            <i class="fas fa-check-circle" style="color: #00c853; margin-right: 6px;"></i>
-            명확히 해야 할 사항
-          </h4>
-          <ul style="padding-left: 20px;">
-            ${analysis.clarifications.map(item => `
-              <li style="color: var(--grey-700); font-size: 14px; line-height: 24px; margin-bottom: 8px;">${item}</li>
-            `).join('')}
-          </ul>
-        </div>
-        
-        <!-- 제안 접근 방식 -->
-        <div style="background: var(--grey-50); padding: 16px; border-radius: 10px; margin-bottom: 20px;">
-          <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 8px;">
-            <i class="fas fa-lightbulb" style="color: #FFB300; margin-right: 6px;"></i>
-            제안하는 접근 방식
-          </h4>
-          <p style="font-size: 14px; color: var(--grey-700); line-height: 22px;">
-            ${analysis.suggested_approach}
-          </p>
-        </div>
-        
-        <!-- 구체화 질문 -->
-        <div>
-          <h4 style="font-size: 14px; font-weight: 700; color: var(--grey-900); margin-bottom: 12px;">
-            <i class="fas fa-question-circle" style="color: #3182f6; margin-right: 6px;"></i>
-            구체화 질문 (${analysis.questions.length}개)
-          </h4>
-          <p style="font-size: 13px; color: var(--grey-600); margin-bottom: 12px;">
-            요건 관리 탭에서 질문에 답변하여 요건을 완성하세요
-          </p>
-        </div>
-      </div>
-      
-      <div class="modal-footer">
-        <button onclick="closeDirectionModal(${requirementId})" class="btn-secondary">나중에 답변하기</button>
-        <button onclick="goToRequirementDetail(${requirementId})" class="btn-primary">
-          <i class="fas fa-arrow-right" style="margin-right: 6px;"></i>
-          지금 답변하러 가기
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-// 🆕 방향성 모달 닫기
-async function closeDirectionModal(requirementId) {
-  closeModal();
-  await selectProject(currentProject.id);
-  switchTab('requirements');
-  showToast('요건이 추가되었습니다. 질문에 답변하여 요건을 완성하세요', 'success');
-}
-
-// 🆕 요건 상세로 이동
-async function goToRequirementDetail(requirementId) {
-  closeModal();
-  await selectProject(currentProject.id);
-  switchTab('requirements');
-  
-  // 약간의 지연 후 상세 모달 열기
-  setTimeout(() => {
-    openRequirementDetails(requirementId);
-  }, 300);
+// 🆕 (레거시) 추천 요건 선택 - 더 이상 사용되지 않음
+async function selectRecommendation(index, element) {
+  // 새로운 흐름: 방향성 미리보기로 이동
+  previewRecommendationDirection(index);
 }
 
 // ============ 탭 전환 ============
@@ -2867,6 +2930,14 @@ function closeModal(modalId) {
 function closeAllModals() {
   const modalContainer = document.getElementById('modal-container');
   modalContainer.innerHTML = '';
+}
+
+// Modal ID로 닫기 (showModal 없이 생성된 모달용)
+function closeModalById(modalId) {
+  const modal = document.getElementById(modalId);
+  if (modal) {
+    modal.remove();
+  }
 }
 
 // 토스트 알림

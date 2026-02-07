@@ -1149,6 +1149,47 @@ api.post('/requirements/:id/analyze-direction', async (c) => {
   }
 });
 
+// 챌린지형: 요건 방향성 미리보기 (저장 없이 분석만)
+api.post('/requirements/preview-direction', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json() as {
+    project_id: number;
+    title: string;
+    description: string;
+    requirement_type: string;
+    priority: string;
+  };
+
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+
+  try {
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(body.project_id).first() as any;
+
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+
+    // AI로 방향성 분석 (저장 없이 분석만)
+    const analysis = await analyzeChallengeDirection(
+      body.title,
+      body.description || '',
+      project.input_content || '',
+      apiKey,
+      baseURL
+    );
+
+    return c.json({ success: true, analysis });
+  } catch (error) {
+    console.error('Preview direction error:', error);
+    return c.json({ error: 'Failed to analyze direction', message: String(error) }, 500);
+  }
+});
+
 // 챌린지형: 요건 수락
 api.post('/requirements/:id/accept', async (c) => {
   const { DB } = c.env;
