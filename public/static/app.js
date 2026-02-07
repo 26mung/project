@@ -292,6 +292,47 @@ function showMainApp() {
           </button>
         </div>
         
+        <!-- 프로젝트 검색 필터 -->
+        <div style="padding: 12px; border-bottom: 1px solid var(--grey-200);">
+          <!-- 프로젝트명 검색 -->
+          <div style="margin-bottom: 8px;">
+            <div style="position: relative;">
+              <input type="text" id="project-search-input" 
+                     placeholder="프로젝트 검색..."
+                     oninput="handleProjectSearch(this.value)"
+                     style="width: 100%; padding: 8px 32px 8px 12px; border: 1.5px solid var(--grey-200); border-radius: 8px; font-size: 13px; transition: all 0.2s;"
+                     onfocus="this.style.borderColor='var(--blue-500)'"
+                     onblur="this.style.borderColor='var(--grey-200)'">
+              <i class="fas fa-search" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--grey-400); font-size: 12px; pointer-events: none;"></i>
+            </div>
+          </div>
+          
+          <!-- 필터 버튼 그룹 -->
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <button onclick="handleModeFilter('all')" id="filter-mode-all" class="filter-btn active" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--blue-500); color: white; cursor: pointer; transition: all 0.2s;">
+              전체
+            </button>
+            <button onclick="handleModeFilter('initial')" id="filter-mode-initial" class="filter-btn" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+              초기 기획용
+            </button>
+            <button onclick="handleModeFilter('challenge')" id="filter-mode-challenge" class="filter-btn" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+              챌린지형
+            </button>
+          </div>
+          
+          <!-- 정렬 버튼 -->
+          <div style="display: flex; gap: 6px;">
+            <button onclick="handleSortOrder('desc')" id="sort-desc" class="filter-btn active" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--grey-100); color: var(--grey-900); cursor: pointer; transition: all 0.2s;">
+              <i class="fas fa-arrow-down" style="margin-right: 4px; font-size: 10px;"></i>
+              최신순
+            </button>
+            <button onclick="handleSortOrder('asc')" id="sort-asc" class="filter-btn" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+              <i class="fas fa-arrow-up" style="margin-right: 4px; font-size: 10px;"></i>
+              오래된순
+            </button>
+          </div>
+        </div>
+        
         <!-- Project List -->
         <div style="flex: 1; overflow-y: auto; padding: 12px;">
           <div id="project-list" style="display: flex; flex-direction: column; gap: 8px;">
@@ -403,16 +444,44 @@ async function loadProjects() {
 
 function renderProjectList() {
   const container = document.getElementById('project-list');
-  if (!projects.length) {
+  
+  // 검색 필터 적용
+  let filteredProjects = [...projects];
+  
+  // 프로젝트명 검색
+  const searchQuery = window.projectSearchQuery || '';
+  if (searchQuery) {
+    filteredProjects = filteredProjects.filter(p => 
+      p.title.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+  
+  // 분석 모드 필터
+  const modeFilter = window.projectModeFilter || 'all';
+  if (modeFilter !== 'all') {
+    filteredProjects = filteredProjects.filter(p => p.requirement_mode === modeFilter);
+  }
+  
+  // 업데이트 일시 정렬
+  const sortOrder = window.projectSortOrder || 'desc';
+  filteredProjects.sort((a, b) => {
+    const dateA = new Date(a.updated_at);
+    const dateB = new Date(b.updated_at);
+    return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+  
+  if (!filteredProjects.length) {
     container.innerHTML = `
       <div style="text-align: center; padding: 32px 16px;">
-        <p class="text-body2" style="color: var(--grey-500);">아직 프로젝트가 없어요</p>
+        <p class="text-body2" style="color: var(--grey-500);">
+          ${searchQuery || modeFilter !== 'all' ? '검색 결과가 없어요' : '아직 프로젝트가 없어요'}
+        </p>
       </div>
     `;
     return;
   }
   
-  container.innerHTML = projects.map(project => `
+  container.innerHTML = filteredProjects.map(project => `
     <div class="project-item ${currentProject?.id === project.id ? 'active' : ''}"
          onclick="selectProject(${project.id})">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
@@ -421,12 +490,63 @@ function renderProjectList() {
           <i class="fas fa-trash" style="font-size: 12px;"></i>
         </button>
       </div>
-      <div style="display: flex; align-items: center; gap: 6px;">
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
         ${getStatusBadge(project.status)}
+        ${project.requirement_mode ? `<span class="badge badge-small badge-weak-${project.requirement_mode === 'challenge' ? 'purple' : 'blue'}">${project.requirement_mode === 'challenge' ? '챌린지형' : '초기 기획용'}</span>` : ''}
         <span class="text-caption" style="color: var(--grey-500);">${formatRelativeTime(project.updated_at)}</span>
       </div>
     </div>
   `).join('');
+}
+
+// 프로젝트 검색 핸들러
+function handleProjectSearch(query) {
+  window.projectSearchQuery = query;
+  renderProjectList();
+}
+
+// 분석 모드 필터 핸들러
+function handleModeFilter(mode) {
+  window.projectModeFilter = mode;
+  
+  // 버튼 스타일 업데이트
+  ['all', 'initial', 'challenge'].forEach(m => {
+    const btn = document.getElementById(`filter-mode-${m}`);
+    if (btn) {
+      if (m === mode) {
+        btn.style.background = 'var(--blue-500)';
+        btn.style.color = 'white';
+        btn.style.borderColor = 'var(--blue-500)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+        btn.style.borderColor = 'var(--grey-200)';
+      }
+    }
+  });
+  
+  renderProjectList();
+}
+
+// 정렬 순서 핸들러
+function handleSortOrder(order) {
+  window.projectSortOrder = order;
+  
+  // 버튼 스타일 업데이트
+  ['desc', 'asc'].forEach(o => {
+    const btn = document.getElementById(`sort-${o}`);
+    if (btn) {
+      if (o === order) {
+        btn.style.background = 'var(--grey-100)';
+        btn.style.color = 'var(--grey-900)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+      }
+    }
+  });
+  
+  renderProjectList();
 }
 
 function getStatusBadge(status) {
@@ -1278,7 +1398,7 @@ async function addSelectedRecommendation() {
     console.log('Adding requirement:', recommendation);
     console.log('API URL:', `${API_BASE}/requirements`);
     
-    // 요건 추가 API 호출
+    // 1단계: 요건 추가 API 호출
     const response = await axios.post(`${API_BASE}/requirements`, {
       project_id: currentProject.id,
       title: recommendation.title,
@@ -1287,12 +1407,65 @@ async function addSelectedRecommendation() {
       priority: recommendation.priority || 'medium'
     });
     
+    const requirementId = response.data.id;
     console.log('Requirement added successfully:', response.data);
+    
+    // 2단계: 질문지 생성 (캐시 확인)
+    const cacheKey = `${currentProject.id}_${recommendation.title}`;
+    const cached = questionCache.get(cacheKey);
+    
+    let analysis;
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      analysis = cached.analysis;
+      console.log('[Question Cache] Loaded from cache for requirement:', requirementId);
+    } else {
+      // 캐시 없으면 API 호출
+      try {
+        const directionResponse = await axios.post(`${API_BASE}/requirements/preview-direction`, {
+          project_id: currentProject.id,
+          title: recommendation.title,
+          description: recommendation.description,
+          requirement_type: recommendation.requirement_type || 'functional',
+          priority: recommendation.priority || 'medium'
+        }, { timeout: 180000 });
+        
+        analysis = directionResponse.data.analysis || directionResponse.data;
+        console.log('Questions generated for requirement:', requirementId);
+        
+        // 캐시 저장
+        questionCache.set(cacheKey, {
+          analysis,
+          timestamp: Date.now()
+        });
+      } catch (error) {
+        console.error('Failed to generate questions for requirement:', requirementId, error);
+      }
+    }
+    
+    // 3단계: 질문지를 요건에 매핑
+    if (analysis && analysis.questions && analysis.questions.length > 0) {
+      try {
+        for (const question of analysis.questions) {
+          await axios.post(`${API_BASE}/questions`, {
+            requirement_id: requirementId,
+            question_text: question.question_text,
+            question_type: question.question_type || 'open',
+            question_order: question.order || 1
+          });
+        }
+        console.log(`${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+      } catch (error) {
+        console.error('Failed to map questions to requirement:', requirementId, error);
+      }
+    }
     
     hideToast(loadingToast);
     
     // 요건 목록 새로고침
     await renderRequirements();
+    
+    // 요건관리 탭으로 자동 이동
+    navigateToTab('requirements');
     
     showToast('요건이 추가되었습니다! 🎉', 'success');
     
@@ -1625,19 +1798,38 @@ function renderOverview() {
   
   if (currentProject.status === 'draft') {
     if (currentProject.input_content) {
-      // Draft + 기획안 있음: AI 분석이 주요 액션
-      primaryAction = `
-        <button onclick="analyzeProject()" class="btn-primary btn-large">
-          <i class="fas fa-magic" style="margin-right: 8px; font-size: 16px;"></i>
-          AI 분석 시작하기
-        </button>
-      `;
-      secondaryActions = `
-        <button onclick="evaluateProject()" class="btn-secondary btn-medium">
-          <i class="fas fa-chart-line" style="margin-right: 6px; font-size: 14px;"></i>
-          기획안 평가하기
-        </button>
-      `;
+      // 요건이 추가되었는지 확인
+      const hasRequirements = window.currentRequirements && window.currentRequirements.length > 0;
+      
+      if (hasRequirements) {
+        // 요건이 있으면 "요건 확인하기" 버튼 표시
+        primaryAction = `
+          <button onclick="switchTab('requirements')" class="btn-large btn-primary text-white px-8 py-4 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all">
+            <i class="fas fa-list-check"></i>
+            요건 확인하기
+          </button>
+        `;
+        secondaryActions = `
+          <button onclick="evaluateProject()" class="btn-small text-toss-gray-600 hover:text-toss-blue px-4 py-2 rounded-lg font-semibold flex items-center gap-1.5 transition-all">
+            <i class="fas fa-chart-line text-sm"></i>
+            재평가
+          </button>
+        `;
+      } else {
+        // 요건이 없으면 "AI 분석 시작하기" 버튼 표시
+        primaryAction = `
+          <button onclick="analyzeProject()" class="btn-primary btn-large">
+            <i class="fas fa-magic" style="margin-right: 8px; font-size: 16px;"></i>
+            AI 분석 시작하기
+          </button>
+        `;
+        secondaryActions = `
+          <button onclick="evaluateProject()" class="btn-secondary btn-medium">
+            <i class="fas fa-chart-line" style="margin-right: 6px; font-size: 14px;"></i>
+            기획안 평가하기
+          </button>
+        `;
+      }
     } else {
       // Draft + 기획안 없음: 편집 유도
       primaryAction = `
@@ -4715,10 +4907,13 @@ async function previewChatRecommendation() {
     
     hideToast(loadingToast);
     
-    // 캐시 저장
-    localStorage.setItem(cacheKey, JSON.stringify(response.data));
+    // API 응답에서 analysis 추출
+    const analysis = response.data.analysis || response.data;
     
-    showChatDirectionPreviewModal(selectedReq, response.data);
+    // 캐시 저장
+    localStorage.setItem(cacheKey, JSON.stringify(analysis));
+    
+    showChatDirectionPreviewModal(selectedReq, analysis);
     
   } catch (error) {
     hideToast(loadingToast);
@@ -4856,6 +5051,7 @@ async function addChatRecommendation() {
   const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
   
   try {
+    // 1단계: 요건 추가
     const response = await axios.post(`${API_BASE}/requirements`, {
       project_id: currentProject.id,
       title: selectedReq.title,
@@ -4864,6 +5060,62 @@ async function addChatRecommendation() {
       priority: selectedReq.priority || 'medium'
     });
     
+    const requirementId = response.data.id;
+    console.log('Requirement added with ID:', requirementId);
+    
+    // 2단계: 질문지 생성 (캐시 확인 후 생성)
+    const cacheKey = `chat_question_cache_${currentProject.id}_${selectedReq.title}`;
+    const cached = localStorage.getItem(cacheKey);
+    
+    let analysis;
+    if (cached) {
+      try {
+        analysis = JSON.parse(cached);
+        console.log('[Question Cache] Loaded from cache for requirement:', requirementId);
+      } catch (error) {
+        console.error('[Question Cache] Failed to parse cache:', error);
+      }
+    }
+    
+    // 캐시가 없으면 API 호출
+    if (!analysis) {
+      try {
+        const directionResponse = await axios.post(`${API_BASE}/requirements/preview-direction`, {
+          project_id: currentProject.id,
+          title: selectedReq.title,
+          description: selectedReq.description,
+          requirement_type: selectedReq.requirement_type || 'functional',
+          priority: selectedReq.priority || 'medium'
+        }, { timeout: 180000 });
+        
+        analysis = directionResponse.data.analysis || directionResponse.data;
+        console.log('Questions generated for requirement:', requirementId);
+        
+        // 캐시 저장
+        localStorage.setItem(cacheKey, JSON.stringify(analysis));
+      } catch (error) {
+        console.error('Failed to generate questions for requirement:', requirementId, error);
+        // 질문지 생성 실패해도 요건은 추가됨
+      }
+    }
+    
+    // 3단계: 질문지를 요건에 매핑
+    if (analysis && analysis.questions && analysis.questions.length > 0) {
+      try {
+        for (const question of analysis.questions) {
+          await axios.post(`${API_BASE}/questions`, {
+            requirement_id: requirementId,
+            question_text: question.question_text,
+            question_type: question.question_type || 'open',
+            question_order: question.order || 1
+          });
+        }
+        console.log(`${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+      } catch (error) {
+        console.error('Failed to map questions to requirement:', requirementId, error);
+      }
+    }
+    
     hideToast(loadingToast);
     
     // 요건 목록 새로고침
@@ -4871,6 +5123,9 @@ async function addChatRecommendation() {
     
     // 캐시 초기화
     clearChatCache();
+    
+    // 요건관리 탭으로 자동 이동
+    navigateToTab('requirements');
     
     showToast('요건이 추가되었습니다! 🎉', 'success');
     
