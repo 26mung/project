@@ -1276,10 +1276,11 @@ async function addSelectedRecommendation() {
   
   try {
     console.log('Adding requirement:', recommendation);
-    console.log('API URL:', `${API_BASE}/projects/${currentProject.id}/requirements`);
+    console.log('API URL:', `${API_BASE}/requirements`);
     
     // 요건 추가 API 호출
-    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+    const response = await axios.post(`${API_BASE}/requirements`, {
+      project_id: currentProject.id,
       title: recommendation.title,
       description: recommendation.description,
       requirement_type: recommendation.requirement_type || 'functional',
@@ -4310,7 +4311,7 @@ function showChatRequirementModal(isResumed = false) {
             <textarea 
               id="chat-input" 
               placeholder="AI에게 필요한 기능을 자유롭게 설명해주세요. 예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
-              style="flex: 1; min-width: 800px; width: 100%; padding: 16px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 80px; max-height: 300px; resize: vertical; font-family: inherit; line-height: 1.6; transition: all 0.2s; overflow-y: auto;"
+              style="flex: 1; min-width: 930px; width: 100%; padding: 16px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 80px; max-height: 300px; resize: vertical; font-family: inherit; line-height: 1.6; transition: all 0.2s; overflow-y: auto;"
               onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
               onfocus="this.style.borderColor = 'var(--indigo-500)'; this.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';"
               onblur="this.style.borderColor = 'var(--grey-200)'; this.style.boxShadow = 'none';"
@@ -4855,7 +4856,8 @@ async function addChatRecommendation() {
   const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
   
   try {
-    const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+    const response = await axios.post(`${API_BASE}/requirements`, {
+      project_id: currentProject.id,
       title: selectedReq.title,
       description: selectedReq.description,
       requirement_type: selectedReq.requirement_type || 'functional',
