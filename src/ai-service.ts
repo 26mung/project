@@ -1068,3 +1068,96 @@ ${category}
     throw error;
   }
 }
+
+/**
+ * AI 채팅 기반 요건 추천 - 대화형 의도 파악
+ */
+export async function chatBasedRequirementRecommendation(
+  messages: { role: string; content: string }[],
+  projectTitle: string,
+  projectDescription: string,
+  inputContent: string,
+  existingRequirements: { title: string; keywords?: string }[],
+  imageUrls: string[],
+  apiKey: string,
+  baseURL: string
+): Promise<{
+  is_ready: boolean;
+  response_message: string;
+  refined_keywords?: string[];
+  recommendations?: ChallengeRecommendation[];
+}> {
+  const systemPrompt = `당신은 전문 기획자입니다. 사용자와 대화를 통해 요건을 추천하세요.
+
+## 대화 규칙
+1. 사용자 설명이 모호하면 구체적 예시를 제시하며 방향 유도
+2. 2-3회 대화 후 충분한 정보가 모이면 is_ready=true
+3. 추천 요건은 기존 요건과 중복되지 않게
+4. 우선순위 분포: high 2개, medium 2개, low 1개
+
+## 출력 형식 (JSON)
+{
+  "is_ready": false,
+  "response_message": "사용자에게 보낼 메시지 (예시 포함, 구체적 질문)",
+  "refined_keywords": ["키워드1", "키워드2"],
+  "recommendations": null
+}
+
+또는
+{
+  "is_ready": true,
+  "response_message": "5개 요건을 준비했습니다! 원하는 것을 선택해주세요.",
+  "refined_keywords": ["최종 키워드"],
+  "recommendations": [
+    {
+      "title": "요건 제목 (30자 이내)",
+      "description": "설명 (80자 이내)",
+      "requirement_type": "functional|non_functional|constraint",
+      "priority": "low|medium|high|critical",
+      "keywords": ["키워드1", "키워드2", "키워드3"],
+      "rationale": "추천 이유 (50자 이내)"
+    }
+  ]
+}
+
+**중요:**
+- is_ready=false일 때: 구체적인 예시와 질문으로 사용자 유도
+- is_ready=true일 때: 정확히 5개 요건 제공
+- 모든 추천은 한국어로 작성`;
+
+  const existingTitles = existingRequirements.map(r => r.title).join(', ');
+
+  let userPrompt = `## 프로젝트 정보
+제목: ${projectTitle}
+설명: ${projectDescription}
+
+## 상위 기획
+${inputContent}
+
+## 기존 요건
+${existingTitles || '없음'}
+
+## 대화 기록
+${messages.map(m => `${m.role}: ${m.content}`).join('\n\n')}
+
+**지침:**
+- 사용자의 의도를 파악하여 5개 맞춤 요건 준비
+- is_ready=true일 때만 5개 요건 표시
+- 필요시 refined_keywords로 검색 키워드 제공`;
+
+  if (imageUrls.length > 0) {
+    userPrompt += `\n\n[참고: ${imageUrls.length}장의 이미지(와이어프레임/플로우차트 등)가 첨부됨]`;
+  }
+
+  const content = await chatCompletion(
+    [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    apiKey,
+    baseURL,
+    true
+  );
+
+  return JSON.parse(content);
+}

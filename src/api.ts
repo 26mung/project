@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { setCookie, getCookie } from 'hono/cookie';
 import type { Bindings, CreateProjectRequest, AnalyzeProjectRequest, CreateRequirementRequest, AnswerQuestionRequest, GeneratePRDRequest } from './types';
-import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion, suggestAdditionalCategories, generateRequirementsByCategory, recommendChallengeRequirements, analyzeChallengeDirection } from './ai-service';
+import { analyzeProjectRequirements, generateFollowUpQuestions, generatePRD, generateDerivedRequirements, evaluateProjectCompleteness, chatCompletion, suggestAdditionalCategories, generateRequirementsByCategory, recommendChallengeRequirements, analyzeChallengeDirection, chatBasedRequirementRecommendation } from './ai-service';
 
 const api = new Hono<{ Bindings: Bindings }>();
 
@@ -1123,6 +1123,55 @@ api.post('/projects/:id/recommend-requirements', async (c) => {
   } catch (error) {
     console.error('Recommendation error:', error);
     return c.json({ error: 'Failed to recommend requirements', message: String(error) }, 500);
+  }
+});
+
+// 챌린지형: AI 채팅 기반 요건 추천
+api.post('/projects/:id/chat-requirement', async (c) => {
+  const { DB } = c.env;
+  const id = c.req.param('id');
+  const body = await c.req.json() as {
+    messages: { role: string; content: string }[];
+    project_context: { title: string; description: string; input_content: string };
+  };
+
+  const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
+  const baseURL = c.env.OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+
+  if (!apiKey) {
+    return c.json({ error: 'OpenAI API key not configured' }, 500);
+  }
+
+  try {
+    const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first() as any;
+
+    if (!project) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+
+    // 기존 요건 조회
+    const { results: existingRequirements } = await DB.prepare(
+      'SELECT title, keywords FROM requirements WHERE project_id = ?'
+    ).bind(id).all();
+
+    const imageUrls = project.image_urls ? JSON.parse(project.image_urls) : [];
+
+    // AI 채팅 기반 요건 추천
+    const result = await chatBasedRequirementRecommendation(
+      body.messages,
+      project.title,
+      project.description || '',
+      project.input_content || '',
+      existingRequirements as any,
+      imageUrls,
+      apiKey,
+      baseURL
+    );
+
+    return c.json(result);
+  } catch (error) {
+    console.error('Chat requirement error:', error);
+    return c.json({ error: 'Failed to process chat', message: String(error) }, 500);
   }
 });
 
