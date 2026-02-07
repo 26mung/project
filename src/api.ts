@@ -189,7 +189,6 @@ api.get('/projects/:id/last-evaluation', async (c) => {
 api.post('/projects/:id/analyze', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
-  const body: AnalyzeProjectRequest = await c.req.json();
   
   // 환경 변수에서 OpenAI 설정 가져오기
   const apiKey = c.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
@@ -200,17 +199,32 @@ api.post('/projects/:id/analyze', async (c) => {
   }
   
   try {
+    // 프로젝트 정보 조회
+    const projectResult = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
+    if (!projectResult) {
+      return c.json({ error: 'Project not found' }, 404);
+    }
+    
     // 프로젝트 상태 업데이트
     await DB.prepare(
       'UPDATE projects SET status = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
     ).bind('analyzing', id).run();
+    
+    // 요청 본문에서 이미지 URL 가져오기 (선택적)
+    let body: any = {};
+    try {
+      body = await c.req.json();
+    } catch (e) {
+      // JSON 파싱 실패 시 빈 객체 사용
+      console.log('[Analyze] No request body or invalid JSON, using project data');
+    }
     
     // AI 분석 실행 (이미지 URL 포함)
     const imageUrls = body.image_urls || [];
     console.log(`[분석] 텍스트 기획안 + 이미지 ${imageUrls.length}장 분석 시작`);
     
     const analysis = await analyzeProjectRequirements(
-      body.input_content, 
+      projectResult.input_content, 
       apiKey, 
       baseURL,
       imageUrls
