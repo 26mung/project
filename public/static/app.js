@@ -264,8 +264,13 @@ function showMainApp() {
   // 토스 디자인 시스템을 적용한 메인 앱 레이아웃
   document.body.innerHTML = `
     <div style="min-height: 100vh; display: flex; background: var(--grey-50);">
+      <!-- Mobile Menu Toggle -->
+      <button id="mobile-menu-toggle" onclick="toggleMobileMenu()" style="display: none; position: fixed; top: 16px; left: 16px; z-index: 999; width: 40px; height: 40px; background: white; border: 1px solid var(--grey-200); border-radius: 8px; align-items: center; justify-content: center; box-shadow: var(--shadow-2);">
+        <i class="fas fa-bars" style="font-size: 16px; color: var(--grey-700);"></i>
+      </button>
+      
       <!-- Sidebar -->
-      <div style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column;">
+      <div id="sidebar" style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column;">
         <!-- Header -->
         <div style="padding: 20px; border-bottom: 1px solid var(--grey-100);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
@@ -295,7 +300,7 @@ function showMainApp() {
       <div style="flex: 1; display: flex; flex-direction: column;">
         <!-- Tabs -->
         <div style="background: white; border-bottom: 1px solid var(--grey-200);">
-          <div style="display: flex; padding: 0 24px;">
+          <div style="display: flex; padding: 0 24px; overflow-x: auto;">
             <button id="tab-overview" onclick="switchTab('overview')" class="tab-button">
               <i class="fas fa-home" style="margin-right: 6px; font-size: 13px;"></i>
               프로젝트 개요
@@ -324,7 +329,36 @@ function showMainApp() {
       
       <!-- Toast Container -->
       <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px;"></div>
+      
+      <!-- Overlay for mobile sidebar -->
+      <div id="sidebar-overlay" onclick="toggleMobileMenu()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 998;"></div>
     </div>
+    
+    <style>
+    @media (max-width: 768px) {
+      #mobile-menu-toggle { display: flex !important; }
+      #sidebar {
+        position: fixed;
+        left: -280px;
+        top: 0;
+        bottom: 0;
+        z-index: 999;
+        transition: left 0.3s ease;
+      }
+      #sidebar.open {
+        left: 0;
+      }
+      #sidebar-overlay.open {
+        display: block !important;
+      }
+      #content {
+        padding: 16px !important;
+      }
+      .tab-button {
+        white-space: nowrap;
+      }
+    }
+    </style>
   `;
 }
 
@@ -424,6 +458,9 @@ async function selectProject(projectId) {
 }
 
 function createNewProject() {
+  // 이전 프로젝트의 이미지가 남아있지 않도록 초기화
+  uploadedImages = [];
+  
   showModal({
     title: '새 프로젝트 시작하기',
     content: `
@@ -3131,5 +3168,16 @@ function selectCustomCategory() {
   }
   
   selectCategory(category);
+}
+
+// 모바일 사이드바 토글
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  
+  if (sidebar && overlay) {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('open');
+  }
 }
 

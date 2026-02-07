@@ -534,6 +534,7 @@ textarea {
   justify-content: center;
   z-index: 1000;
   animation: fadeIn 0.2s ease;
+  padding: 16px;
 }
 
 @keyframes fadeIn {
@@ -549,11 +550,26 @@ textarea {
   background: white;
   border-radius: var(--radius-16);
   max-width: 480px;
-  width: 90%;
-  max-height: 80vh;
+  width: 100%;
+  max-height: 90vh;
   overflow: hidden;
   box-shadow: var(--shadow-3);
   animation: slideUp 0.3s ease;
+}
+
+.modal-content.large {
+  max-width: 800px;
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 100%;
+    max-height: 95vh;
+    border-radius: var(--radius-12);
+  }
+  .modal-content.large {
+    max-width: 100%;
+  }
 }
 
 @keyframes slideUp {
@@ -576,6 +592,24 @@ textarea {
   padding: 24px;
   max-height: 60vh;
   overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+  .modal-header {
+    padding: 16px 20px;
+  }
+  .modal-body {
+    padding: 20px;
+    max-height: 70vh;
+  }
+  .modal-footer {
+    padding: 12px 20px;
+    flex-wrap: wrap;
+  }
+  .modal-footer button {
+    flex: 1;
+    min-width: 100px;
+  }
 }
 
 .modal-footer {
@@ -602,6 +636,17 @@ textarea {
   animation: slideInRight 0.3s ease;
   letter-spacing: -0.1px;
   min-width: 200px;
+}
+
+@media (max-width: 768px) {
+  .toast {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    min-width: auto;
+    font-size: 13px;
+    padding: 12px 16px;
+  }
 }
 
 @keyframes slideInRight {
@@ -964,4 +1009,66 @@ textarea {
 
 .bg-white {
   background: white;
+}
+
+/* ============ 모바일 반응형 레이아웃 ============ */
+@media (max-width: 768px) {
+  /* 전역 */
+  body {
+    font-size: 14px;
+  }
+  
+  /* 버튼 크기 조정 */
+  .btn-xlarge {
+    height: 48px;
+    font-size: 16px;
+    padding: 0 20px;
+  }
+  
+  .btn-large {
+    height: 44px;
+    font-size: 15px;
+    padding: 0 16px;
+  }
+  
+  /* 카드 패딩 */
+  .card {
+    border-radius: var(--radius-12);
+  }
+  
+  /* 타이포그래피 */
+  .text-title1 {
+    font-size: 22px;
+    line-height: 30px;
+  }
+  
+  .text-title2 {
+    font-size: 20px;
+    line-height: 28px;
+  }
+  
+  .text-title3 {
+    font-size: 18px;
+    line-height: 26px;
+  }
+  
+  /* Input */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  textarea {
+    font-size: 16px; /* iOS 자동 확대 방지 */
+    padding: 12px 14px;
+  }
+  
+  /* Tab */
+  .tab-button {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+  
+  /* 프로젝트 아이템 */
+  .project-item {
+    padding: 12px;
+  }
 }
