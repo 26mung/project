@@ -3957,66 +3957,176 @@ function toggleMobileMenu() {
 
 // ============ 🆕 대화형 요건 추천 기능 ============
 
+// 대화 캐시 키
+const CHAT_CACHE_KEY = 'chat_requirement_cache';
+const CHAT_CACHE_TTL = 30 * 60 * 1000; // 30분
+
 // 대화형 요건 추천 시작
-function startChatRequirement() {
+function startChatRequirement(resumeFromCache = true) {
   closeModalById('modal-challenge-recommendations');
   
-  // 채팅 메시지 초기화
-  window.chatMessages = [];
+  // 캐시에서 복원 시도
+  if (resumeFromCache) {
+    const cached = loadChatCache();
+    if (cached && cached.projectId === currentProject.id) {
+      window.chatMessages = cached.messages || [];
+      window.currentChatRecommendations = cached.recommendations || null;
+      showChatRequirementModal(true); // 캐시 복원 모드
+      return;
+    }
+  }
   
-  showChatRequirementModal();
+  // 새로운 대화 시작
+  window.chatMessages = [];
+  window.currentChatRecommendations = null;
+  showChatRequirementModal(false);
+}
+
+// 대화 캐시 저장
+function saveChatCache() {
+  if (!currentProject) return;
+  
+  const cache = {
+    projectId: currentProject.id,
+    messages: window.chatMessages || [],
+    recommendations: window.currentChatRecommendations || null,
+    timestamp: Date.now()
+  };
+  
+  try {
+    localStorage.setItem(CHAT_CACHE_KEY, JSON.stringify(cache));
+    console.log('[Chat Cache] Saved:', cache);
+  } catch (error) {
+    console.error('[Chat Cache] Failed to save:', error);
+  }
+}
+
+// 대화 캐시 불러오기
+function loadChatCache() {
+  try {
+    const cached = localStorage.getItem(CHAT_CACHE_KEY);
+    if (!cached) return null;
+    
+    const data = JSON.parse(cached);
+    
+    // TTL 체크
+    if (Date.now() - data.timestamp > CHAT_CACHE_TTL) {
+      localStorage.removeItem(CHAT_CACHE_KEY);
+      return null;
+    }
+    
+    console.log('[Chat Cache] Loaded:', data);
+    return data;
+  } catch (error) {
+    console.error('[Chat Cache] Failed to load:', error);
+    return null;
+  }
+}
+
+// 대화 캐시 초기화
+function clearChatCache() {
+  try {
+    localStorage.removeItem(CHAT_CACHE_KEY);
+    console.log('[Chat Cache] Cleared');
+  } catch (error) {
+    console.error('[Chat Cache] Failed to clear:', error);
+  }
 }
 
 // 채팅 모달 표시
-function showChatRequirementModal() {
+function showChatRequirementModal(isResumed = false) {
   const modalId = 'modal-chat-requirement';
   const modalContainer = document.getElementById('modal-container');
 
+  const resumeInfo = isResumed ? `
+    <div style="background: var(--green-50); border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; border-left: 4px solid var(--green-500); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <i class="fas fa-history" style="color: var(--green-600); margin-right: 8px;"></i>
+        <span style="color: var(--grey-800); font-size: 14px; font-weight: 600;">이전 대화를 불러왔습니다</span>
+      </div>
+      <button onclick="startChatRequirement(false); clearChatCache();" style="padding: 6px 12px; border-radius: 8px; background: white; border: 1px solid var(--grey-300); font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer;">
+        <i class="fas fa-redo" style="margin-right: 4px;"></i>
+        새로 시작
+      </button>
+    </div>
+  ` : '';
+
   modalContainer.innerHTML += `
     <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
-      <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
-        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
-          <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
-            <i class="fas fa-robot" style="color: #667eea; margin-right: 8px;"></i>
-            AI와 대화하며 요건 찾기
-          </h2>
-          <button onclick="closeChatModal()" class="modal-close w-8 h-8 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
-            <i class="fas fa-times"></i>
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 900px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center" style="flex-shrink: 0;">
+          <div>
+            <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+              <i class="fas fa-robot" style="color: #667eea; margin-right: 8px;"></i>
+              AI와 대화하며 요건 찾기
+            </h2>
+            <p style="color: var(--grey-600); font-size: 13px; margin-top: 4px;">프로젝트: ${escapeHtml(currentProject.title)}</p>
+          </div>
+          <button onclick="closeChatModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times text-lg"></i>
           </button>
         </div>
 
-        <div class="modal-body p-6" style="flex: 1; overflow-y: auto; min-height: 300px; max-height: 500px;">
+        <div class="modal-body p-6" style="flex: 1; overflow-y: auto; min-height: 400px;">
+          ${resumeInfo}
+          
           <div style="background: linear-gradient(135deg, var(--indigo-50) 0%, var(--purple-50) 100%); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--indigo-500);">
             <p style="color: var(--grey-800); font-size: 14px; line-height: 1.6; margin: 0;">
               <i class="fas fa-lightbulb" style="color: var(--indigo-500); margin-right: 8px;"></i>
               <strong>AI가 질문을 통해 원하는 요건을 찾아드립니다</strong><br>
-              <span style="color: var(--grey-600); font-size: 13px;">어떤 기능이 필요한지 간단히 말씀해주세요. AI가 구체적으로 질문하며 5개의 요건을 추천해드립니다.</span>
+              <span style="color: var(--grey-600); font-size: 13px;">어떤 기능이 필요한지 간단히 말씀해주세요. AI가 3~5회 대화를 통해 구체화하여 5개의 요건을 추천해드립니다.</span>
             </p>
           </div>
 
-          <div id="chat-messages" style="min-height: 200px;">
+          <div id="chat-messages" style="min-height: 200px; position: relative;">
             <!-- 메시지가 여기에 추가됩니다 -->
+          </div>
+          
+          <!-- 버튼 고정 영역 -->
+          <div id="chat-action-buttons" style="position: sticky; bottom: 0; background: linear-gradient(to top, white 80%, transparent); padding-top: 20px; margin-top: 20px; text-align: center;">
+            <!-- 추천 요건 확인 버튼이 여기에 추가됩니다 -->
           </div>
         </div>
 
-        <div class="modal-footer p-6 border-t border-toss-gray-100">
-          <div style="display: flex; gap: 12px;">
-            <input 
-              type="text" 
+        <div class="modal-footer p-6 border-t border-toss-gray-100" style="flex-shrink: 0;">
+          <div style="display: flex; gap: 12px; align-items: flex-end;">
+            <textarea 
               id="chat-input" 
-              placeholder="예: 결제 기능이 필요해요"
-              style="flex: 1; padding: 14px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px;"
-              onkeypress="if(event.key === 'Enter') sendChatMessage()"
-            />
-            <button onclick="sendChatMessage()" class="btn-primary px-8 py-3 rounded-xl font-bold shadow-lg">
+              placeholder="예: 결제 기능이 필요해요. 카드 결제와 간편결제를 모두 지원해야 하고..."
+              style="flex: 1; padding: 14px 20px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 15px; min-height: 60px; max-height: 150px; resize: vertical; font-family: inherit; line-height: 1.5;"
+              onkeypress="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }"
+              oninput="this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 150) + 'px';"
+            ></textarea>
+            <button onclick="sendChatMessage()" class="btn-primary px-8 py-3 rounded-xl font-bold shadow-lg" style="height: fit-content;">
               <i class="fas fa-paper-plane" style="margin-right: 6px;"></i>
               전송
             </button>
           </div>
+          <p style="color: var(--grey-500); font-size: 12px; margin-top: 8px; text-align: center;">
+            <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
+            Enter: 전송 | Shift + Enter: 줄바꿈
+          </p>
         </div>
       </div>
     </div>
   `;
+  
+  // 캐시된 메시지 복원
+  if (isResumed && window.chatMessages && window.chatMessages.length > 0) {
+    restoreChatMessages();
+  }
+}
+
+// 캐시된 메시지 복원
+function restoreChatMessages() {
+  window.chatMessages.forEach(msg => {
+    addChatMessage(msg.role, msg.content);
+  });
+  
+  // 추천 요건이 있으면 버튼 표시
+  if (window.currentChatRecommendations) {
+    addRequirementListButton(window.currentChatRecommendations);
+  }
 }
 
 // 채팅 메시지 전송
@@ -4032,13 +4142,15 @@ async function sendChatMessage() {
   // 사용자 메시지 추가
   addChatMessage('user', message);
   input.value = '';
+  input.style.height = 'auto';
   input.disabled = true;
   
   // AI 응답 대기 메시지
-  const thinkingId = addChatMessage('assistant', '생각 중...', true);
+  const thinkingId = addChatMessage('assistant', '<i class="fas fa-circle-notch fa-spin"></i> 생각 중...', true);
   
   try {
     // 메시지 배열에 추가
+    if (!window.chatMessages) window.chatMessages = [];
     window.chatMessages.push({ role: 'user', content: message });
     
     // API 호출
@@ -4048,7 +4160,7 @@ async function sendChatMessage() {
         title: currentProject.title,
         description: currentProject.description || ''
       }
-    }, { timeout: 30000 });
+    }, { timeout: 60000 });
     
     const data = response.data;
     
@@ -4063,9 +4175,15 @@ async function sendChatMessage() {
     if (data.is_ready && data.recommendations) {
       addChatMessage('system', `✅ 총 ${data.recommendations.length}개의 요건을 추천드립니다!`);
       
+      // 전역 변수에 저장
+      window.currentChatRecommendations = data.recommendations;
+      
       // 요건 리스트 표시 버튼 추가
       addRequirementListButton(data.recommendations);
     }
+    
+    // 캐시 저장
+    saveChatCache();
     
     input.disabled = false;
     input.focus();
@@ -4073,8 +4191,9 @@ async function sendChatMessage() {
   } catch (error) {
     console.error('Chat failed:', error);
     removeChatMessage(thinkingId);
-    addChatMessage('system', '❌ 오류가 발생했습니다. 다시 시도해주세요.');
+    addChatMessage('system', `❌ 오류가 발생했습니다. 다시 시도해주세요.\n${error.response?.data?.message || error.message}`);
     input.disabled = false;
+    input.focus();
   }
 }
 
@@ -4083,38 +4202,80 @@ function addChatMessage(role, content, isThinking = false) {
   const messagesContainer = document.getElementById('chat-messages');
   const messageId = `chat-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
-  let avatar, bgColor, textColor;
+  let avatar, bgColor, alignStyle, bubbleStyle;
   if (role === 'user') {
     avatar = '<i class="fas fa-user"></i>';
     bgColor = 'var(--blue-500)';
-    textColor = 'var(--grey-800)';
+    alignStyle = 'flex-direction: row-reverse;';
+    bubbleStyle = 'background: var(--blue-50); text-align: left; max-width: 70%;';
   } else if (role === 'assistant') {
     avatar = '<i class="fas fa-robot"></i>';
     bgColor = 'var(--indigo-500)';
-    textColor = 'var(--grey-800)';
+    alignStyle = '';
+    bubbleStyle = 'background: var(--grey-50); text-align: left; max-width: 85%;';
   } else {
-    avatar = '<i class="fas fa-info-circle"></i>';
+    avatar = '<i class="fas fa-check-circle"></i>';
     bgColor = 'var(--green-500)';
-    textColor = 'var(--grey-800)';
+    alignStyle = '';
+    bubbleStyle = 'background: var(--green-50); text-align: center; max-width: 90%;';
+  }
+  
+  // 마크다운 렌더링 (가독성 향상)
+  let formattedContent = content;
+  if (role === 'assistant' && !isThinking) {
+    formattedContent = formatMarkdown(content);
+  } else {
+    formattedContent = escapeHtml(content).replace(/\n/g, '<br>');
   }
   
   const messageHtml = `
-    <div id="${messageId}" class="chat-message" style="display: flex; gap: 12px; margin-bottom: 16px; ${role === 'user' ? 'flex-direction: row-reverse;' : ''}">
+    <div id="${messageId}" class="chat-message" style="display: flex; gap: 12px; margin-bottom: 16px; ${alignStyle}">
       <div style="width: 40px; height: 40px; border-radius: 50%; background: ${bgColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 16px; flex-shrink: 0;">
         ${avatar}
       </div>
-      <div style="flex: 1; ${role === 'user' ? 'text-align: right;' : ''}">
-        <div style="display: inline-block; max-width: 80%; padding: 12px 16px; border-radius: 12px; background: ${role === 'user' ? 'var(--blue-50)' : 'var(--grey-50)'}; color: ${textColor}; font-size: 14px; line-height: 1.6; white-space: pre-wrap; ${isThinking ? 'font-style: italic; color: var(--grey-500);' : ''}">
-          ${content}
+      <div style="flex: 1; ${role === 'user' ? 'display: flex; justify-content: flex-end;' : ''}">
+        <div style="display: inline-block; padding: 12px 16px; border-radius: 12px; ${bubbleStyle}; color: var(--grey-800); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; ${isThinking ? 'font-style: italic; color: var(--grey-500);' : ''}">
+          ${formattedContent}
         </div>
       </div>
     </div>
   `;
   
   messagesContainer.insertAdjacentHTML('beforeend', messageHtml);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  
+  // 스크롤 부드럽게 이동
+  setTimeout(() => {
+    messagesContainer.parentElement.scrollTo({
+      top: messagesContainer.scrollHeight,
+      behavior: 'smooth'
+    });
+  }, 100);
   
   return messageId;
+}
+
+// 간단한 마크다운 렌더링 (가독성 향상)
+function formatMarkdown(text) {
+  let formatted = escapeHtml(text);
+  
+  // 제목 (### 제목)
+  formatted = formatted.replace(/###\s+(.+)/g, '<h3 style="font-size: 16px; font-weight: 700; color: var(--indigo-600); margin: 12px 0 8px 0;">$1</h3>');
+  formatted = formatted.replace(/##\s+(.+)/g, '<h2 style="font-size: 18px; font-weight: 700; color: var(--indigo-700); margin: 16px 0 8px 0;">$1</h2>');
+  
+  // 볼드 (**텍스트**)
+  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: 700; color: var(--grey-900);">$1</strong>');
+  
+  // 리스트 (- 항목 또는 1. 항목)
+  formatted = formatted.replace(/^-\s+(.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px;">$1</li>');
+  formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li style="margin-left: 20px; margin-bottom: 4px; list-style-type: decimal;">$1</li>');
+  
+  // 코드 (`코드`)
+  formatted = formatted.replace(/`(.+?)`/g, '<code style="background: var(--grey-100); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 13px;">$1</code>');
+  
+  // 줄바꿈
+  formatted = formatted.replace(/\n/g, '<br>');
+  
+  return formatted;
 }
 
 // 채팅 메시지 제거
@@ -4127,44 +4288,139 @@ function removeChatMessage(messageId) {
 
 // 요건 리스트 표시 버튼 추가
 function addRequirementListButton(recommendations) {
-  const messagesContainer = document.getElementById('chat-messages');
+  const buttonContainer = document.getElementById('chat-action-buttons');
+  
+  // 이미 버튼이 있으면 제거 (중복 방지)
+  buttonContainer.innerHTML = '';
   
   const buttonHtml = `
-    <div style="text-align: center; margin-top: 20px;">
-      <button onclick='showChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, "&#39;")})' class="btn-primary px-8 py-4 rounded-xl font-bold shadow-lg">
-        <i class="fas fa-list" style="margin-right: 8px;"></i>
-        추천 요건 5개 확인하기
-      </button>
-    </div>
+    <button 
+      onclick='showChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, "&#39;")})'
+      class="btn-primary px-8 py-4 rounded-xl font-bold shadow-lg animate-pulse"
+      style="animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;"
+    >
+      <i class="fas fa-list" style="margin-right: 8px;"></i>
+      추천 요건 5개 확인하기
+    </button>
   `;
   
-  messagesContainer.insertAdjacentHTML('beforeend', buttonHtml);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  buttonContainer.innerHTML = buttonHtml;
 }
 
-// 채팅으로 생성된 요건 리스트 표시
+// 채팅으로 생성된 요건 리스트 미리보기
 function showChatRecommendations(recommendations) {
+  // 미리보기 모달 표시
+  showRequirementPreviewModal(recommendations);
+}
+
+// 요건 미리보기 모달
+function showRequirementPreviewModal(recommendations) {
+  const modalId = 'modal-requirement-preview';
+  const modalContainer = document.getElementById('modal-container');
+  
+  let requirementsHtml = '';
+  recommendations.forEach((req, index) => {
+    const priorityColor = req.priority === 'high' ? 'var(--red-500)' : req.priority === 'medium' ? 'var(--yellow-500)' : 'var(--grey-500)';
+    const priorityText = req.priority === 'high' ? '높음' : req.priority === 'medium' ? '보통' : '낮음';
+    
+    requirementsHtml += `
+      <div style="background: var(--grey-50); border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid ${priorityColor};">
+        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+          <h4 style="font-size: 16px; font-weight: 700; color: var(--grey-900);">${index + 1}. ${escapeHtml(req.title)}</h4>
+          <span style="background: ${priorityColor}20; color: ${priorityColor}; padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;">${priorityText}</span>
+        </div>
+        <p style="color: var(--grey-700); font-size: 14px; line-height: 1.6; margin-bottom: 8px;">${escapeHtml(req.description)}</p>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${(req.keywords || []).map(kw => `<span style="background: var(--indigo-100); color: var(--indigo-700); padding: 4px 10px; border-radius: 6px; font-size: 12px;">#${escapeHtml(kw)}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  });
+
+  modalContainer.innerHTML += `
+    <div id="${modalId}" class="fixed inset-0 modal-backdrop flex items-center justify-center z-50 animate-fade-in">
+      <div class="modal-content bg-white rounded-3xl" style="max-width: 800px; width: 100%; max-height: 85vh; display: flex; flex-direction: column; margin: 20px;">
+        <div class="modal-header p-6 border-b border-toss-gray-100 flex justify-between items-center">
+          <div>
+            <h2 class="modal-title text-2xl font-bold text-toss-gray-900">
+              <i class="fas fa-check-circle" style="color: var(--green-500); margin-right: 8px;"></i>
+              추천 요건 미리보기
+            </h2>
+            <p style="color: var(--grey-600); font-size: 14px; margin-top: 4px;">총 ${recommendations.length}개의 요건을 추천드립니다</p>
+          </div>
+          <button onclick="closeRequirementPreviewModal()" class="modal-close w-10 h-10 rounded-full hover:bg-toss-gray-100 flex items-center justify-center text-toss-gray-600 transition-colors">
+            <i class="fas fa-times text-lg"></i>
+          </button>
+        </div>
+        
+        <div class="modal-body p-6" style="flex: 1; overflow-y: auto;">
+          ${requirementsHtml}
+        </div>
+        
+        <div class="modal-footer p-6 border-t border-toss-gray-100 flex gap-3">
+          <button onclick="closeRequirementPreviewModal()" class="flex-1 btn-secondary px-6 py-3 rounded-xl font-bold">
+            <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+            계속 대화하기
+          </button>
+          <button onclick="confirmChatRecommendations(${JSON.stringify(recommendations).replace(/'/g, '&#39;')})" class="flex-1 btn-primary px-6 py-3 rounded-xl font-bold shadow-lg">
+            <i class="fas fa-plus-circle" style="margin-right: 6px;"></i>
+            요건 추가하기
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// 미리보기 모달 닫기
+function closeRequirementPreviewModal() {
+  closeModalById('modal-requirement-preview');
+}
+
+// 대화형 요건 확정 및 추가
+async function confirmChatRecommendations(recommendations) {
+  closeRequirementPreviewModal();
   closeChatModal();
   
-  // 기존 챌린지 추천 모달 재사용
-  window.currentRecommendations = recommendations;
-  showChallengeRecommendationModal(recommendations);
+  showToast('요건을 추가하고 있습니다...', 'info');
+  
+  try {
+    // 각 요건을 API로 전송
+    for (const req of recommendations) {
+      await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+        title: req.title,
+        description: req.description,
+        requirement_type: req.requirement_type || 'functional',
+        priority: req.priority || 'medium'
+      });
+    }
+    
+    // 요건 목록 새로고침
+    await renderRequirements();
+    
+    // 캐시 초기화
+    clearChatCache();
+    
+    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
+    
+  } catch (error) {
+    console.error('Failed to add requirements:', error);
+    showToast('요건 추가에 실패했습니다', 'error');
+  }
 }
 
 // 채팅 모달 닫기
 function closeChatModal() {
+  // 캐시 저장
+  saveChatCache();
+  
   closeModalById('modal-chat-requirement');
   
-  // 채팅 메시지 초기화 여부 확인
-  if (window.chatMessages && window.chatMessages.length > 0) {
-    // 요건이 생성되지 않았으면 추천 모달로 복귀
-    const lastMessage = window.chatMessages[window.chatMessages.length - 1];
-    if (lastMessage.role === 'assistant' && !lastMessage.content.includes('추천드립니다')) {
-      // 원래 추천 화면으로 복귀
-      if (window.currentRecommendations) {
-        showChallengeRecommendationModal(window.currentRecommendations);
-      }
-    }
+  // 요건이 생성되지 않았으면 원래 추천 모달로 복귀
+  if (!window.currentChatRecommendations && window.currentRecommendations) {
+    setTimeout(() => {
+      showChallengeRecommendationModal(window.currentRecommendations);
+    }, 300);
   }
 }
 
