@@ -2330,6 +2330,108 @@ async function editProjectOverview(evaluationData = null) {
 
 // ============ 요건 관리 탭 ============
 
+// 요건 검색 필터 상태
+let requirementSearchQuery = '';
+let requirementTypeFilter = 'all';
+let requirementSortOrder = 'desc';
+
+// 요건 검색 핸들러
+function handleRequirementSearch(query) {
+  requirementSearchQuery = query.toLowerCase().trim();
+  filterAndRenderRequirements();
+}
+
+// 요건 타입 필터 핸들러
+function handleRequirementTypeFilter(type) {
+  requirementTypeFilter = type;
+  
+  // 버튼 스타일 업데이트
+  ['all', 'functional', 'non-functional'].forEach(t => {
+    const btn = document.getElementById(`filter-type-${t}`);
+    if (btn) {
+      if (t === type) {
+        btn.style.background = 'var(--grey-100)';
+        btn.style.color = 'var(--grey-900)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+      }
+    }
+  });
+  
+  filterAndRenderRequirements();
+}
+
+// 요건 정렬 순서 핸들러
+function handleRequirementSortOrder(order) {
+  requirementSortOrder = order;
+  
+  // 버튼 스타일 업데이트
+  ['desc', 'asc', 'priority'].forEach(o => {
+    const btn = document.getElementById(`sort-requirement-${o}`);
+    if (btn) {
+      if (o === order) {
+        btn.style.background = 'var(--grey-100)';
+        btn.style.color = 'var(--grey-900)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+      }
+    }
+  });
+  
+  filterAndRenderRequirements();
+}
+
+// 필터링 및 렌더링
+function filterAndRenderRequirements() {
+  if (!requirements || requirements.length === 0) {
+    return;
+  }
+  
+  // 필터링
+  let filtered = requirements.filter(r => !r.parent_id); // 최상위 요건만
+  
+  // 검색 필터
+  if (requirementSearchQuery) {
+    filtered = filtered.filter(r => 
+      r.title.toLowerCase().includes(requirementSearchQuery) ||
+      (r.description && r.description.toLowerCase().includes(requirementSearchQuery))
+    );
+  }
+  
+  // 타입 필터
+  if (requirementTypeFilter !== 'all') {
+    filtered = filtered.filter(r => r.requirement_type === requirementTypeFilter);
+  }
+  
+  // 정렬
+  if (requirementSortOrder === 'desc') {
+    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  } else if (requirementSortOrder === 'asc') {
+    filtered.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  } else if (requirementSortOrder === 'priority') {
+    const priorityOrder = { high: 1, medium: 2, low: 3 };
+    filtered.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  }
+  
+  // 렌더링
+  const listContainer = document.getElementById('requirements-list');
+  if (listContainer) {
+    if (filtered.length === 0) {
+      listContainer.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px; color: var(--grey-500);">
+          <i class="fas fa-search" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+          <p style="font-size: 16px; font-weight: 600; color: var(--grey-700); margin-bottom: 8px;">검색 결과가 없습니다</p>
+          <p style="font-size: 14px;">다른 검색어나 필터를 사용해보세요</p>
+        </div>
+      `;
+    } else {
+      listContainer.innerHTML = filtered.map(req => renderRequirementCard(req)).join('');
+    }
+  }
+}
+
 async function renderRequirements(page = 1) {
   const content = document.getElementById('content');
   
@@ -2416,6 +2518,68 @@ async function renderRequirements(page = 1) {
               <i class="fas fa-file-alt" style="margin-right: 6px; font-size: 14px;"></i>
               PRD 생성하기
             </button>
+          </div>
+        </div>
+        
+        <!-- 검색 필터 영역 -->
+        <div style="background: white; border: 1px solid var(--grey-200); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+          <!-- 검색 입력 -->
+          <div style="margin-bottom: 16px;">
+            <div style="position: relative;">
+              <input 
+                type="text" 
+                id="requirement-search-input" 
+                placeholder="요건 검색..." 
+                oninput="handleRequirementSearch(this.value)"
+                style="width: 100%; padding: 12px 40px 12px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 14px; transition: all 0.2s;"
+                onfocus="this.style.borderColor='var(--blue-500)'; this.style.boxShadow='0 0 0 4px rgba(49, 130, 246, 0.08)';"
+                onblur="this.style.borderColor='var(--grey-200)'; this.style.boxShadow='none';"
+              >
+              <i class="fas fa-search" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: var(--grey-400); font-size: 14px;"></i>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <!-- 타입 필터 -->
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--grey-700); margin-bottom: 8px;">
+                <i class="fas fa-filter" style="margin-right: 4px; color: var(--blue-500);"></i>
+                요건 타입
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button id="filter-type-all" onclick="handleRequirementTypeFilter('all')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: var(--grey-100); font-size: 13px; font-weight: 600; color: var(--grey-900); cursor: pointer; transition: all 0.2s;">
+                  전체
+                </button>
+                <button id="filter-type-functional" onclick="handleRequirementTypeFilter('functional')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  기능
+                </button>
+                <button id="filter-type-non-functional" onclick="handleRequirementTypeFilter('non_functional')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  비기능
+                </button>
+              </div>
+            </div>
+            
+            <!-- 정렬 순서 -->
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--grey-700); margin-bottom: 8px;">
+                <i class="fas fa-sort" style="margin-right: 4px; color: var(--blue-500);"></i>
+                정렬 순서
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button id="sort-requirement-desc" onclick="handleRequirementSortOrder('desc')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: var(--grey-100); font-size: 13px; font-weight: 600; color: var(--grey-900); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  <i class="fas fa-arrow-down" style="font-size: 11px;"></i>
+                  최신순
+                </button>
+                <button id="sort-requirement-asc" onclick="handleRequirementSortOrder('asc')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  <i class="fas fa-arrow-up" style="font-size: 11px;"></i>
+                  오래된순
+                </button>
+                <button id="sort-requirement-priority" onclick="handleRequirementSortOrder('priority')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                  <i class="fas fa-star" style="font-size: 11px;"></i>
+                  우선순위
+                </button>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -5141,7 +5305,12 @@ function closeChatDirectionPreview() {
 
 // 대화형 추천 요건 미리보기에서 추가 확정
 async function confirmAddChatRecommendation() {
+  // 모든 대화 관련 모달 닫기
   closeChatDirectionPreview();
+  closeModal('modal-chat-recommendation');
+  closeModal('modal-chat-direction');
+  closeModal('modal-requirement-preview');
+  
   await addChatRecommendation();
 }
 
