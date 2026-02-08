@@ -6268,3 +6268,30 @@ function closeChatModal() {
   }
 }
 
+// ============================================
+// 앱 초기화
+// ============================================
+
+// 인증 확인 및 앱 초기화
+async function checkAuth() {
+  try {
+    // 세션 확인 API 호출 (쿠키 기반)
+    const response = await axios.get(`${API_BASE}/auth/check`);
+    isAuthenticated = response.data.authenticated || false;
+  } catch (error) {
+    // 인증 실패 시 false
+    isAuthenticated = false;
+  }
+  
+  if (isAuthenticated) {
+    showMainApp();
+    await loadProjects();
+  } else {
+    showLoginScreen();
+  }
+}
+
+// 페이지 로드 시 앱 초기화
+document.addEventListener('DOMContentLoaded', () => {
+  checkAuth();
+});
