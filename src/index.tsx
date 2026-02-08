@@ -20,6 +20,10 @@ app.use('/static/*', async (c, next) => {
 });
 app.use('/static/*', serveStatic({ root: './public' }))
 
+// 온보딩 페이지
+app.get('/onboarding', serveStatic({ path: './public/onboarding.html' }))
+app.get('/onboarding.html', serveStatic({ path: './public/onboarding.html' }))
+
 // 메인 페이지
 app.get('/', (c) => {
   // 캐시 방지 헤더 추가
