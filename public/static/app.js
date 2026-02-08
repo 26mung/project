@@ -2848,14 +2848,9 @@ async function renderRequirements(page = 1) {
     
     console.log('[Sparta Check] Has Sparta Challenge:', hasSpartaChallenge);
     
+    // 🔥 불꽃 효과는 제거됨 (UI 문제로 인해)
     if (hasSpartaChallenge) {
-      console.log('[🔥 Sparta Challenge] FOUND! Triggering flame effect!');
-      setTimeout(() => {
-        console.log('[🔥 Sparta Challenge] Executing triggerFlameEffect()...');
-        triggerFlameEffect();
-      }, 500);
-    } else {
-      console.log('[Sparta Check] No Sparta Challenge found (need 10+ questions per requirement)');
+      console.log('[🔥 Sparta Challenge] FOUND! (Flame effect removed)');
     }
     
   } catch (error) {
@@ -3163,7 +3158,7 @@ function renderRequirementCard(requirement) {
   };
   
   return `
-    <div class="card p-6 card-hover requirement-card-mobile" data-requirement-id="${requirement.id}">
+    <div class="card p-6 card-hover requirement-card-mobile" data-requirement-id="${requirement.id}" onclick="openRequirementDetails(${requirement.id})" style="cursor: pointer;">
       <div class="requirement-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
@@ -3238,16 +3233,16 @@ function renderRequirementCard(requirement) {
         </div>
         <div class="requirement-actions" style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
           <!-- 북마크 버튼 -->
-          <button onclick="toggleBookmark(${requirement.id}, event)" class="btn-icon" title="${isBookmarked ? '북마크 해제' : '북마크 추가'}" id="bookmark-btn-${requirement.id}">
+          <button onclick="event.stopPropagation(); toggleBookmark(${requirement.id}, event)" class="btn-icon" title="${isBookmarked ? '북마크 해제' : '북마크 추가'}" id="bookmark-btn-${requirement.id}">
             <i class="fa${isBookmarked ? 's' : 'r'} fa-star" style="font-size: 13px; color: ${isBookmarked ? 'var(--yellow-500)' : 'var(--grey-400)'};"></i>
           </button>
-          <button onclick="editRequirement(${requirement.id})" class="btn-icon" title="편집">
+          <button onclick="event.stopPropagation(); editRequirement(${requirement.id})" class="btn-icon" title="편집">
             <i class="fas fa-edit" style="font-size: 13px;"></i>
           </button>
-          <button onclick="deleteRequirement(${requirement.id})" class="btn-icon" title="삭제" style="color: var(--red-500);">
+          <button onclick="event.stopPropagation(); deleteRequirement(${requirement.id})" class="btn-icon" title="삭제" style="color: var(--red-500);">
             <i class="fas fa-trash" style="font-size: 13px;"></i>
           </button>
-          <button onclick="openRequirementDetails(${requirement.id})" class="btn-small text-toss-blue hover:text-blue-600 ml-2">
+          <button onclick="event.stopPropagation(); openRequirementDetails(${requirement.id})" class="btn-small text-toss-blue hover:text-blue-600 ml-2">
             <span>상세보기</span>
             <i class="fas fa-chevron-right text-xs ml-1"></i>
           </button>
@@ -4596,12 +4591,15 @@ async function editRequirement(requirementId) {
         const priority = document.getElementById('edit-req-priority').value;
         const status = document.getElementById('edit-req-status').value;
         
+        console.log('[Edit Requirement] Form values:', { title, description, priority, status });
+        
         if (!title) {
           showToast('요건 제목을 입력해주세요', 'error');
           return false;
         }
         
         try {
+          console.log('[Edit Requirement] Sending PUT request:', { requirementId, title, description, priority, status });
           await axios.put(`${API_BASE}/requirements/${requirementId}`, {
             title,
             description,
