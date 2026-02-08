@@ -83,10 +83,10 @@ api.post('/projects', async (c) => {
   const body: CreateProjectRequest = await c.req.json();
   
   const result = await DB.prepare(
-    'INSERT INTO projects (title, description, input_content, status, image_urls, created_at, updated_at) VALUES (?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
-  ).bind(body.title, body.description || null, body.input_content || null, 'draft', body.image_urls || null).run();
+    'INSERT INTO projects (title, description, input_content, status, image_urls, requirement_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
+  ).bind(body.title, body.description || null, body.input_content || null, 'draft', body.image_urls || null, null).run();
   
-  return c.json({ id: result.meta.last_row_id, ...body, status: 'draft' }, 201);
+  return c.json({ id: result.meta.last_row_id, ...body, status: 'draft', requirement_mode: null }, 201);
 });
 
 // 프로젝트 업데이트

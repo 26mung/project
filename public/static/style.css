@@ -1282,8 +1282,8 @@ textarea {
 
 .flame {
   position: absolute;
-  width: 40px;
-  height: 80px;
+  width: 20px;  /* 40px → 20px (반으로 축소) */
+  height: 40px; /* 80px → 40px (반으로 축소) */
   background: linear-gradient(to top, 
     #ff0000 0%,
     #ff4500 20%, 

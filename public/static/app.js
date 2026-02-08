@@ -6248,27 +6248,29 @@ function createBottomFlame() {
   container.style.bottom = '-30px'; // 끝부분만 보이도록
   container.style.width = '100%';
   container.style.height = '80px';
+  container.style.position = 'fixed';
   container.style.display = 'flex';
-  container.style.justifyContent = 'space-around';
+  container.style.justifyContent = 'space-between'; // space-around → space-between (빽빽하게)
   container.style.alignItems = 'flex-end';
+  container.style.pointerEvents = 'none';
   
-  // 화면 너비에 따라 불꽃 개수 조정 (약 80px 간격)
-  const flameCount = Math.floor(window.innerWidth / 80);
+  // 화면 너비에 따라 불꽃 개수 조정 (약 30px 간격으로 빽빽하게)
+  const flameCount = Math.floor(window.innerWidth / 30);
   
   for (let i = 0; i < flameCount; i++) {
     const flame = document.createElement('div');
     flame.className = 'flame';
     flame.style.animationDelay = (Math.random() * 0.8) + 's';
-    flame.style.opacity = (0.4 + Math.random() * 0.3).toString(); // 잔잔하게
+    flame.style.opacity = (0.3 + Math.random() * 0.3).toString(); // 잔잔하게
     
-    // 크기 랜덤화 (작게)
-    const scale = 0.3 + Math.random() * 0.2;
+    // 크기 랜덤화 (더 작게)
+    const scale = 0.15 + Math.random() * 0.15; // 0.3-0.5 → 0.15-0.3 (반으로 축소)
     flame.style.transform = `scale(${scale})`;
     
     container.appendChild(flame);
   }
   
-  console.log(`[🔥 Flame Effect] Created bottom flame with ${flameCount} flames`);
+  console.log(`[🔥 Flame Effect] Created bottom flame with ${flameCount} flames (30px spacing)`);
   document.body.appendChild(container);
 }
 
