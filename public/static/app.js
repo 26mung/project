@@ -2384,7 +2384,7 @@ let requirementTypeFilter = 'all';
 let requirementPriorityFilter = 'all';
 let requirementStatusFilter = 'all';
 let requirementSortOrder = 'desc';
-let requirementFilterExpanded = true; // 검색 필터 펼침/닫힘 상태
+let requirementFilterExpanded = false; // 검색 필터 펼침/닫힘 상태 (기본: 닫힘)
 
 // 요건 검색 필터 토글
 function toggleRequirementFilter() {
@@ -2500,6 +2500,26 @@ function handleRequirementSortOrder(order) {
 }
 
 // 필터링 및 렌더링
+// 요건의 진행 상태를 동적으로 계산
+function calculateRequirementStatus(requirement) {
+  const stats = requirement.question_stats || { total: 0, answered: 0, remaining: 0 };
+  
+  if (stats.total === 0) {
+    return 'pending'; // 질문이 없으면 대기
+  }
+  
+  if (stats.answered === 0) {
+    return 'pending'; // 작성한 질문이 없으면 대기
+  }
+  
+  if (stats.answered === stats.total) {
+    return 'completed'; // 모든 질문에 답변했으면 완료
+  }
+  
+  return 'in_progress'; // 일부 답변했으면 진행중
+}
+
+// 필터링 및 렌더링
 function filterAndRenderRequirements() {
   if (!requirements || requirements.length === 0) {
     return;
@@ -2526,9 +2546,9 @@ function filterAndRenderRequirements() {
     filtered = filtered.filter(r => r.priority === requirementPriorityFilter);
   }
   
-  // 상태 필터
+  // 상태 필터 (동적 상태 계산)
   if (requirementStatusFilter !== 'all') {
-    filtered = filtered.filter(r => r.status === requirementStatusFilter);
+    filtered = filtered.filter(r => calculateRequirementStatus(r) === requirementStatusFilter);
   }
   
   // 정렬
@@ -2655,11 +2675,11 @@ async function renderRequirements(page = 1) {
               <i class="fas fa-filter" style="color: var(--blue-500); font-size: 16px;"></i>
               <span style="font-size: 15px; font-weight: 700; color: var(--grey-900);">검색 필터</span>
             </div>
-            <i id="requirement-filter-icon" class="fas fa-chevron-up" style="font-size: 14px; color: var(--grey-500); transition: transform 0.2s;"></i>
+            <i id="requirement-filter-icon" class="fas fa-chevron-down" style="font-size: 14px; color: var(--grey-500); transition: transform 0.2s;"></i>
           </div>
           
           <!-- 필터 내용 -->
-          <div id="requirement-filter-content" style="padding: 20px;">
+          <div id="requirement-filter-content" style="display: none; padding: 20px;">
           <!-- 검색 입력 -->
           <div style="margin-bottom: 16px;">
             <div style="position: relative;">
@@ -2853,83 +2873,74 @@ function renderRequirementStatsBanner(requirements) {
   }
   
   return `
+    <!-- 하단 컴팩트 배너: 작성 현황 요약 -->
     <div id="requirements-stats-banner" style="
       position: fixed;
-      bottom: 0;
-      left: 280px;
-      right: 0;
-      height: 70px;
-      background: linear-gradient(135deg, rgba(49, 130, 246, 0.95) 0%, rgba(99, 102, 241, 0.95) 100%);
-      backdrop-filter: blur(10px);
-      border-top: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 0 32px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-      z-index: 500;
-      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+      bottom: 20px;
+      right: 20px;
+      max-width: 480px;
+      background: white;
+      border-radius: 20px;
+      padding: 20px 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+      z-index: 50;
+      border: 1px solid var(--grey-200);
     ">
-      <!-- 왼쪽: 통계 지표들 -->
-      <div style="display: flex; align-items: center; gap: 32px; flex: 1;">
-        <!-- 총 요건 -->
+      <!-- 상단: 타이틀과 진행률 -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 8px;">
-          <i class="fas fa-clipboard-list" style="color: white; font-size: 18px;"></i>
+          <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="fas fa-chart-line" style="color: white; font-size: 16px;"></i>
+          </div>
           <div>
-            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">총 요건</div>
-            <div style="color: white; font-size: 20px; font-weight: 700;">${totalRequirements}개</div>
+            <div style="font-size: 14px; font-weight: 700; color: var(--grey-900);">작성 진행률</div>
+            <div style="font-size: 11px; color: var(--grey-500);">${answeredQuestions}/${totalQuestions} 완료</div>
           </div>
         </div>
-        
-        <!-- 스파르타 챌린지 -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <i class="fas fa-fire" style="color: #ff6b6b; font-size: 18px;"></i>
-          <div>
-            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">스파르타 챌린지</div>
-            <div style="color: white; font-size: 20px; font-weight: 700;">${spartaChallengeCount}개</div>
-          </div>
-        </div>
-        
-        <!-- 총 질문지 -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <i class="fas fa-question-circle" style="color: white; font-size: 18px;"></i>
-          <div>
-            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">총 질문지</div>
-            <div style="color: white; font-size: 20px; font-weight: 700;">${totalQuestions}개</div>
-          </div>
-        </div>
-        
-        <!-- 작성 완료 -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <i class="fas fa-check-circle" style="color: #4ade80; font-size: 18px;"></i>
-          <div>
-            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">작성 완료</div>
-            <div style="color: white; font-size: 20px; font-weight: 700;">${answeredQuestions}개</div>
-          </div>
+        <div style="text-align: right;">
+          <div style="font-size: 24px; font-weight: 800; color: ${progressColor};">${completionRate}%</div>
         </div>
       </div>
       
-      <!-- 오른쪽: 진행률 -->
-      <div style="min-width: 280px;">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-          <span style="color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 600;">
-            <i class="fas fa-chart-line" style="margin-right: 4px;"></i>진행률
-          </span>
-          <span style="color: white; font-size: 16px; font-weight: 700;">${completionRate}% (${answeredQuestions}/${totalQuestions})</span>
+      <!-- 진행바 -->
+      <div style="width: 100%; height: 6px; background: var(--grey-100); border-radius: 999px; overflow: hidden; margin-bottom: 16px;">
+        <div style="height: 100%; background: ${progressColor}; width: ${completionRate}%; transition: width 0.5s ease, background 0.3s ease; border-radius: 999px;"></div>
+      </div>
+      
+      <!-- 통계 그리드 -->
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+        <!-- 총 요건 -->
+        <div style="background: var(--grey-50); border-radius: 12px; padding: 12px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i class="fas fa-clipboard-list" style="color: var(--blue-500); font-size: 14px;"></i>
+            <span style="font-size: 11px; color: var(--grey-600); font-weight: 600;">총 요건</span>
+          </div>
+          <div style="font-size: 20px; font-weight: 700; color: var(--grey-900);">${totalRequirements}개</div>
         </div>
-        <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.2); border-radius: 999px; overflow: hidden;">
-          <div style="height: 100%; background: ${progressColor}; width: ${completionRate}%; transition: width 0.5s ease, background 0.3s ease; border-radius: 999px;"></div>
+        
+        <!-- 스파르타 챌린지 -->
+        <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border-radius: 12px; padding: 12px;">
+          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+            <i class="fas fa-fire" style="color: #ff6b6b; font-size: 14px;"></i>
+            <span style="font-size: 11px; color: #ff6b6b; font-weight: 600;">챌린지</span>
+          </div>
+          <div style="font-size: 20px; font-weight: 700; color: #ff6b6b;">${spartaChallengeCount}개</div>
         </div>
       </div>
+      
+      <!-- 닫기 버튼 -->
+      <button onclick="document.getElementById('requirements-stats-banner').style.display='none'" style="position: absolute; top: 16px; right: 16px; width: 24px; height: 24px; border-radius: 6px; background: var(--grey-100); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--grey-600); transition: all 0.2s;" onmouseover="this.style.background='var(--grey-200)'" onmouseout="this.style.background='var(--grey-100)'">
+        <i class="fas fa-times" style="font-size: 10px;"></i>
+      </button>
     </div>
     
     <!-- AI 도우미 챗봇 아이콘 -->
     <button onclick="toggleAIChatbot()" id="ai-chatbot-button" style="
       position: fixed;
-      bottom: 90px;
-      right: 24px;
-      width: 60px;
-      height: 60px;
+      bottom: 20px;
+      right: 520px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       border: none;
@@ -2938,7 +2949,7 @@ function renderRequirementStatsBanner(requirements) {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 1000;
+      z-index: 60;
       transition: all 0.3s ease;
     " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 30px rgba(102, 126, 234, 0.6)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(102, 126, 234, 0.4)';">
       <i class="fas fa-robot" style="color: white; font-size: 28px;"></i>
@@ -2948,13 +2959,13 @@ function renderRequirementStatsBanner(requirements) {
     <div id="ai-chatbot-panel" style="
       position: fixed;
       bottom: 90px;
-      right: 24px;
+      right: 520px;
       width: 400px;
       height: 600px;
       background: white;
       border-radius: 20px;
       box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
-      z-index: 999;
+      z-index: 70;
       display: none;
       flex-direction: column;
       overflow: hidden;
@@ -3009,11 +3020,13 @@ function toggleAIChatbot() {
   if (!panel || !button) return;
   
   if (panel.style.display === 'none' || panel.style.display === '') {
+    // 챗봇 열기
     panel.style.display = 'flex';
-    button.style.transform = 'scale(0.9)';
+    button.style.display = 'none'; // 버튼 숨기기
   } else {
+    // 챗봇 닫기
     panel.style.display = 'none';
-    button.style.transform = 'scale(1)';
+    button.style.display = 'flex'; // 버튼 다시 표시
   }
 }
 
@@ -3179,6 +3192,9 @@ function renderRequirementCard(requirement) {
   // 스파르타 챌린지 확인 (질문 10개 이상)
   const isSpartaChallenge = stats.total >= 10;
   
+  // 동적 상태 계산
+  const dynamicStatus = calculateRequirementStatus(requirement);
+  
   // 최근 업데이트 일시 포맷팅
   const formatUpdateDate = (dateString) => {
     if (!dateString) return '';
@@ -3215,9 +3231,9 @@ function renderRequirementCard(requirement) {
             <span class="${priorityBadges[requirement.priority] || priorityBadges.medium}">
               <i class="fas ${priorityIcons[requirement.priority] || priorityIcons.medium}" style="margin-right: 4px; font-size: 10px;"></i>${requirement.priority.toUpperCase()}
             </span>
-            <!-- 상태 배지 -->
-            <span class="${statusBadges[requirement.status] || statusBadges.pending}">
-              ${statusTexts[requirement.status] || '대기'}
+            <!-- 상태 배지 (동적 계산) -->
+            <span class="${statusBadges[dynamicStatus] || statusBadges.pending}">
+              ${statusTexts[dynamicStatus] || '대기'}
             </span>
           </div>
           <!-- 최근 업데이트 일시 -->
