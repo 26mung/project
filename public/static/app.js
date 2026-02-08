@@ -2605,8 +2605,19 @@ async function renderRequirements(page = 1) {
           </div>
         </div>
         
-        <!-- 검색 필터 영역 -->
-        <div style="background: white; border: 1px solid var(--grey-200); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+        <!-- 검색 필터 영역 (접기/펼치기 가능) -->
+        <div style="background: white; border: 1px solid var(--grey-200); border-radius: 16px; margin-bottom: 24px;">
+          <!-- 필터 헤더 -->
+          <div onclick="toggleRequirementFilter()" style="padding: 16px 20px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; border-bottom: 1px solid var(--grey-200);">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <i class="fas fa-filter" style="color: var(--blue-500); font-size: 16px;"></i>
+              <span style="font-size: 15px; font-weight: 700; color: var(--grey-900);">검색 필터</span>
+            </div>
+            <i id="requirement-filter-icon" class="fas fa-chevron-up" style="font-size: 14px; color: var(--grey-500); transition: transform 0.2s;"></i>
+          </div>
+          
+          <!-- 필터 내용 -->
+          <div id="requirement-filter-content" style="padding: 20px;">
           <!-- 검색 입력 -->
           <div style="margin-bottom: 16px;">
             <div style="position: relative;">
