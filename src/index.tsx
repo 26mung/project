@@ -3,6 +3,560 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import api from './api'
 import type { Bindings } from './types'
 
+const ONBOARDING_HTML = `<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>플랫폼기획팀 - AI가 완성하는 당신의 아이디어</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary: #007AFF;
+      --primary-dark: #0051D5;
+      --text-primary: #1d1d1f;
+      --text-secondary: #6e6e73;
+      --bg-light: #fbfbfd;
+      --bg-dark: #000000;
+      --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+      background: #fff;
+      color: var(--text-primary);
+    }
+    
+    /* ========== Navigation ========== */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      backdrop-filter: blur(0px);
+      background: rgba(255, 255, 255, 0);
+    }
+    
+    .navbar.scrolled {
+      backdrop-filter: blur(20px);
+      background: rgba(255, 255, 255, 0.8);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.1);
+      padding: 12px 40px;
+    }
+    
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--text-primary);
+      text-decoration: none;
+      transition: transform 0.3s ease;
+    }
+    
+    .logo:hover {
+      transform: scale(1.05);
+    }
+    
+    .nav-buttons {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .btn {
+      padding: 10px 24px;
+      border-radius: 980px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      cursor: pointer;
+      border: none;
+      outline: none;
+    }
+    
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-primary);
+    }
+    
+    .btn-ghost:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+    
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: var(--primary-dark);
+      transform: scale(1.05);
+    }
+    
+    /* ========== Hero Section ========== */
+    .hero {
+      position: relative;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+    }
+    
+    .hero-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      opacity: 0.1;
+      background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="%23000"/><circle cx="50" cy="50" r="40" fill="%23fff"/></svg>');
+      animation: float 20s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(5deg); }
+    }
+    
+    .hero-content {
+      position: relative;
+      text-align: center;
+      padding: 0 20px;
+      opacity: 0;
+      animation: fadeInUp 1s ease forwards;
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .hero-title {
+      font-size: clamp(48px, 8vw, 96px);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #1d1d1f 0%, #6e6e73 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .hero-subtitle {
+      font-size: clamp(20px, 3vw, 28px);
+      color: var(--text-secondary);
+      margin-bottom: 48px;
+      font-weight: 500;
+    }
+    
+    .hero-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 18px 36px;
+      background: var(--primary);
+      color: white;
+      border-radius: 980px;
+      font-size: 18px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+    }
+    
+    .hero-cta:hover {
+      transform: scale(1.05) translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4);
+    }
+    
+    .hero-cta i {
+      transition: transform 0.3s ease;
+    }
+    
+    .hero-cta:hover i {
+      transform: translateX(4px);
+    }
+    
+    .scroll-indicator {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      animation: bounce 2s infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+      40% { transform: translateX(-50%) translateY(-10px); }
+      60% { transform: translateX(-50%) translateY(-5px); }
+    }
+    
+    .scroll-indicator i {
+      font-size: 32px;
+      color: var(--text-secondary);
+    }
+    
+    /* ========== Feature Sections ========== */
+    .feature-section {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 120px 40px;
+      opacity: 0;
+      transform: translateY(50px);
+      transition: all 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .feature-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .feature-section:nth-child(even) {
+      background: var(--bg-light);
+    }
+    
+    .feature-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+    
+    .feature-content.reverse {
+      direction: rtl;
+    }
+    
+    .feature-content.reverse > * {
+      direction: ltr;
+    }
+    
+    .feature-text h2 {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 800;
+      margin-bottom: 24px;
+      line-height: 1.1;
+    }
+    
+    .feature-text p {
+      font-size: clamp(18px, 2vw, 24px);
+      color: var(--text-secondary);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+    
+    .feature-visual {
+      position: relative;
+      aspect-ratio: 16/10;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+      transition: transform 0.5s ease;
+    }
+    
+    .feature-visual:hover {
+      transform: scale(1.02) translateY(-8px);
+    }
+    
+    .feature-visual::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--gradient-1);
+      opacity: 0.8;
+    }
+    
+    .feature-visual.visual-2::before {
+      background: var(--gradient-2);
+    }
+    
+    .feature-visual.visual-3::before {
+      background: var(--gradient-3);
+    }
+    
+    .feature-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 120px;
+      color: white;
+      opacity: 0.3;
+    }
+    
+    /* ========== Dark Section ========== */
+    .dark-section {
+      background: var(--bg-dark);
+      color: white;
+      padding: 160px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .dark-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(circle at 50% 50%, rgba(102, 126, 234, 0.15) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    
+    .dark-content {
+      max-width: 1000px;
+      margin: 0 auto;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .dark-content h2 {
+      font-size: clamp(40px, 6vw, 72px);
+      font-weight: 900;
+      margin-bottom: 48px;
+      background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 40px;
+      margin-top: 80px;
+    }
+    
+    .step {
+      text-align: center;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+    
+    .step:hover {
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-8px);
+    }
+    
+    .step-number {
+      display: inline-block;
+      width: 60px;
+      height: 60px;
+      line-height: 60px;
+      border-radius: 50%;
+      background: var(--gradient-1);
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 24px;
+    }
+    
+    .step h3 {
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+    
+    .step p {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 16px;
+      line-height: 1.6;
+    }
+    
+    /* ========== CTA Section ========== */
+    .cta-section {
+      padding: 160px 40px;
+      text-align: center;
+      background: linear-gradient(180deg, #f5f5f7 0%, #ffffff 100%);
+    }
+    
+    .cta-section h2 {
+      font-size: clamp(40px, 6vw, 64px);
+      font-weight: 900;
+      margin-bottom: 32px;
+    }
+    
+    .cta-section p {
+      font-size: clamp(18px, 2vw, 24px);
+      color: var(--text-secondary);
+      margin-bottom: 48px;
+    }
+    
+    /* ========== Responsive ========== */
+    @media (max-width: 768px) {
+      .navbar {
+        padding: 16px 20px;
+      }
+      
+      .feature-content {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      
+      .feature-content.reverse {
+        direction: ltr;
+      }
+      
+      .steps {
+        grid-template-columns: 1fr;
+      }
+    }
+    
+    /* ========== Animations ========== */
+    @keyframes gradient-shift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    
+    .animated-gradient {
+      background-size: 200% 200%;
+      animation: gradient-shift 8s ease infinite;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <a href="#" class="logo">플랫폼기획팀</a>
+    <div class="nav-buttons">
+      <button class="btn btn-ghost" onclick="showLoginModal()">로그인</button>
+      <button class="btn btn-primary" onclick="showSignupModal()">시작하기</button>
+    </div>
+  </nav>
+  
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-bg"></div>
+    <div class="hero-content">
+      <h1 class="hero-title">당신의 아이디어,<br>AI가 완성합니다</h1>
+      <p class="hero-subtitle">복잡한 건 싫어요. 기획부터 PRD 작성까지, 10분이면 끝.</p>
+      <a href="#" class="hero-cta" onclick="event.preventDefault(); showSignupModal();">
+        <span>무료로 시작하기</span>
+        <i class="fas fa-arrow-right"></i>
+      </a>
+    </div>
+    <div class="scroll-indicator">
+      <i class="fas fa-chevron-down"></i>
+    </div>
+  </section>
+  
+  <!-- Feature 1 -->
+  <section class="feature-section">
+    <div class="feature-content">
+      <div class="feature-text">
+        <h2>아이디어만 있다면<br>나머지는 AI가</h2>
+        <p>머릿속 아이디어를 간단히 입력하세요.</p>
+        <p>AI가 요건을 분석하고, 질문을 만들고, PRD까지 완성합니다.</p>
+      </div>
+      <div class="feature-visual visual-1">
+        <i class="fas fa-lightbulb feature-icon"></i>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Feature 2 -->
+  <section class="feature-section">
+    <div class="feature-content reverse">
+      <div class="feature-text">
+        <h2>챌린지 모드로<br>깊이 있게</h2>
+        <p>단순한 기획을 넘어, 10개 이상의 질문으로 완성도를 높이세요.</p>
+        <p>스파르타 챌린지로 퀄리티를 보장합니다.</p>
+      </div>
+      <div class="feature-visual visual-2">
+        <i class="fas fa-fire feature-icon"></i>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Feature 3 -->
+  <section class="feature-section">
+    <div class="feature-content">
+      <div class="feature-text">
+        <h2>PRD 자동 생성<br>진짜 쉬워요</h2>
+        <p>복잡한 문서 작업은 이제 그만.</p>
+        <p>모든 정보를 종합하여 전문가 수준의 PRD를 자동으로 만들어드립니다.</p>
+      </div>
+      <div class="feature-visual visual-3">
+        <i class="fas fa-file-alt feature-icon"></i>
+      </div>
+    </div>
+  </section>
+  
+  <!-- Dark Section - How it works -->
+  <section class="dark-section">
+    <div class="dark-content">
+      <h2>3단계면 끝나요</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>아이디어 입력</h3>
+          <p>만들고 싶은 서비스나 기능을 자유롭게 작성하세요.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>AI 분석</h3>
+          <p>AI가 요건을 추출하고 핵심 질문을 만듭니다.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>PRD 완성</h3>
+          <p>답변을 바탕으로 전문적인 PRD 문서가 생성됩니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+  
+  <!-- CTA Section -->
+  <section class="cta-section">
+    <h2>지금 바로 시작하세요</h2>
+    <p>10분이면 당신의 첫 PRD가 완성됩니다.</p>
+    <a href="#" class="hero-cta" onclick="event.preventDefault(); showSignupModal();">
+      <span>무료로 시작하기</span>
+      <i class="fas fa-arrow-right"></i>
+    </a>
+  </section>
+  
+  <script src="/static/onboarding.js"></script>
+</body>
+</html>`
+
 const app = new Hono<{ Bindings: Bindings }>()
 
 // API 라우트
@@ -18,14 +572,21 @@ app.use('/static/*', async (c, next) => {
     c.header('Expires', '0');
   }
 });
-app.use('/static/*', serveStatic({ root: './public' }))
+app.use('/static/*', serveStatic({ root: './' }))
 
-// 온보딩 페이지
-app.get('/onboarding', serveStatic({ path: './public/onboarding.html' }))
-app.get('/onboarding.html', serveStatic({ path: './public/onboarding.html' }))
-
-// 메인 페이지
+// 온보딩 페이지 (루트)
 app.get('/', (c) => {
+  return c.html(ONBOARDING_HTML)
+})
+app.get('/onboarding', (c) => {
+  return c.html(ONBOARDING_HTML)
+})
+app.get('/onboarding.html', (c) => {
+  return c.html(ONBOARDING_HTML)
+})
+
+// 메인 앱
+app.get('/app', (c) => {
   // 캐시 방지 헤더 추가
   c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
   c.header('Pragma', 'no-cache');
@@ -41,7 +602,7 @@ app.get('/', (c) => {
         <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
         <meta http-equiv="Pragma" content="no-cache">
         <meta http-equiv="Expires" content="0">
-        <title>플랫폼기획팀 - 더 쉬운 기획, AI가 함께합니다</title>
+        <title>플랫폼기획팀 - 프로젝트 관리</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">

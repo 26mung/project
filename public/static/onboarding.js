@@ -420,7 +420,7 @@ async function handleLogin(event) {
       alert('로그인 성공!');
       closeModal();
       // Redirect to main app
-      window.location.href = '/';
+      window.location.href = '/app';
     } else {
       alert(data.error || '로그인에 실패했습니다.');
     }

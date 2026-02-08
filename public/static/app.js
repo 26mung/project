@@ -190,11 +190,13 @@ async function checkAuthentication() {
       await loadProjects();
       initTabStyles();
     } else {
-      showLoginScreen();
+      // Redirect to onboarding page
+      window.location.href = '/';
     }
   } catch (error) {
     console.error('Failed to check authentication:', error);
-    showLoginScreen();
+    // Redirect to onboarding page
+    window.location.href = '/';
   }
 }
 
