@@ -51,8 +51,35 @@ api.post('/auth/logout', async (c) => {
 
 // 세션 확인
 api.get('/auth/check', async (c) => {
-  const session = getCookie(c, SESSION_COOKIE_NAME);
-  return c.json({ authenticated: session === 'authenticated' });
+  const { DB } = c.env;
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ authenticated: false });
+  }
+  
+  try {
+    // 세션 조회
+    const session = await DB.prepare(
+      'SELECT s.*, u.id as user_id, u.email, u.name FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first();
+    
+    if (!session) {
+      return c.json({ authenticated: false });
+    }
+    
+    return c.json({ 
+      authenticated: true,
+      user: {
+        id: session.user_id,
+        email: session.email,
+        name: session.name
+      }
+    });
+  } catch (error) {
+    console.error('[Auth Check Error]', error);
+    return c.json({ authenticated: false });
+  }
 });
 
 // ============ 신규 사용자 인증 API ============

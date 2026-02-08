@@ -1,89 +1,11 @@
 // ============ Constants ============
 const API_BASE = window.location.origin + '/api';
 
-// ============ Utility Functions ============
-function showCustomAlert(message, type = 'info') {
-  const existingAlert = document.getElementById('custom-alert');
-  if (existingAlert) {
-    existingAlert.remove();
-  }
-  
-  const icons = {
-    success: '<i class="fas fa-check-circle" style="font-size: 48px; color: #34C759; margin-bottom: 16px;"></i>',
-    error: '<i class="fas fa-times-circle" style="font-size: 48px; color: #FF3B30; margin-bottom: 16px;"></i>',
-    info: '<i class="fas fa-info-circle" style="font-size: 48px; color: #007AFF; margin-bottom: 16px;"></i>',
-    warning: '<i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #FF9500; margin-bottom: 16px;"></i>'
-  };
-  
-  const alert = document.createElement('div');
-  alert.id = 'custom-alert';
-  alert.style.cssText = `
-    position: fixed;
-    inset: 0;
-    z-index: 99999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    animation: fadeIn 0.2s ease;
-  `;
-  
-  alert.innerHTML = `
-    <div style="
-      background: white;
-      border-radius: 20px;
-      padding: 40px;
-      max-width: 400px;
-      width: 90%;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    ">
-      ${icons[type]}
-      <p style="
-        font-size: 18px;
-        font-weight: 600;
-        color: #1d1d1f;
-        line-height: 1.5;
-        margin-bottom: 24px;
-      ">${message}</p>
-      <button onclick="document.getElementById('custom-alert').remove()" style="
-        padding: 12px 32px;
-        background: #007AFF;
-        color: white;
-        border: none;
-        border-radius: 12px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-      " onmouseover="this.style.background='#0051D5'" onmouseout="this.style.background='#007AFF'">
-        확인
-      </button>
-    </div>
-  `;
-  
-  document.body.appendChild(alert);
-}
-
-// ============ Local Storage ============
-function saveEmail(email) {
-  localStorage.setItem('savedEmail', email);
-}
-
-function getSavedEmail() {
-  return localStorage.getItem('savedEmail') || '';
-}
-
-function clearSavedEmail() {
-  localStorage.removeItem('savedEmail');
-}
-
 // ============ Scroll Animations ============
 const navbar = document.getElementById('navbar');
 const featureSections = document.querySelectorAll('.feature-section');
 
+// Navbar scroll effect
 window.addEventListener('scroll', () => {
   if (window.scrollY > 50) {
     navbar.classList.add('scrolled');
@@ -92,6 +14,7 @@ window.addEventListener('scroll', () => {
   }
 });
 
+// Feature sections scroll reveal
 const observerOptions = {
   threshold: 0.2,
   rootMargin: '0px 0px -100px 0px'
@@ -141,7 +64,6 @@ function createModal(content) {
       overflow-y: auto;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
     ">
       <button onclick="closeModal()" style="
         position: absolute;
@@ -187,8 +109,6 @@ function closeModal() {
 
 // ============ Login Modal ============
 function showLoginModal() {
-  const savedEmail = getSavedEmail();
-  
   createModal(`
     <div style="position: relative;">
       <h2 style="font-size: 32px; font-weight: 800; margin-bottom: 12px; text-align: center;">로그인</h2>
@@ -197,7 +117,7 @@ function showLoginModal() {
       <form onsubmit="handleLogin(event)" style="display: flex; flex-direction: column; gap: 20px;">
         <div>
           <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">이메일</label>
-          <input type="email" id="login-email" value="${savedEmail}" required style="
+          <input type="email" id="login-email" required style="
             width: 100%;
             padding: 14px 16px;
             border: 2px solid #e5e5ea;
@@ -217,17 +137,6 @@ function showLoginModal() {
             font-size: 16px;
             transition: border-color 0.3s ease;
           " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="비밀번호를 입력하세요">
-        </div>
-        
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="remember-email" ${savedEmail ? 'checked' : ''} style="
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-          ">
-          <label for="remember-email" style="font-size: 14px; color: #6e6e73; cursor: pointer;">
-            아이디 저장
-          </label>
         </div>
         
         <button type="submit" style="
@@ -291,7 +200,7 @@ function showSignupModal() {
         
         <div>
           <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">생년월일 (선택)</label>
-          <input type="date" id="signup-birthdate" max="9999-12-31" style="
+          <input type="date" id="signup-birthdate" style="
             width: 100%;
             padding: 14px 16px;
             border: 2px solid #e5e5ea;
@@ -326,7 +235,7 @@ function showSignupModal() {
           " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="비밀번호를 다시 입력하세요">
         </div>
         
-        <button type="submit" style="
+        <button type="submit" id="signup-submit-btn" style="
           width: 100%;
           padding: 16px;
           background: #007AFF;
@@ -353,48 +262,127 @@ function showSignupModal() {
   `);
 }
 
-// ============ Login Handler ============
+// ============ Email Verification ============
+let verificationTimer;
+let isEmailVerified = false;
+
+async function sendVerificationCode() {
+  const email = document.getElementById('signup-email').value;
+  if (!email || !email.includes('@')) {
+    alert('올바른 이메일 주소를 입력해주세요.');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/auth/send-verification`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      document.getElementById('verification-code-section').style.display = 'block';
+      startVerificationTimer();
+      alert('인증코드가 발송되었습니다. 이메일을 확인해주세요.');
+    } else {
+      alert(data.error || '인증코드 발송에 실패했습니다.');
+    }
+  } catch (error) {
+    console.error('Send verification error:', error);
+    alert('인증코드 발송 중 오류가 발생했습니다.');
+  }
+}
+
+function startVerificationTimer() {
+  let timeLeft = 300; // 5분
+  const timerEl = document.getElementById('verification-timer');
+  
+  clearInterval(verificationTimer);
+  verificationTimer = setInterval(() => {
+    timeLeft--;
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = timeLeft % 60;
+    timerEl.textContent = `남은 시간: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    
+    if (timeLeft <= 0) {
+      clearInterval(verificationTimer);
+      timerEl.textContent = '인증 시간이 만료되었습니다. 다시 발송해주세요.';
+    }
+  }, 1000);
+}
+
+async function verifyCode() {
+  const email = document.getElementById('signup-email').value;
+  const code = document.getElementById('verification-code').value;
+  
+  if (!code || code.length !== 6) {
+    alert('6자리 인증코드를 입력해주세요.');
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${API_BASE}/auth/verify-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code })
+    });
+    
+    const data = await response.json();
+    
+    if (response.ok) {
+      isEmailVerified = true;
+      clearInterval(verificationTimer);
+      document.getElementById('verification-timer').textContent = '✓ 인증 완료';
+      document.getElementById('verification-timer').style.color = '#34C759';
+      
+      const submitBtn = document.getElementById('signup-submit-btn');
+      submitBtn.disabled = false;
+      submitBtn.style.background = '#007AFF';
+      submitBtn.style.cursor = 'pointer';
+      submitBtn.textContent = '회원가입 완료';
+      
+      alert('이메일 인증이 완료되었습니다!');
+    } else {
+      alert(data.error || '인증코드가 올바르지 않습니다.');
+    }
+  } catch (error) {
+    console.error('Verify code error:', error);
+    alert('인증 확인 중 오류가 발생했습니다.');
+  }
+}
+
+// ============ Auth Handlers ============
 async function handleLogin(event) {
   event.preventDefault();
   
   const email = document.getElementById('login-email').value;
   const password = document.getElementById('login-password').value;
-  const rememberEmail = document.getElementById('remember-email').checked;
   
   try {
     const response = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ email, password })
     });
     
     const data = await response.json();
     
     if (response.ok) {
-      // Save email if checkbox is checked
-      if (rememberEmail) {
-        saveEmail(email);
-      } else {
-        clearSavedEmail();
-      }
-      
-      showCustomAlert('로그인 성공!', 'success');
-      
-      // Wait for alert to show, then redirect
-      setTimeout(() => {
-        window.location.href = '/app';
-      }, 1500);
+      alert('로그인 성공!');
+      closeModal();
+      // Redirect to main app
+      window.location.href = '/app';
     } else {
-      showCustomAlert(data.error || '로그인에 실패했습니다.', 'error');
+      alert(data.error || '로그인에 실패했습니다.');
     }
   } catch (error) {
     console.error('Login error:', error);
-    showCustomAlert('로그인 중 오류가 발생했습니다.', 'error');
+    alert('로그인 중 오류가 발생했습니다.');
   }
 }
 
-// ============ Signup Handler ============
 async function handleSignup(event) {
   event.preventDefault();
   
@@ -405,12 +393,12 @@ async function handleSignup(event) {
   const passwordConfirm = document.getElementById('signup-password-confirm').value;
   
   if (password !== passwordConfirm) {
-    showCustomAlert('비밀번호가 일치하지 않습니다.', 'error');
+    alert('비밀번호가 일치하지 않습니다.');
     return;
   }
   
   if (password.length < 8) {
-    showCustomAlert('비밀번호는 최소 8자 이상이어야 합니다.', 'error');
+    alert('비밀번호는 최소 8자 이상이어야 합니다.');
     return;
   }
   
@@ -424,16 +412,14 @@ async function handleSignup(event) {
     const data = await response.json();
     
     if (response.ok) {
-      showCustomAlert('회원가입이 완료되었습니다! 로그인해주세요.', 'success');
-      setTimeout(() => {
-        showLoginModal();
-      }, 1500);
+      alert('회원가입이 완료되었습니다! 로그인해주세요.');
+      showLoginModal();
     } else {
-      showCustomAlert(data.error || '회원가입에 실패했습니다.', 'error');
+      alert(data.error || '회원가입에 실패했습니다.');
     }
   } catch (error) {
     console.error('Signup error:', error);
-    showCustomAlert('회원가입 중 오류가 발생했습니다.', 'error');
+    alert('회원가입 중 오류가 발생했습니다.');
   }
 }
 
