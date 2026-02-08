@@ -3,6 +3,7 @@ export type Bindings = {
   DB: D1Database;
   OPENAI_API_KEY?: string;
   OPENAI_BASE_URL?: string;
+  RESEND_API_KEY?: string;
 }
 
 // 프로젝트 타입

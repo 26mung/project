@@ -59,7 +59,7 @@ api.get('/auth/check', async (c) => {
 
 // 이메일 인증코드 발송
 api.post('/auth/send-verification', async (c) => {
-  const { DB } = c.env;
+  const { DB, RESEND_API_KEY } = c.env;
   const body = await c.req.json();
   const { email } = body;
   
@@ -78,15 +78,93 @@ api.post('/auth/send-verification', async (c) => {
     'INSERT INTO email_verifications (email, verification_code, expires_at) VALUES (?, ?, ?)'
   ).bind(email, code, expiresAt).run();
   
-  // TODO: 실제 이메일 발송 (현재는 로그만)
-  console.log(`[Email Verification] Code for ${email}: ${code}`);
+  // Resend API로 이메일 발송
+  let emailSent = false;
+  if (RESEND_API_KEY) {
+    try {
+      const emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'onboarding@resend.dev',
+          to: email,
+          subject: '플랫폼기획팀 - 이메일 인증 코드',
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="UTF-8">
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 40px 20px; }
+                .header { text-align: center; margin-bottom: 40px; }
+                .logo { font-size: 28px; font-weight: 800; color: #007AFF; margin-bottom: 10px; }
+                .code-box { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 12px; text-align: center; margin: 30px 0; }
+                .code { font-size: 48px; font-weight: 800; letter-spacing: 8px; margin: 20px 0; }
+                .info { background: #f5f5f7; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                .footer { text-align: center; color: #6e6e73; font-size: 14px; margin-top: 40px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <div class="logo">플랫폼기획팀</div>
+                  <p style="color: #6e6e73;">이메일 인증 코드가 도착했습니다</p>
+                </div>
+                
+                <div class="code-box">
+                  <p style="margin: 0; font-size: 16px; opacity: 0.9;">인증 코드</p>
+                  <div class="code">${code}</div>
+                  <p style="margin: 0; font-size: 14px; opacity: 0.8;">5분 이내에 입력해주세요</p>
+                </div>
+                
+                <div class="info">
+                  <p style="margin: 0 0 10px 0;"><strong>📧 이메일 인증 안내</strong></p>
+                  <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>위 6자리 코드를 회원가입 페이지에 입력해주세요</li>
+                    <li>이 코드는 <strong>5분 후</strong> 자동으로 만료됩니다</li>
+                    <li>본인이 요청하지 않았다면 이 이메일을 무시하셔도 됩니다</li>
+                  </ul>
+                </div>
+                
+                <div class="footer">
+                  <p>이 이메일은 플랫폼기획팀 회원가입 요청에 대한 자동 발송 메일입니다.</p>
+                  <p style="margin-top: 10px;">© 2024 플랫폼기획팀. All rights reserved.</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `
+        })
+      });
+      
+      if (!emailResponse.ok) {
+        const errorText = await emailResponse.text();
+        console.error('[Resend Error]', errorText);
+        // 이메일 발송 실패해도 계속 진행 (코드는 DB에 저장됨)
+        emailSent = false;
+      } else {
+        console.log(`[Email Sent] Code sent to ${email}`);
+        emailSent = true;
+      }
+    } catch (error) {
+      console.error('[Email Error]', error);
+      // 이메일 발송 실패해도 계속 진행
+      emailSent = false;
+    }
+  } else {
+    console.log(`[Dev Mode] Code for ${email}: ${code}`);
+  }
   
   // 개발 환경에서는 코드를 응답에 포함 (실제 운영에서는 제거)
   return c.json({ 
     success: true, 
     message: 'Verification code sent',
-    // 개발 환경용
-    dev_code: code 
+    // 개발 환경용: 이메일 발송 실패 시 또는 API 키가 없을 때 코드 표시
+    dev_code: (!RESEND_API_KEY || !emailSent) ? code : undefined 
   });
 });
 
