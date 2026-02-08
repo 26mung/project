@@ -595,96 +595,94 @@ app.get('/admin', (c) => {
   c.header('Pragma', 'no-cache');
   c.header('Expires', '0');
   
-  // Admin HTML 인라인 제공
+  const timestamp = Date.now();
+  
   return c.html(`<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>관리자 페이지 - 플랫폼기획팀</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- External CSS -->
+  <link rel="stylesheet" href="/static/style.css?v=${timestamp}">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  
   <style>
-    * {
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    .admin-menu-item {
+      padding: 12px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-radius: var(--radius-8);
+      margin-bottom: 4px;
     }
     
-    body {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
+    .admin-menu-item:hover {
+      background: var(--grey-100);
     }
     
-    .admin-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 40px 20px;
+    .admin-menu-item.active {
+      background: var(--blue-50);
+      color: var(--blue-600);
+      font-weight: 600;
     }
     
-    .admin-card {
+    .admin-stat-card {
       background: white;
-      border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-      overflow: hidden;
-    }
-    
-    .admin-header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 32px;
-    }
-    
-    .stat-card {
-      background: white;
-      border-radius: 16px;
+      border-radius: var(--radius-12);
       padding: 24px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-      transition: all 0.3s ease;
+      border: 1px solid var(--grey-200);
+      transition: all 0.2s;
     }
     
-    .stat-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    .admin-stat-card:hover {
+      border-color: var(--blue-500);
+      box-shadow: var(--shadow-2);
     }
     
-    .stat-number {
+    .admin-stat-value {
       font-size: 36px;
       font-weight: 700;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--blue-500);
+      margin: 8px 0;
     }
     
-    .btn-primary {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 12px;
-      border: none;
+    .admin-stat-label {
+      font-size: 14px;
+      color: var(--grey-600);
+      font-weight: 500;
+    }
+    
+    .user-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .user-table th {
+      background: var(--grey-50);
+      padding: 12px;
+      text-align: left;
+      font-size: 13px;
       font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s ease;
+      color: var(--grey-700);
+      border-bottom: 2px solid var(--grey-200);
     }
     
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    .user-table td {
+      padding: 16px 12px;
+      border-bottom: 1px solid var(--grey-100);
+      font-size: 14px;
     }
     
-    .user-row {
-      border-bottom: 1px solid #e5e7eb;
-      padding: 16px;
-      transition: background 0.2s ease;
+    .user-table tr:hover {
+      background: var(--grey-50);
     }
     
-    .user-row:hover {
-      background: #f9fafb;
-    }
-    
-    .badge {
-      display: inline-block;
+    .badge-role {
       padding: 4px 12px;
       border-radius: 999px;
       font-size: 12px;
@@ -692,134 +690,90 @@ app.get('/admin', (c) => {
     }
     
     .badge-super-admin {
-      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      color: white;
+      background: var(--blue-100);
+      color: var(--blue-700);
     }
     
     .badge-admin {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
+      background: var(--teal-100);
+      color: var(--teal-700);
     }
     
     .badge-user {
-      background: #e5e7eb;
-      color: #6b7280;
+      background: var(--grey-100);
+      color: var(--grey-700);
     }
   </style>
 </head>
 <body>
-  <div class="admin-container">
-    <!-- Header -->
-    <div class="admin-card" style="margin-bottom: 32px;">
-      <div class="admin-header">
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <h1 style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">
-              <i class="fas fa-crown" style="margin-right: 12px;"></i>
-              관리자 페이지
-            </h1>
-            <p style="opacity: 0.9; font-size: 14px;">플랫폼기획팀 시스템 관리</p>
-          </div>
-          <button onclick="goBack()" class="btn-primary" style="background: rgba(255, 255, 255, 0.2);">
-            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>
-            메인으로
+  <div style="height: 100vh; display: flex; background: var(--grey-50);">
+    <!-- Sidebar -->
+    <div style="width: 280px; height: 100vh; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column;">
+      <!-- Header -->
+      <div style="padding: 20px; border-bottom: 1px solid var(--grey-100);">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <h1 class="text-title3" style="color: var(--grey-900);">
+            <i class="fas fa-crown" style="color: var(--blue-500); margin-right: 8px;"></i>
+            관리자 페이지
+          </h1>
+          <button onclick="handleLogout()" class="btn-icon" title="로그아웃">
+            <i class="fas fa-sign-out-alt" style="font-size: 14px;"></i>
           </button>
         </div>
+        <a href="/app" class="btn-secondary btn-large w-full">
+          <i class="fas fa-arrow-left" style="margin-right: 6px;"></i>
+          메인 앱으로 돌아가기
+        </a>
+      </div>
+      
+      <!-- Menu -->
+      <div style="flex: 1; overflow-y: auto; padding: 16px;">
+        <div class="admin-menu-item active" onclick="showMenu('dashboard')">
+          <i class="fas fa-chart-line" style="margin-right: 8px; width: 20px;"></i>
+          대시보드
+        </div>
+        <div class="admin-menu-item" onclick="showMenu('users')">
+          <i class="fas fa-users" style="margin-right: 8px; width: 20px;"></i>
+          사용자 관리
+        </div>
+        <div class="admin-menu-item" onclick="showMenu('projects')">
+          <i class="fas fa-folder" style="margin-right: 8px; width: 20px;"></i>
+          프로젝트 관리
+        </div>
       </div>
     </div>
     
-    <!-- Stats -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 32px;">
-      <div class="stat-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">총 사용자</span>
-          <i class="fas fa-users" style="font-size: 24px; color: #667eea;"></i>
-        </div>
-        <div class="stat-number" id="total-users">0</div>
-      </div>
-      
-      <div class="stat-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">총 프로젝트</span>
-          <i class="fas fa-folder" style="font-size: 24px; color: #764ba2;"></i>
-        </div>
-        <div class="stat-number" id="total-projects">0</div>
-      </div>
-      
-      <div class="stat-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">관리자</span>
-          <i class="fas fa-user-shield" style="font-size: 24px; color: #fbbf24;"></i>
-        </div>
-        <div class="stat-number" id="total-admins">0</div>
-      </div>
-      
-      <div class="stat-card">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">오늘 가입</span>
-          <i class="fas fa-user-plus" style="font-size: 24px; color: #10b981;"></i>
-        </div>
-        <div class="stat-number" id="today-signups">0</div>
-      </div>
-    </div>
-    
-    <!-- User Management -->
-    <div class="admin-card">
-      <div style="padding: 32px; border-bottom: 1px solid #e5e7eb;">
-        <h2 style="font-size: 24px; font-weight: 700; color: #1f2937;">
-          <i class="fas fa-users-cog" style="margin-right: 12px; color: #667eea;"></i>
-          회원 관리
-        </h2>
-      </div>
-      
-      <div style="padding: 24px;">
-        <div style="margin-bottom: 24px;">
-          <input 
-            type="text" 
-            id="user-search" 
-            placeholder="이메일 또는 이름으로 검색..." 
-            oninput="filterUsers()"
-            style="width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px;"
-          >
-        </div>
-        
-        <div id="user-list" style="min-height: 400px;">
-          <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 16px;"></i>
-            <p>사용자 정보를 불러오는 중...</p>
-          </div>
-        </div>
-      </div>
+    <!-- Main Content -->
+    <div style="flex: 1; overflow-y: auto; padding: 40px;">
+      <div id="content-area"></div>
     </div>
   </div>
   
   <script>
     const API_BASE = window.location.origin + '/api';
-    let allUsers = [];
+    let currentUser = null;
+    let currentMenu = 'dashboard';
     
-    // 페이지 로드 시 인증 확인
-    document.addEventListener('DOMContentLoaded', async () => {
+    // 초기화
+    async function init() {
       await checkAuth();
-      await loadStats();
-      await loadUsers();
-    });
+      showMenu('dashboard');
+    }
     
     // 인증 확인
     async function checkAuth() {
       try {
-        const response = await axios.get(\`\${API_BASE}/auth/check\`, {
-          credentials: 'include'
-        });
-        
+        const response = await axios.get(\`\${API_BASE}/auth/check\`);
         if (!response.data.authenticated) {
-          alert('로그인이 필요합니다.');
           window.location.href = '/';
           return;
         }
         
+        currentUser = response.data.user;
+        
         // 최고관리자 권한 확인
-        if (!response.data.user?.isSuperAdmin) {
-          alert('관리자 권한이 필요합니다.');
+        if (!currentUser.isSuperAdmin) {
+          alert('접근 권한이 없습니다.');
           window.location.href = '/app';
           return;
         }
@@ -829,152 +783,378 @@ app.get('/admin', (c) => {
       }
     }
     
-    // 통계 로드
-    async function loadStats() {
+    // 로그아웃
+    async function handleLogout() {
+      try {
+        await axios.post(\`\${API_BASE}/auth/logout\`);
+        window.location.href = '/';
+      } catch (error) {
+        console.error('Logout failed:', error);
+        alert('로그아웃 중 오류가 발생했습니다.');
+      }
+    }
+    
+    // 메뉴 전환
+    function showMenu(menu) {
+      currentMenu = menu;
+      
+      // 메뉴 활성화 상태 변경
+      document.querySelectorAll('.admin-menu-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      event.target.closest('.admin-menu-item').classList.add('active');
+      
+      // 콘텐츠 렌더링
+      switch(menu) {
+        case 'dashboard':
+          renderDashboard();
+          break;
+        case 'users':
+          renderUsers();
+          break;
+        case 'projects':
+          renderProjects();
+          break;
+      }
+    }
+    
+    // 대시보드 렌더링
+    async function renderDashboard() {
+      const contentArea = document.getElementById('content-area');
+      contentArea.innerHTML = \`
+        <div style="margin-bottom: 32px;">
+          <h2 class="text-title1" style="color: var(--grey-900); margin-bottom: 8px;">대시보드</h2>
+          <p class="text-body1" style="color: var(--grey-600);">시스템 통계 및 현황</p>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 32px;">
+          <div class="admin-stat-card">
+            <div class="admin-stat-label">총 사용자</div>
+            <div class="admin-stat-value" id="stat-users">-</div>
+            <div style="font-size: 12px; color: var(--grey-500);">전체 가입자 수</div>
+          </div>
+          
+          <div class="admin-stat-card">
+            <div class="admin-stat-label">총 프로젝트</div>
+            <div class="admin-stat-value" id="stat-projects" style="color: var(--teal-500);">-</div>
+            <div style="font-size: 12px; color: var(--grey-500);">생성된 프로젝트</div>
+          </div>
+          
+          <div class="admin-stat-card">
+            <div class="admin-stat-label">관리자</div>
+            <div class="admin-stat-value" id="stat-admins" style="color: var(--yellow-500);">-</div>
+            <div style="font-size: 12px; color: var(--grey-500);">관리자 계정</div>
+          </div>
+          
+          <div class="admin-stat-card">
+            <div class="admin-stat-label">오늘 가입</div>
+            <div class="admin-stat-value" id="stat-today" style="color: var(--green-500);">-</div>
+            <div style="font-size: 12px; color: var(--grey-500);">24시간 이내</div>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div style="padding: 24px;">
+            <h3 class="text-title3" style="margin-bottom: 16px;">최근 활동</h3>
+            <p class="text-body2" style="color: var(--grey-600);">최근 사용자 활동 및 프로젝트 생성 현황이 여기에 표시됩니다.</p>
+          </div>
+        </div>
+      \`;
+      
+      // 통계 데이터 로드
       try {
         const [usersRes, projectsRes] = await Promise.all([
           axios.get(\`\${API_BASE}/admin/users\`),
-          axios.get(\`\${API_BASE}/projects\`)
+          axios.get(\`\${API_BASE}/admin/projects\`)
         ]);
         
-        const users = usersRes.data;
-        const projects = projectsRes.data;
+        const users = usersRes.data || [];
+        const projects = projectsRes.data || [];
         
-        document.getElementById('total-users').textContent = users.length;
-        document.getElementById('total-projects').textContent = projects.length;
+        document.getElementById('stat-users').textContent = users.length;
+        document.getElementById('stat-projects').textContent = projects.length;
+        document.getElementById('stat-admins').textContent = users.filter(u => u.isSuperAdmin || u.isAdmin).length;
         
-        // 관리자 수 계산
-        const admins = users.filter(u => u.isSuperAdmin || u.isAdmin);
-        document.getElementById('total-admins').textContent = admins.length;
-        
-        // 오늘 가입한 사용자
-        const today = new Date().toISOString().split('T')[0];
-        const todaySignups = users.filter(u => u.created_at?.startsWith(today));
-        document.getElementById('today-signups').textContent = todaySignups.length;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayUsers = users.filter(u => new Date(u.created_at) >= today).length;
+        document.getElementById('stat-today').textContent = todayUsers;
       } catch (error) {
         console.error('Failed to load stats:', error);
       }
     }
     
-    // 사용자 목록 로드
+    // 사용자 관리 렌더링
+    async function renderUsers() {
+      const contentArea = document.getElementById('content-area');
+      contentArea.innerHTML = \`
+        <div style="margin-bottom: 32px;">
+          <h2 class="text-title1" style="color: var(--grey-900); margin-bottom: 8px;">사용자 관리</h2>
+          <p class="text-body1" style="color: var(--grey-600);">전체 사용자 목록 및 권한 관리</p>
+        </div>
+        
+        <div class="card">
+          <div style="padding: 24px; border-bottom: 1px solid var(--grey-100);">
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="flex: 1; position: relative;">
+                <i class="fas fa-search" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--grey-400);"></i>
+                <input type="text" id="user-search" placeholder="이메일 또는 닉네임으로 검색" class="input" style="padding-left: 44px;">
+              </div>
+              <button onclick="refreshUsers()" class="btn-secondary">
+                <i class="fas fa-sync-alt"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div style="overflow-x: auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>이메일</th>
+                  <th>닉네임</th>
+                  <th>역할</th>
+                  <th>가입일</th>
+                  <th>작업</th>
+                </tr>
+              </thead>
+              <tbody id="user-list"></tbody>
+            </table>
+          </div>
+        </div>
+      \`;
+      
+      // 사용자 목록 로드
+      await loadUsers();
+      
+      // 검색 이벤트
+      document.getElementById('user-search').addEventListener('input', (e) => {
+        filterUsers(e.target.value);
+      });
+    }
+    
+    let allUsers = [];
+    
     async function loadUsers() {
       try {
         const response = await axios.get(\`\${API_BASE}/admin/users\`);
-        allUsers = response.data;
-        renderUsers(allUsers);
+        allUsers = response.data || [];
+        renderUserList(allUsers);
       } catch (error) {
         console.error('Failed to load users:', error);
         document.getElementById('user-list').innerHTML = \`
-          <div style="text-align: center; padding: 80px 20px; color: #ef4444;">
-            <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 16px;"></i>
-            <p>사용자 정보를 불러오는데 실패했습니다.</p>
-          </div>
+          <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--grey-500);">
+            사용자 목록을 불러올 수 없습니다.
+          </td></tr>
         \`;
       }
     }
     
-    // 사용자 목록 렌더링
-    function renderUsers(users) {
-      const container = document.getElementById('user-list');
+    function renderUserList(users) {
+      const tbody = document.getElementById('user-list');
       
-      if (!users.length) {
-        container.innerHTML = \`
-          <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
-            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
-            <p>사용자가 없습니다.</p>
-          </div>
+      if (users.length === 0) {
+        tbody.innerHTML = \`
+          <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--grey-500);">
+            사용자가 없습니다.
+          </td></tr>
         \`;
         return;
       }
       
-      container.innerHTML = users.map(user => {
-        const roleBadges = user.roles?.map(role => {
-          const badgeClass = role.name === 'super_admin' ? 'badge-super-admin' : 
-                             role.name === 'admin' ? 'badge-admin' : 'badge-user';
-          return \`<span class="badge \${badgeClass}">\${role.display_name}</span>\`;
-        }).join(' ') || '<span class="badge badge-user">일반 회원</span>';
+      tbody.innerHTML = users.map(user => \`
+        <tr>
+          <td>\${user.id}</td>
+          <td>\${user.email}</td>
+          <td>\${user.name || '-'}</td>
+          <td>
+            \${user.isSuperAdmin 
+              ? '<span class="badge-role badge-super-admin"><i class="fas fa-crown"></i> 최고관리자</span>'
+              : user.isAdmin
+              ? '<span class="badge-role badge-admin"><i class="fas fa-user-shield"></i> 관리자</span>'
+              : '<span class="badge-role badge-user"><i class="fas fa-user"></i> 일반</span>'
+            }
+          </td>
+          <td>\${formatDate(user.created_at)}</td>
+          <td>
+            <div style="display: flex; gap: 8px;">
+              \${!user.isSuperAdmin ? \`
+                <button onclick="grantAdmin(\${user.id})" class="btn-text" style="color: var(--blue-500);" title="관리자 권한 부여">
+                  <i class="fas fa-user-plus"></i>
+                </button>
+                <button onclick="deleteUser(\${user.id})" class="btn-text" style="color: var(--red-500);" title="사용자 삭제">
+                  <i class="fas fa-trash"></i>
+                </button>
+              \` : '<span style="color: var(--grey-400); font-size: 12px;">-</span>'}
+            </div>
+          </td>
+        </tr>
+      \`).join('');
+    }
+    
+    function filterUsers(query) {
+      const filtered = allUsers.filter(user => 
+        user.email.toLowerCase().includes(query.toLowerCase()) ||
+        (user.name && user.name.toLowerCase().includes(query.toLowerCase()))
+      );
+      renderUserList(filtered);
+    }
+    
+    function refreshUsers() {
+      loadUsers();
+    }
+    
+    async function grantAdmin(userId) {
+      if (!confirm('이 사용자에게 최고관리자 권한을 부여하시겠습니까?')) return;
+      
+      try {
+        await axios.post(\`\${API_BASE}/admin/users/\${userId}/roles\`, {
+          role: 'super_admin'
+        });
+        alert('권한이 부여되었습니다.');
+        await loadUsers();
+      } catch (error) {
+        console.error('Failed to grant admin:', error);
+        alert('권한 부여 중 오류가 발생했습니다.');
+      }
+    }
+    
+    async function deleteUser(userId) {
+      if (!confirm('정말 이 사용자를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) return;
+      
+      try {
+        await axios.delete(\`\${API_BASE}/admin/users/\${userId}\`);
+        alert('사용자가 삭제되었습니다.');
+        await loadUsers();
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        alert('사용자 삭제 중 오류가 발생했습니다.');
+      }
+    }
+    
+    // 프로젝트 관리 렌더링
+    async function renderProjects() {
+      const contentArea = document.getElementById('content-area');
+      contentArea.innerHTML = \`
+        <div style="margin-bottom: 32px;">
+          <h2 class="text-title1" style="color: var(--grey-900); margin-bottom: 8px;">프로젝트 관리</h2>
+          <p class="text-body1" style="color: var(--grey-600);">전체 프로젝트 목록 및 관리</p>
+        </div>
         
-        return \`
-          <div class="user-row">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <div style="flex: 1;">
-                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
-                  <h3 style="font-weight: 600; font-size: 16px; color: #1f2937;">\${escapeHtml(user.name)}</h3>
-                  \${roleBadges}
-                </div>
-                <div style="display: flex; align-items: center; gap: 16px; font-size: 14px; color: #6b7280;">
-                  <span><i class="fas fa-envelope" style="margin-right: 4px;"></i>\${escapeHtml(user.email)}</span>
-                  <span><i class="fas fa-calendar" style="margin-right: 4px;"></i>\${formatDate(user.created_at)}</span>
-                  \${user.last_login_at ? \`<span><i class="fas fa-sign-in-alt" style="margin-right: 4px;"></i>\${formatRelativeTime(user.last_login_at)}</span>\` : ''}
-                </div>
+        <div class="card">
+          <div style="padding: 24px; border-bottom: 1px solid var(--grey-100);">
+            <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="flex: 1; position: relative;">
+                <i class="fas fa-search" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--grey-400);"></i>
+                <input type="text" id="project-search" placeholder="프로젝트 제목으로 검색" class="input" style="padding-left: 44px;">
               </div>
-              <button onclick="manageUser(\${user.id})" class="btn-primary" style="padding: 8px 16px; font-size: 14px;">
-                <i class="fas fa-cog"></i>
+              <button onclick="refreshProjects()" class="btn-secondary">
+                <i class="fas fa-sync-alt"></i>
               </button>
             </div>
           </div>
-        \`;
-      }).join('');
-    }
-    
-    // 사용자 검색 필터
-    function filterUsers() {
-      const query = document.getElementById('user-search').value.toLowerCase();
-      const filtered = allUsers.filter(user => 
-        user.email.toLowerCase().includes(query) ||
-        user.name.toLowerCase().includes(query)
-      );
-      renderUsers(filtered);
-    }
-    
-    // 사용자 관리 (추후 구현)
-    function manageUser(userId) {
-      alert(\`사용자 관리 기능은 곧 추가될 예정입니다.\\n사용자 ID: \${userId}\`);
-    }
-    
-    // 메인 페이지로 돌아가기
-    function goBack() {
-      window.location.href = '/app';
-    }
-    
-    // HTML 이스케이프
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-    
-    // 날짜 포맷
-    function formatDate(dateStr) {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      return date.toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+          
+          <div style="overflow-x: auto;">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>제목</th>
+                  <th>생성자</th>
+                  <th>상태</th>
+                  <th>생성일</th>
+                </tr>
+              </thead>
+              <tbody id="project-list"></tbody>
+            </table>
+          </div>
+        </div>
+      \`;
+      
+      // 프로젝트 목록 로드
+      await loadProjects();
+      
+      // 검색 이벤트
+      document.getElementById('project-search').addEventListener('input', (e) => {
+        filterProjects(e.target.value);
       });
     }
     
-    // 상대 시간 표시
-    function formatRelativeTime(dateStr) {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      const now = new Date();
-      const diff = now - date;
-      const seconds = Math.floor(diff / 1000);
-      const minutes = Math.floor(seconds / 60);
-      const hours = Math.floor(minutes / 60);
-      const days = Math.floor(hours / 24);
-      
-      if (days > 0) return \`\${days}일 전\`;
-      if (hours > 0) return \`\${hours}시간 전\`;
-      if (minutes > 0) return \`\${minutes}분 전\`;
-      return '방금 전';
+    let allProjects = [];
+    
+    async function loadProjects() {
+      try {
+        const response = await axios.get(\`\${API_BASE}/admin/projects\`);
+        allProjects = response.data || [];
+        renderProjectList(allProjects);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        document.getElementById('project-list').innerHTML = \`
+          <tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--grey-500);">
+            프로젝트 목록을 불러올 수 없습니다.
+          </td></tr>
+        \`;
+      }
     }
+    
+    function renderProjectList(projects) {
+      const tbody = document.getElementById('project-list');
+      
+      if (projects.length === 0) {
+        tbody.innerHTML = \`
+          <tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--grey-500);">
+            프로젝트가 없습니다.
+          </td></tr>
+        \`;
+        return;
+      }
+      
+      tbody.innerHTML = projects.map(project => \`
+        <tr>
+          <td>\${project.id}</td>
+          <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <strong>\${project.title}</strong>
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <i class="fas fa-user-circle" style="color: var(--grey-400);"></i>
+              <span>\${project.creator_name || '알 수 없음'}</span>
+            </div>
+          </td>
+          <td>
+            <span class="badge" style="background: var(--grey-100); color: var(--grey-700);">
+              \${project.status === 'draft' ? '초안' : project.status === 'in_progress' ? '진행중' : '완료'}
+            </span>
+          </td>
+          <td>\${formatDate(project.created_at)}</td>
+        </tr>
+      \`).join('');
+    }
+    
+    function filterProjects(query) {
+      const filtered = allProjects.filter(project => 
+        project.title.toLowerCase().includes(query.toLowerCase())
+      );
+      renderProjectList(filtered);
+    }
+    
+    function refreshProjects() {
+      loadProjects();
+    }
+    
+    // 날짜 포맷팅
+    function formatDate(dateString) {
+      if (!dateString) return '-';
+      const date = new Date(dateString);
+      return date.toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    }
+    
+    // 페이지 로드 시 초기화
+    init();
   </script>
 </body>
 </html>
-  `);
+`);
 });
 
 app.get('/admin.html', (c) => {
