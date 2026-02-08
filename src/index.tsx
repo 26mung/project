@@ -469,16 +469,17 @@ const ONBOARDING_HTML = `<!DOCTYPE html>
       <h1 class="hero-title">당신의 아이디어,<br>AI가 완성합니다</h1>
       <p class="hero-subtitle">복잡한 건 싫어요. 기획부터 PRD 작성까지, 10분이면 끝.</p>
       <a href="#" class="hero-cta" onclick="event.preventDefault(); showSignupModal();">
-        <span>무료로 시작하기</span>
+        <span>바로 시작하기</span>
         <i class="fas fa-arrow-right"></i>
       </a>
     </div>
-    <div class="scroll-indicator">
+    <div class="scroll-indicator" style="display: none;">
       <i class="fas fa-chevron-down"></i>
     </div>
   </section>
   
   <!-- Feature 1 -->
+  <div style="display: none;">
   <section class="feature-section">
     <div class="feature-content">
       <div class="feature-text">
@@ -545,14 +546,15 @@ const ONBOARDING_HTML = `<!DOCTYPE html>
   </section>
   
   <!-- CTA Section -->
-  <section class="cta-section">
+  <section class="cta-section" style="display: none;">
     <h2>지금 바로 시작하세요</h2>
     <p>10분이면 당신의 첫 PRD가 완성됩니다.</p>
     <a href="#" class="hero-cta" onclick="event.preventDefault(); showSignupModal();">
-      <span>무료로 시작하기</span>
+      <span>바로 시작하기</span>
       <i class="fas fa-arrow-right"></i>
     </a>
   </section>
+  </div>
   
   <script src="/static/onboarding.js"></script>
 </body>
