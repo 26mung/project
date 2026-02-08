@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 페이지 - 플랫폼기획팀</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    * {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+    
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    
+    .admin-card {
+      background: white;
+      border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .admin-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 32px;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-number {
+      font-size: 36px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: none;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .user-row {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 16px;
+      transition: background 0.2s ease;
+    }
+    
+    .user-row:hover {
+      background: #f9fafb;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    
+    .badge-super-admin {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      color: white;
+    }
+    
+    .badge-admin {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .badge-user {
+      background: #e5e7eb;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <!-- Header -->
+    <div class="admin-card" style="margin-bottom: 32px;">
+      <div class="admin-header">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <div>
+            <h1 style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">
+              <i class="fas fa-crown" style="margin-right: 12px;"></i>
+              관리자 페이지
+            </h1>
+            <p style="opacity: 0.9; font-size: 14px;">플랫폼기획팀 시스템 관리</p>
+          </div>
+          <button onclick="goBack()" class="btn-primary" style="background: rgba(255, 255, 255, 0.2);">
+            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i>
+            메인으로
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Stats -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 32px;">
+      <div class="stat-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">총 사용자</span>
+          <i class="fas fa-users" style="font-size: 24px; color: #667eea;"></i>
+        </div>
+        <div class="stat-number" id="total-users">0</div>
+      </div>
+      
+      <div class="stat-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">총 프로젝트</span>
+          <i class="fas fa-folder" style="font-size: 24px; color: #764ba2;"></i>
+        </div>
+        <div class="stat-number" id="total-projects">0</div>
+      </div>
+      
+      <div class="stat-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">관리자</span>
+          <i class="fas fa-user-shield" style="font-size: 24px; color: #fbbf24;"></i>
+        </div>
+        <div class="stat-number" id="total-admins">0</div>
+      </div>
+      
+      <div class="stat-card">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+          <span style="color: #6b7280; font-size: 14px; font-weight: 600;">오늘 가입</span>
+          <i class="fas fa-user-plus" style="font-size: 24px; color: #10b981;"></i>
+        </div>
+        <div class="stat-number" id="today-signups">0</div>
+      </div>
+    </div>
+    
+    <!-- User Management -->
+    <div class="admin-card">
+      <div style="padding: 32px; border-bottom: 1px solid #e5e7eb;">
+        <h2 style="font-size: 24px; font-weight: 700; color: #1f2937;">
+          <i class="fas fa-users-cog" style="margin-right: 12px; color: #667eea;"></i>
+          회원 관리
+        </h2>
+      </div>
+      
+      <div style="padding: 24px;">
+        <div style="margin-bottom: 24px;">
+          <input 
+            type="text" 
+            id="user-search" 
+            placeholder="이메일 또는 이름으로 검색..." 
+            oninput="filterUsers()"
+            style="width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px;"
+          >
+        </div>
+        
+        <div id="user-list" style="min-height: 400px;">
+          <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 48px; margin-bottom: 16px;"></i>
+            <p>사용자 정보를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = window.location.origin + '/api';
+    let allUsers = [];
+    
+    // 페이지 로드 시 인증 확인
+    document.addEventListener('DOMContentLoaded', async () => {
+      await checkAuth();
+      await loadStats();
+      await loadUsers();
+    });
+    
+    // 인증 확인
+    async function checkAuth() {
+      try {
+        const response = await axios.get(`${API_BASE}/auth/check`, {
+          credentials: 'include'
+        });
+        
+        if (!response.data.authenticated) {
+          alert('로그인이 필요합니다.');
+          window.location.href = '/';
+          return;
+        }
+        
+        // 최고관리자 권한 확인
+        if (!response.data.user?.isSuperAdmin) {
+          alert('관리자 권한이 필요합니다.');
+          window.location.href = '/app';
+          return;
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        window.location.href = '/';
+      }
+    }
+    
+    // 통계 로드
+    async function loadStats() {
+      try {
+        const [usersRes, projectsRes] = await Promise.all([
+          axios.get(`${API_BASE}/admin/users`),
+          axios.get(`${API_BASE}/projects`)
+        ]);
+        
+        const users = usersRes.data;
+        const projects = projectsRes.data;
+        
+        document.getElementById('total-users').textContent = users.length;
+        document.getElementById('total-projects').textContent = projects.length;
+        
+        // 관리자 수 계산 (super_admin 또는 admin 역할이 있는 사용자)
+        const admins = users.filter(u => u.isSuperAdmin || u.isAdmin);
+        document.getElementById('total-admins').textContent = admins.length;
+        
+        // 오늘 가입한 사용자
+        const today = new Date().toISOString().split('T')[0];
+        const todaySignups = users.filter(u => u.created_at?.startsWith(today));
+        document.getElementById('today-signups').textContent = todaySignups.length;
+      } catch (error) {
+        console.error('Failed to load stats:', error);
+      }
+    }
+    
+    // 사용자 목록 로드
+    async function loadUsers() {
+      try {
+        const response = await axios.get(`${API_BASE}/admin/users`);
+        allUsers = response.data;
+        renderUsers(allUsers);
+      } catch (error) {
+        console.error('Failed to load users:', error);
+        document.getElementById('user-list').innerHTML = `
+          <div style="text-align: center; padding: 80px 20px; color: #ef4444;">
+            <i class="fas fa-exclamation-circle" style="font-size: 48px; margin-bottom: 16px;"></i>
+            <p>사용자 정보를 불러오는데 실패했습니다.</p>
+          </div>
+        `;
+      }
+    }
+    
+    // 사용자 목록 렌더링
+    function renderUsers(users) {
+      const container = document.getElementById('user-list');
+      
+      if (!users.length) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 80px 20px; color: #9ca3af;">
+            <i class="fas fa-users" style="font-size: 48px; margin-bottom: 16px;"></i>
+            <p>사용자가 없습니다.</p>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = users.map(user => {
+        const roleBadges = user.roles?.map(role => {
+          const badgeClass = role.name === 'super_admin' ? 'badge-super-admin' : 
+                             role.name === 'admin' ? 'badge-admin' : 'badge-user';
+          return `<span class="badge ${badgeClass}">${role.display_name}</span>`;
+        }).join(' ') || '<span class="badge badge-user">일반 회원</span>';
+        
+        return `
+          <div class="user-row">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="flex: 1;">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                  <h3 style="font-weight: 600; font-size: 16px; color: #1f2937;">${escapeHtml(user.name)}</h3>
+                  ${roleBadges}
+                </div>
+                <div style="display: flex; align-items: center; gap: 16px; font-size: 14px; color: #6b7280;">
+                  <span><i class="fas fa-envelope" style="margin-right: 4px;"></i>${escapeHtml(user.email)}</span>
+                  <span><i class="fas fa-calendar" style="margin-right: 4px;"></i>${formatDate(user.created_at)}</span>
+                  ${user.last_login_at ? `<span><i class="fas fa-sign-in-alt" style="margin-right: 4px;"></i>${formatRelativeTime(user.last_login_at)}</span>` : ''}
+                </div>
+              </div>
+              <button onclick="manageUser(${user.id})" class="btn-primary" style="padding: 8px 16px; font-size: 14px;">
+                <i class="fas fa-cog"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    
+    // 사용자 검색 필터
+    function filterUsers() {
+      const query = document.getElementById('user-search').value.toLowerCase();
+      const filtered = allUsers.filter(user => 
+        user.email.toLowerCase().includes(query) ||
+        user.name.toLowerCase().includes(query)
+      );
+      renderUsers(filtered);
+    }
+    
+    // 사용자 관리 (추후 구현)
+    function manageUser(userId) {
+      alert(`사용자 관리 기능은 곧 추가될 예정입니다.\n사용자 ID: ${userId}`);
+    }
+    
+    // 메인 페이지로 돌아가기
+    function goBack() {
+      window.location.href = '/app';
+    }
+    
+    // HTML 이스케이프
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    // 날짜 포맷
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
+    // 상대 시간 표시
+    function formatRelativeTime(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diff = now - date;
+      const seconds = Math.floor(diff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) return `${days}일 전`;
+      if (hours > 0) return `${hours}시간 전`;
+      if (minutes > 0) return `${minutes}분 전`;
+      return '방금 전';
+    }
+  </script>
+</body>
+</html>

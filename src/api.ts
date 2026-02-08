@@ -1797,4 +1797,90 @@ api.post('/chat/message', async (c) => {
 });
 
 
+// ============ Admin APIs ============
+
+// 전체 사용자 목록 조회 (관리자 전용)
+api.get('/admin/users', async (c) => {
+  const { DB } = c.env;
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    // 세션 확인 및 관리자 권한 체크
+    const session = await DB.prepare(
+      'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first();
+    
+    if (!session) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // 관리자 권한 확인
+    const userRoles = await DB.prepare(
+      `SELECT r.name, r.level 
+       FROM user_roles ur 
+       JOIN roles r ON ur.role_id = r.id 
+       WHERE ur.user_id = ?`
+    ).bind(session.user_id).all();
+    
+    const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+    
+    if (!isSuperAdmin) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+    
+    // 모든 사용자 정보 조회
+    const users = await DB.prepare(`
+      SELECT 
+        u.id,
+        u.email,
+        u.name,
+        u.birth_date,
+        u.is_email_verified,
+        u.created_at,
+        u.updated_at,
+        u.last_login_at
+      FROM users u
+      ORDER BY u.created_at DESC
+    `).all();
+    
+    // 각 사용자의 역할 정보 조회
+    const usersWithRoles = await Promise.all(
+      users.results.map(async (user: any) => {
+        const roles = await DB.prepare(
+          `SELECT r.name, r.display_name, r.level 
+           FROM user_roles ur 
+           JOIN roles r ON ur.role_id = r.id 
+           WHERE ur.user_id = ?
+           ORDER BY r.level DESC`
+        ).bind(user.id).all();
+        
+        const maxLevel = roles.results && roles.results.length > 0 
+          ? Math.max(...roles.results.map((r: any) => r.level))
+          : 0;
+        
+        const isSuperAdmin = roles.results?.some((r: any) => r.name === 'super_admin') || false;
+        const isAdmin = roles.results?.some((r: any) => r.name === 'admin' || r.name === 'super_admin') || false;
+        
+        return {
+          ...user,
+          roles: roles.results || [],
+          isSuperAdmin,
+          isAdmin,
+          maxLevel
+        };
+      })
+    );
+    
+    return c.json(usersWithRoles);
+  } catch (error) {
+    console.error('[Admin Users List Error]', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+
 export default api;

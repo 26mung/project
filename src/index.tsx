@@ -3,6 +3,7 @@ import { serveStatic } from 'hono/cloudflare-workers'
 import api from './api'
 import type { Bindings } from './types'
 
+
 const ONBOARDING_HTML = `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -586,6 +587,36 @@ app.get('/onboarding.html', (c) => {
 })
 
 // 메인 앱
+// Admin page
+app.get('/admin', async (c) => {
+  // 캐시 방지 헤더 추가
+  c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
+  c.header('Pragma', 'no-cache');
+  c.header('Expires', '0');
+  
+  // admin.html 파일을 직접 읽어서 반환
+  try {
+    const adminHtmlContent = await fetch(new URL('/admin.html', c.req.url)).then(r => r.text());
+    return c.html(adminHtmlContent);
+  } catch (error) {
+    // Fallback: 간단한 관리자 페이지
+    return c.html(`
+      <!DOCTYPE html>
+      <html lang="ko">
+      <head>
+        <meta charset="UTF-8">
+        <title>관리자 페이지</title>
+      </head>
+      <body>
+        <h1>관리자 페이지</h1>
+        <p>Coming soon...</p>
+        <a href="/app">메인으로 돌아가기</a>
+      </body>
+      </html>
+    `);
+  }
+});
+
 app.get('/app', (c) => {
   // 캐시 방지 헤더 추가
   c.header('Cache-Control', 'no-cache, no-store, must-revalidate');
