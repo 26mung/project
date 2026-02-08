@@ -4789,20 +4789,26 @@ async function generateCategoryBasedAdditionalRequirements() {
     const { categories } = response.data;
     
     if (!categories || categories.length === 0) {
-      document.getElementById('category-selection-step').innerHTML = `
-        <div class="text-center py-8">
-          <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <i class="fas fa-check-circle text-2xl text-green-600"></i>
+      const element = document.getElementById('category-selection-step');
+      if (element) {
+        element.innerHTML = `
+          <div class="text-center py-8">
+            <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i class="fas fa-check-circle text-2xl text-green-600"></i>
+            </div>
+            <p class="text-toss-gray-900 font-semibold mb-2">현재 요건이 충분합니다</p>
+            <p class="text-sm text-toss-gray-600">추가로 필요한 요건이 없어요</p>
           </div>
-          <p class="text-toss-gray-900 font-semibold mb-2">현재 요건이 충분합니다</p>
-          <p class="text-sm text-toss-gray-600">추가로 필요한 요건이 없어요</p>
-        </div>
-      `;
+        `;
+      }
       return;
     }
     
     // 카테고리 선택 UI 표시
-    document.getElementById('category-selection-step').innerHTML = `
+    const categoryElement = document.getElementById('category-selection-step');
+    if (!categoryElement) return;
+    
+    categoryElement.innerHTML = `
       <div class="space-y-4">
         <div class="text-center mb-6">
           <p class="text-toss-gray-900 font-semibold mb-2">어떤 영역의 요건을 추가할까요?</p>
@@ -4851,7 +4857,10 @@ async function generateCategoryBasedAdditionalRequirements() {
     
   } catch (error) {
     console.error('Failed to suggest categories:', error);
-    document.getElementById('category-selection-step').innerHTML = `
+    const errorElement = document.getElementById('category-selection-step');
+    if (!errorElement) return;
+    
+    errorElement.innerHTML = `
       <div class="text-center py-8">
         <div class="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
           <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
