@@ -274,7 +274,7 @@ function showMainApp() {
       </button>
       
       <!-- Sidebar -->
-      <div id="sidebar" style="width: 280px; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column; transition: all 0.3s ease;">
+      <div id="sidebar" style="width: 280px; height: 100vh; background: white; border-right: 1px solid var(--grey-200); display: flex; flex-direction: column; transition: all 0.3s ease;">
         <!-- Header -->
         <div style="padding: 20px; border-bottom: 1px solid var(--grey-100);">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
@@ -297,8 +297,19 @@ function showMainApp() {
           </button>
         </div>
         
-        <!-- 프로젝트 검색 필터 (상단 고정) -->
-        <div class="sidebar-filter-area" style="padding: 12px; border-bottom: 1px solid var(--grey-200); background: white;">
+        <!-- 프로젝트 검색 필터 (접기/펼치기 가능) -->
+        <div class="sidebar-filter-area" style="flex-shrink: 0; background: white; border-bottom: 1px solid var(--grey-200);">
+          <!-- 필터 헤더 -->
+          <div onclick="toggleSidebarFilter()" style="padding: 12px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none;">
+            <span style="font-size: 13px; font-weight: 600; color: var(--grey-700);">
+              <i class="fas fa-filter" style="margin-right: 6px; color: var(--blue-500);"></i>
+              검색 필터
+            </span>
+            <i id="sidebar-filter-icon" class="fas fa-chevron-up" style="font-size: 12px; color: var(--grey-500); transition: transform 0.2s;"></i>
+          </div>
+          
+          <!-- 필터 내용 -->
+          <div id="sidebar-filter-content" style="padding: 0 12px 12px 12px;">
           <!-- 프로젝트명 검색 -->
           <div style="margin-bottom: 8px;">
             <div style="position: relative;">
@@ -336,6 +347,7 @@ function showMainApp() {
               오래된순
             </button>
           </div>
+          </div>
         </div>
         
         <!-- Project List (스크롤 영역) -->
@@ -352,8 +364,8 @@ function showMainApp() {
       
       <!-- Main Content -->
       <div style="flex: 1; display: flex; flex-direction: column;">
-        <!-- Tabs -->
-        <div style="background: white; border-bottom: 1px solid var(--grey-200);">
+        <!-- Tabs (상단 고정) -->
+        <div style="position: sticky; top: 0; z-index: 100; background: white; border-bottom: 1px solid var(--grey-200);">
           <div style="display: flex; padding: 0 24px; overflow-x: auto;">
             <button id="tab-overview" onclick="switchTab('overview')" class="tab-button">
               <i class="fas fa-home" style="margin-right: 6px; font-size: 13px;"></i>
@@ -556,6 +568,24 @@ function handleSortOrder(order) {
   });
   
   renderProjectList();
+}
+
+// 사이드바 필터 토글
+function toggleSidebarFilter() {
+  const filterContent = document.getElementById('sidebar-filter-content');
+  const filterIcon = document.getElementById('sidebar-filter-icon');
+  
+  if (filterContent && filterIcon) {
+    const isExpanded = filterContent.style.display !== 'none';
+    
+    if (isExpanded) {
+      filterContent.style.display = 'none';
+      filterIcon.style.transform = 'rotate(180deg)';
+    } else {
+      filterContent.style.display = 'block';
+      filterIcon.style.transform = 'rotate(0deg)';
+    }
+  }
 }
 
 // 사이드바 토글
@@ -2333,6 +2363,8 @@ async function editProjectOverview(evaluationData = null) {
 // 요건 검색 필터 상태
 let requirementSearchQuery = '';
 let requirementTypeFilter = 'all';
+let requirementPriorityFilter = 'all';
+let requirementStatusFilter = 'all';
 let requirementSortOrder = 'desc';
 
 // 요건 검색 핸들러
@@ -2346,10 +2378,52 @@ function handleRequirementTypeFilter(type) {
   requirementTypeFilter = type;
   
   // 버튼 스타일 업데이트
-  ['all', 'functional', 'non-functional'].forEach(t => {
+  ['all', 'functional', 'non_functional'].forEach(t => {
     const btn = document.getElementById(`filter-type-${t}`);
     if (btn) {
       if (t === type) {
+        btn.style.background = 'var(--grey-100)';
+        btn.style.color = 'var(--grey-900)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+      }
+    }
+  });
+  
+  filterAndRenderRequirements();
+}
+
+// 요건 우선순위 필터 핸들러
+function handleRequirementPriorityFilter(priority) {
+  requirementPriorityFilter = priority;
+  
+  // 버튼 스타일 업데이트
+  ['all', 'high', 'medium', 'low'].forEach(p => {
+    const btn = document.getElementById(`filter-priority-${p}`);
+    if (btn) {
+      if (p === priority) {
+        btn.style.background = 'var(--grey-100)';
+        btn.style.color = 'var(--grey-900)';
+      } else {
+        btn.style.background = 'white';
+        btn.style.color = 'var(--grey-700)';
+      }
+    }
+  });
+  
+  filterAndRenderRequirements();
+}
+
+// 요건 상태 필터 핸들러
+function handleRequirementStatusFilter(status) {
+  requirementStatusFilter = status;
+  
+  // 버튼 스타일 업데이트
+  ['all', 'pending', 'in_progress', 'completed'].forEach(s => {
+    const btn = document.getElementById(`filter-status-${s}`);
+    if (btn) {
+      if (s === status) {
         btn.style.background = 'var(--grey-100)';
         btn.style.color = 'var(--grey-900)';
       } else {
@@ -2403,6 +2477,16 @@ function filterAndRenderRequirements() {
   // 타입 필터
   if (requirementTypeFilter !== 'all') {
     filtered = filtered.filter(r => r.requirement_type === requirementTypeFilter);
+  }
+  
+  // 우선순위 필터
+  if (requirementPriorityFilter !== 'all') {
+    filtered = filtered.filter(r => r.priority === requirementPriorityFilter);
+  }
+  
+  // 상태 필터
+  if (requirementStatusFilter !== 'all') {
+    filtered = filtered.filter(r => r.status === requirementStatusFilter);
   }
   
   // 정렬
@@ -2553,8 +2637,52 @@ async function renderRequirements(page = 1) {
                 <button id="filter-type-functional" onclick="handleRequirementTypeFilter('functional')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
                   기능
                 </button>
-                <button id="filter-type-non-functional" onclick="handleRequirementTypeFilter('non_functional')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                <button id="filter-type-non_functional" onclick="handleRequirementTypeFilter('non_functional')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
                   비기능
+                </button>
+              </div>
+            </div>
+            
+            <!-- 우선순위 필터 -->
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--grey-700); margin-bottom: 8px;">
+                <i class="fas fa-star" style="margin-right: 4px; color: var(--blue-500);"></i>
+                우선순위
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button id="filter-priority-all" onclick="handleRequirementPriorityFilter('all')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: var(--grey-100); font-size: 13px; font-weight: 600; color: var(--grey-900); cursor: pointer; transition: all 0.2s;">
+                  전체
+                </button>
+                <button id="filter-priority-high" onclick="handleRequirementPriorityFilter('high')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  High
+                </button>
+                <button id="filter-priority-medium" onclick="handleRequirementPriorityFilter('medium')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  Medium
+                </button>
+                <button id="filter-priority-low" onclick="handleRequirementPriorityFilter('low')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  Low
+                </button>
+              </div>
+            </div>
+            
+            <!-- 진행 상태 필터 -->
+            <div style="flex: 1; min-width: 200px;">
+              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--grey-700); margin-bottom: 8px;">
+                <i class="fas fa-tasks" style="margin-right: 4px; color: var(--blue-500);"></i>
+                진행 상태
+              </label>
+              <div style="display: flex; gap: 8px;">
+                <button id="filter-status-all" onclick="handleRequirementStatusFilter('all')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: var(--grey-100); font-size: 13px; font-weight: 600; color: var(--grey-900); cursor: pointer; transition: all 0.2s;">
+                  전체
+                </button>
+                <button id="filter-status-pending" onclick="handleRequirementStatusFilter('pending')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  대기중
+                </button>
+                <button id="filter-status-in_progress" onclick="handleRequirementStatusFilter('in_progress')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  진행중
+                </button>
+                <button id="filter-status-completed" onclick="handleRequirementStatusFilter('completed')" style="flex: 1; padding: 8px 12px; border: 2px solid var(--grey-200); border-radius: 8px; background: white; font-size: 13px; font-weight: 600; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+                  완료
                 </button>
               </div>
             </div>
@@ -2726,15 +2854,46 @@ function renderRequirementCard(requirement) {
     pending: '대기'
   };
   
+  const typeTexts = {
+    functional: '기능',
+    non_functional: '비기능',
+    security: '보안',
+    performance: '성능'
+  };
+  
+  const typeBadges = {
+    functional: 'badge badge-small badge-weak-blue',
+    non_functional: 'badge badge-small badge-weak-purple',
+    security: 'badge badge-small badge-weak-red',
+    performance: 'badge badge-small badge-weak-green'
+  };
+  
+  const typeIcons = {
+    functional: 'fa-cog',
+    non_functional: 'fa-shield-alt',
+    security: 'fa-lock',
+    performance: 'fa-tachometer-alt'
+  };
+  
+  // 북마크 상태 확인 (localStorage에서)
+  const bookmarkKey = `bookmark_req_${requirement.id}`;
+  const isBookmarked = localStorage.getItem(bookmarkKey) === 'true';
+  
   return `
     <div class="card p-6 card-hover requirement-card-mobile" data-requirement-id="${requirement.id}">
       <div class="requirement-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
             <h3 class="text-title4" style="color: var(--grey-900);">${escapeHtml(requirement.title)}</h3>
+            <!-- 타입 배지 -->
+            <span class="${typeBadges[requirement.requirement_type] || typeBadges.functional}">
+              <i class="fas ${typeIcons[requirement.requirement_type] || typeIcons.functional}" style="margin-right: 4px; font-size: 10px;"></i>${typeTexts[requirement.requirement_type] || '기능'}
+            </span>
+            <!-- 우선순위 배지 -->
             <span class="${priorityBadges[requirement.priority] || priorityBadges.medium}">
               <i class="fas ${priorityIcons[requirement.priority] || priorityIcons.medium}" style="margin-right: 4px; font-size: 10px;"></i>${requirement.priority.toUpperCase()}
             </span>
+            <!-- 상태 배지 -->
             <span class="${statusBadges[requirement.status] || statusBadges.pending}">
               ${statusTexts[requirement.status] || '대기'}
             </span>
@@ -2783,6 +2942,10 @@ function renderRequirementCard(requirement) {
           ` : ''}
         </div>
         <div class="requirement-actions" style="display: flex; align-items: center; gap: 4px; margin-left: 16px;">
+          <!-- 북마크 버튼 -->
+          <button onclick="toggleBookmark(${requirement.id}, event)" class="btn-icon" title="${isBookmarked ? '북마크 해제' : '북마크 추가'}" id="bookmark-btn-${requirement.id}">
+            <i class="fa${isBookmarked ? 's' : 'r'} fa-star" style="font-size: 13px; color: ${isBookmarked ? 'var(--yellow-500)' : 'var(--grey-400)'};"></i>
+          </button>
           <button onclick="editRequirement(${requirement.id})" class="btn-icon" title="편집">
             <i class="fas fa-edit" style="font-size: 13px;"></i>
           </button>
@@ -4166,6 +4329,34 @@ async function deleteRequirement(requirementId) {
       }
     }
   });
+}
+
+// 요건 북마크 토글
+function toggleBookmark(requirementId, event) {
+  if (event) {
+    event.stopPropagation();
+  }
+  
+  const bookmarkKey = `bookmark_req_${requirementId}`;
+  const isBookmarked = localStorage.getItem(bookmarkKey) === 'true';
+  const newState = !isBookmarked;
+  
+  // localStorage에 저장
+  localStorage.setItem(bookmarkKey, newState.toString());
+  
+  // 버튼 UI 업데이트
+  const btn = document.getElementById(`bookmark-btn-${requirementId}`);
+  if (btn) {
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = `fa${newState ? 's' : 'r'} fa-star`;
+      icon.style.color = newState ? 'var(--yellow-500)' : 'var(--grey-400)';
+    }
+    btn.title = newState ? '북마크 해제' : '북마크 추가';
+  }
+  
+  // 토스트 메시지
+  showToast(newState ? '북마크에 추가되었습니다' : '북마크에서 제거되었습니다', 'success');
 }
 
 // 파생 요건 자동 생성
