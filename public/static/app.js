@@ -1525,15 +1525,19 @@ async function addSelectedRecommendation() {
     console.log('Requirement added successfully:', response.data);
     
     // 2단계: 질문지 생성 (캐시 확인)
+    console.log('[챌린지 모드] 질문지 생성 시작 - 요건 ID:', requirementId);
     const cacheKey = `${currentProject.id}_${recommendation.title}`;
     const cached = questionCache.get(cacheKey);
     
     let analysis;
+    let questionsGenerated = false;
+    
     if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
       analysis = cached.analysis;
-      console.log('[Question Cache] Loaded from cache for requirement:', requirementId);
+      console.log('[✅ 캐시 사용] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
     } else {
       // 캐시 없으면 API 호출
+      console.log('[🔄 API 호출] preview-direction 요청 중...');
       try {
         const directionResponse = await axios.post(`${API_BASE}/requirements/preview-direction`, {
           project_id: currentProject.id,
@@ -1543,8 +1547,9 @@ async function addSelectedRecommendation() {
           priority: recommendation.priority || 'medium'
         }, { timeout: 180000 });
         
+        console.log('[📥 API 응답]', directionResponse.data);
         analysis = directionResponse.data.analysis || directionResponse.data;
-        console.log('Questions generated for requirement:', requirementId);
+        console.log('[✅ 질문 생성 완료] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
         
         // 캐시 저장
         questionCache.set(cacheKey, {
@@ -1552,25 +1557,38 @@ async function addSelectedRecommendation() {
           timestamp: Date.now()
         });
       } catch (error) {
-        console.error('Failed to generate questions for requirement:', requirementId, error);
+        console.error('[❌ API 오류] preview-direction 실패:', error);
+        console.error('[오류 상세]', error.response?.data);
+        showToast('질문지 생성 중 오류가 발생했습니다. 요건만 추가됩니다.', 'warning');
       }
     }
     
     // 3단계: 질문지를 요건에 매핑
-    if (analysis && analysis.questions && analysis.questions.length > 0) {
+    console.log('[3단계] 질문 매핑 시작 - analysis:', analysis);
+    if (analysis && analysis.questions && Array.isArray(analysis.questions) && analysis.questions.length > 0) {
+      console.log(`[🔄 매핑 중] ${analysis.questions.length}개의 질문을 요건 ${requirementId}에 매핑합니다`);
       try {
+        let successCount = 0;
         for (const question of analysis.questions) {
+          console.log('[질문 매핑]', question.question_text);
           await axios.post(`${API_BASE}/questions`, {
             requirement_id: requirementId,
             question_text: question.question_text,
             question_type: question.question_type || 'open',
             order_index: question.order || 1
           });
+          successCount++;
         }
-        console.log(`${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        console.log(`[✅ 매핑 완료] ${successCount}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        questionsGenerated = true;
       } catch (error) {
-        console.error('Failed to map questions to requirement:', requirementId, error);
+        console.error('[❌ 매핑 실패]', error);
+        console.error('[오류 상세]', error.response?.data);
+        showToast('질문 저장 중 오류가 발생했습니다.', 'warning');
       }
+    } else {
+      console.warn('[⚠️ 질문 없음] analysis에 질문 데이터가 없습니다:', analysis);
+      showToast('질문지를 생성하지 못했습니다. 요건만 추가되었습니다.', 'warning');
     }
     
     hideToast(loadingToast);
@@ -2366,6 +2384,30 @@ let requirementTypeFilter = 'all';
 let requirementPriorityFilter = 'all';
 let requirementStatusFilter = 'all';
 let requirementSortOrder = 'desc';
+let requirementFilterExpanded = true; // 검색 필터 펼침/닫힘 상태
+
+// 요건 검색 필터 토글
+function toggleRequirementFilter() {
+  requirementFilterExpanded = !requirementFilterExpanded;
+  
+  const content = document.getElementById('requirement-filter-content');
+  const icon = document.getElementById('requirement-filter-icon');
+  
+  if (!content || !icon) {
+    console.error('Filter elements not found');
+    return;
+  }
+  
+  if (requirementFilterExpanded) {
+    content.style.display = 'block';
+    icon.classList.remove('fa-chevron-down');
+    icon.classList.add('fa-chevron-up');
+  } else {
+    content.style.display = 'none';
+    icon.classList.remove('fa-chevron-up');
+    icon.classList.add('fa-chevron-down');
+  }
+}
 
 // 요건 검색 핸들러
 function handleRequirementSearch(query) {
@@ -2727,6 +2769,9 @@ async function renderRequirements(page = 1) {
         </div>
         
         ${totalPages > 1 ? renderPagination(currentPage, totalPages) : ''}
+        
+        <!-- 하단 고정 배너: 작성 현황 요약 -->
+        ${renderRequirementStatsBanner(requirements)}
       </div>
     `;
     
@@ -2772,6 +2817,247 @@ async function renderRequirements(page = 1) {
         </button>
       </div>
     `;
+  }
+}
+
+// 하단 고정 배너: 작성 현황 요약
+function renderRequirementStatsBanner(requirements) {
+  if (!requirements || requirements.length === 0) {
+    return '';
+  }
+  
+  // 통계 계산
+  const totalRequirements = requirements.length;
+  let spartaChallengeCount = 0;
+  let totalQuestions = 0;
+  let answeredQuestions = 0;
+  
+  requirements.forEach(req => {
+    const stats = req.question_stats || { total: 0, answered: 0, remaining: 0 };
+    totalQuestions += stats.total;
+    answeredQuestions += stats.answered;
+    
+    if (stats.total >= 10) {
+      spartaChallengeCount++;
+    }
+  });
+  
+  const completionRate = totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
+  
+  // 진행률에 따른 색상
+  let progressColor = 'var(--red-500)';
+  if (completionRate >= 67) {
+    progressColor = 'var(--green-500)';
+  } else if (completionRate >= 34) {
+    progressColor = 'var(--yellow-500)';
+  }
+  
+  return `
+    <div id="requirements-stats-banner" style="
+      position: fixed;
+      bottom: 0;
+      left: 280px;
+      right: 0;
+      height: 70px;
+      background: linear-gradient(135deg, rgba(49, 130, 246, 0.95) 0%, rgba(99, 102, 241, 0.95) 100%);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      z-index: 500;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    ">
+      <!-- 왼쪽: 통계 지표들 -->
+      <div style="display: flex; align-items: center; gap: 32px; flex: 1;">
+        <!-- 총 요건 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-clipboard-list" style="color: white; font-size: 18px;"></i>
+          <div>
+            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">총 요건</div>
+            <div style="color: white; font-size: 20px; font-weight: 700;">${totalRequirements}개</div>
+          </div>
+        </div>
+        
+        <!-- 스파르타 챌린지 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-fire" style="color: #ff6b6b; font-size: 18px;"></i>
+          <div>
+            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">스파르타 챌린지</div>
+            <div style="color: white; font-size: 20px; font-weight: 700;">${spartaChallengeCount}개</div>
+          </div>
+        </div>
+        
+        <!-- 총 질문지 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-question-circle" style="color: white; font-size: 18px;"></i>
+          <div>
+            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">총 질문지</div>
+            <div style="color: white; font-size: 20px; font-weight: 700;">${totalQuestions}개</div>
+          </div>
+        </div>
+        
+        <!-- 작성 완료 -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <i class="fas fa-check-circle" style="color: #4ade80; font-size: 18px;"></i>
+          <div>
+            <div style="color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 500;">작성 완료</div>
+            <div style="color: white; font-size: 20px; font-weight: 700;">${answeredQuestions}개</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 오른쪽: 진행률 -->
+      <div style="min-width: 280px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="color: rgba(255, 255, 255, 0.9); font-size: 12px; font-weight: 600;">
+            <i class="fas fa-chart-line" style="margin-right: 4px;"></i>진행률
+          </span>
+          <span style="color: white; font-size: 16px; font-weight: 700;">${completionRate}% (${answeredQuestions}/${totalQuestions})</span>
+        </div>
+        <div style="width: 100%; height: 8px; background: rgba(255, 255, 255, 0.2); border-radius: 999px; overflow: hidden;">
+          <div style="height: 100%; background: ${progressColor}; width: ${completionRate}%; transition: width 0.5s ease, background 0.3s ease; border-radius: 999px;"></div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- AI 도우미 챗봇 아이콘 -->
+    <button onclick="toggleAIChatbot()" id="ai-chatbot-button" style="
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border: none;
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      transition: all 0.3s ease;
+    " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 30px rgba(102, 126, 234, 0.6)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(102, 126, 234, 0.4)';">
+      <i class="fas fa-robot" style="color: white; font-size: 28px;"></i>
+    </button>
+    
+    <!-- AI 챗봇 패널 (초기에는 숨김) -->
+    <div id="ai-chatbot-panel" style="
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      width: 400px;
+      height: 600px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    ">
+      <!-- 헤더 -->
+      <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <i class="fas fa-robot" style="font-size: 24px;"></i>
+          <div>
+            <div style="font-size: 16px; font-weight: 700;">AI 도우미</div>
+            <div style="font-size: 12px; opacity: 0.9;">요건 작성을 도와드려요</div>
+          </div>
+        </div>
+        <button onclick="toggleAIChatbot()" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white;">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      
+      <!-- 대화 영역 -->
+      <div id="ai-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; background: var(--grey-50);">
+        <div style="text-align: center; color: var(--grey-500); padding: 40px 20px;">
+          <i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+          <p style="font-size: 14px;">안녕하세요! 요건 작성을 도와드리겠습니다.</p>
+          <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">질문을 입력해주세요 💡</p>
+        </div>
+      </div>
+      
+      <!-- 입력 영역 -->
+      <div style="padding: 16px; border-top: 1px solid var(--grey-200); background: white;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="ai-chat-input" placeholder="질문을 입력하세요..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendAIMessage()">
+          <button onclick="sendAIMessage()" style="padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+        <!-- 빠른 버튼 -->
+        <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+          <button onclick="sendQuickMessage('질문 아이디어 주세요')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">질문 아이디어</button>
+          <button onclick="sendQuickMessage('진도 확인')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">진도 확인</button>
+          <button onclick="sendQuickMessage('요건 검토')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">요건 검토</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// AI 챗봇 토글
+function toggleAIChatbot() {
+  const panel = document.getElementById('ai-chatbot-panel');
+  const button = document.getElementById('ai-chatbot-button');
+  
+  if (!panel || !button) return;
+  
+  if (panel.style.display === 'none' || panel.style.display === '') {
+    panel.style.display = 'flex';
+    button.style.transform = 'scale(0.9)';
+  } else {
+    panel.style.display = 'none';
+    button.style.transform = 'scale(1)';
+  }
+}
+
+// AI 메시지 전송
+function sendAIMessage() {
+  const input = document.getElementById('ai-chat-input');
+  if (!input || !input.value.trim()) return;
+  
+  const message = input.value.trim();
+  input.value = '';
+  
+  // 사용자 메시지 표시
+  const messagesContainer = document.getElementById('ai-chat-messages');
+  if (!messagesContainer) return;
+  
+  messagesContainer.innerHTML += `
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 14px;">
+        ${escapeHtml(message)}
+      </div>
+    </div>
+  `;
+  
+  // AI 응답 (임시)
+  setTimeout(() => {
+    messagesContainer.innerHTML += `
+      <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
+        <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px;">
+          죄송합니다. AI 도우미 기능은 현재 개발 중입니다. 곧 사용하실 수 있습니다! 🚀
+        </div>
+      </div>
+    `;
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }, 500);
+  
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+// 빠른 메시지
+function sendQuickMessage(message) {
+  const input = document.getElementById('ai-chat-input');
+  if (input) {
+    input.value = message;
+    sendAIMessage();
   }
 }
 
@@ -2890,12 +3176,37 @@ function renderRequirementCard(requirement) {
   const bookmarkKey = `bookmark_req_${requirement.id}`;
   const isBookmarked = localStorage.getItem(bookmarkKey) === 'true';
   
+  // 스파르타 챌린지 확인 (질문 10개 이상)
+  const isSpartaChallenge = stats.total >= 10;
+  
+  // 최근 업데이트 일시 포맷팅
+  const formatUpdateDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return '방금 전';
+    if (diffMins < 60) return `${diffMins}분 전`;
+    if (diffHours < 24) return `${diffHours}시간 전`;
+    if (diffDays < 7) return `${diffDays}일 전`;
+    return date.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  };
+  
   return `
     <div class="card p-6 card-hover requirement-card-mobile" data-requirement-id="${requirement.id}">
       <div class="requirement-header" style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px;">
         <div style="flex: 1;">
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
             <h3 class="text-title4" style="color: var(--grey-900);">${escapeHtml(requirement.title)}</h3>
+            ${isSpartaChallenge ? `
+              <span class="badge badge-small badge-fill-red" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 100%); animation: pulse-glow 2s ease-in-out infinite;">
+                <i class="fas fa-fire" style="margin-right: 4px; font-size: 10px;"></i>스파르타 챌린지 🔥
+              </span>
+            ` : ''}
             <!-- 타입 배지 -->
             <span class="${typeBadges[requirement.requirement_type] || typeBadges.functional}">
               <i class="fas ${typeIcons[requirement.requirement_type] || typeIcons.functional}" style="margin-right: 4px; font-size: 10px;"></i>${typeTexts[requirement.requirement_type] || '기능'}
@@ -2909,6 +3220,13 @@ function renderRequirementCard(requirement) {
               ${statusTexts[requirement.status] || '대기'}
             </span>
           </div>
+          <!-- 최근 업데이트 일시 -->
+          ${requirement.updated_at ? `
+            <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+              <i class="fas fa-clock" style="color: var(--grey-400); font-size: 11px;"></i>
+              <span class="text-body3" style="color: var(--grey-500); font-size: 12px;">최근 업데이트: ${formatUpdateDate(requirement.updated_at)}</span>
+            </div>
+          ` : ''}
           ${requirement.description ? `<p class="text-body2" style="color: var(--grey-600); line-height: 1.6; margin-bottom: 12px;">${escapeHtml(requirement.description)}</p>` : ''}
           
           ${stats.total > 0 ? `
@@ -5549,21 +5867,25 @@ async function addChatRecommendation() {
     console.log('Requirement added with ID:', requirementId);
     
     // 2단계: 질문지 생성 (캐시 확인 후 생성)
+    console.log('[대화형 모드] 질문지 생성 시작 - 요건 ID:', requirementId);
     const cacheKey = `chat_question_cache_${currentProject.id}_${selectedReq.title}`;
     const cached = localStorage.getItem(cacheKey);
     
     let analysis;
+    let questionsGenerated = false;
+    
     if (cached) {
       try {
         analysis = JSON.parse(cached);
-        console.log('[Question Cache] Loaded from cache for requirement:', requirementId);
+        console.log('[✅ 캐시 사용] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
       } catch (error) {
-        console.error('[Question Cache] Failed to parse cache:', error);
+        console.error('[❌ 캐시 파싱 실패]', error);
       }
     }
     
     // 캐시가 없으면 API 호출
     if (!analysis) {
+      console.log('[🔄 API 호출] preview-direction 요청 중...');
       try {
         const directionResponse = await axios.post(`${API_BASE}/requirements/preview-direction`, {
           project_id: currentProject.id,
@@ -5574,38 +5896,45 @@ async function addChatRecommendation() {
         }, { timeout: 180000 });
         
         // API 응답 구조 확인
-        console.log('[API Response]', directionResponse.data);
+        console.log('[📥 API 응답]', directionResponse.data);
         analysis = directionResponse.data.analysis || directionResponse.data;
-        console.log('[Analysis]', analysis);
+        console.log('[✅ 질문 생성 완료] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
         
         // 캐시 저장
         localStorage.setItem(cacheKey, JSON.stringify(analysis));
       } catch (error) {
-        console.error('Failed to generate questions for requirement:', requirementId, error);
-        // 질문지 생성 실패해도 요건은 추가됨
+        console.error('[❌ API 오류] preview-direction 실패:', error);
+        console.error('[오류 상세]', error.response?.data);
+        showToast('질문지 생성 중 오류가 발생했습니다. 요건만 추가됩니다.', 'warning');
       }
     }
     
     // 3단계: 질문지를 요건에 매핑
-    console.log('[Mapping Questions] analysis:', analysis);
+    console.log('[3단계] 질문 매핑 시작 - analysis:', analysis);
     if (analysis && analysis.questions && Array.isArray(analysis.questions) && analysis.questions.length > 0) {
+      console.log(`[🔄 매핑 중] ${analysis.questions.length}개의 질문을 요건 ${requirementId}에 매핑합니다`);
       try {
-        console.log(`[Mapping Questions] ${analysis.questions.length}개의 질문을 매핑합니다`);
+        let successCount = 0;
         for (const question of analysis.questions) {
-          console.log('[Mapping Question]', question);
+          console.log('[질문 매핑]', question.question_text);
           await axios.post(`${API_BASE}/questions`, {
             requirement_id: requirementId,
             question_text: question.question_text,
             question_type: question.question_type || 'open',
             order_index: question.order || 1
           });
+          successCount++;
         }
-        console.log(`✅ ${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        console.log(`[✅ 매핑 완료] ${successCount}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        questionsGenerated = true;
       } catch (error) {
-        console.error('❌ Failed to map questions to requirement:', requirementId, error);
+        console.error('[❌ 매핑 실패]', error);
+        console.error('[오류 상세]', error.response?.data);
+        showToast('질문 저장 중 오류가 발생했습니다.', 'warning');
       }
     } else {
-      console.warn('⚠️ No questions found in analysis:', analysis);
+      console.warn('[⚠️ 질문 없음] analysis에 질문 데이터가 없습니다:', analysis);
+      showToast('질문지를 생성하지 못했습니다. 요건만 추가되었습니다.', 'warning');
     }
     
     hideToast(loadingToast);
