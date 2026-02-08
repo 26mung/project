@@ -2078,49 +2078,6 @@ async function renderOverview() {
         </div>
       ` : ''}
       
-      <!-- 🎯 기획안 완성도 -->\n      ${totalQuestions > 0 ? `
-        <div class="card p-6 mb-6 bg-gradient-to-br from-blue-50 to-purple-50 border-2 ${completionRate >= 50 ? 'border-green-300' : 'border-blue-200'}">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-toss-gray-900 flex items-center gap-2">
-              <i class="fas fa-chart-line text-toss-blue"></i>
-              기획안 완성도
-            </h2>
-            <div class="text-3xl font-bold ${completionRate >= 67 ? 'text-green-600' : completionRate >= 34 ? 'text-yellow-600' : 'text-red-500'}">
-              ${completionRate}%
-            </div>
-          </div>
-          
-          <!-- 진행 바 -->
-          <div class="relative h-4 bg-white/50 rounded-full overflow-hidden mb-4">
-            <div class="progress-animate h-full ${completionRate >= 67 ? 'bg-gradient-to-r from-green-400 to-green-600' : completionRate >= 34 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 'bg-gradient-to-r from-red-400 to-red-600'} rounded-full shadow-inner" 
-                 style="--progress-width: ${completionRate}%; width: ${completionRate}%;">
-            </div>
-          </div>
-          
-          <!-- 통계 -->
-          <div class="flex items-center justify-between text-sm">
-            <span class="text-toss-gray-700">
-              <i class="fas fa-question-circle mr-1"></i>
-              응답한 질문: <strong>${answeredQuestions}</strong> / ${totalQuestions}
-            </span>
-            ${completionRate >= 50 ? `
-              <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full font-bold flex items-center gap-1">
-                <i class="fas fa-fire"></i>
-                좋아요! 🎉
-              </span>
-            ` : completionRate >= 20 ? `
-              <span class="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full font-bold">
-                조금 더! 💪
-              </span>
-            ` : `
-              <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full font-bold">
-                시작해보세요 🚀
-              </span>
-            `}
-          </div>
-        </div>
-      ` : ''}
-      
       <!-- 상위 기획안 -->
       ${currentProject.input_content ? `
         <div class="card p-6 mb-6">
@@ -2870,19 +2827,33 @@ async function renderRequirements(page = 1) {
     console.log(`[Performance] Total render time: ${renderTime.toFixed(0)}ms`);
     
     // 🔥 스파르타 챌린지 요건이 있으면 불꽃 효과 트리거
-    const hasSpartaChallenge = requirements.some(req => 
-      req.stats && req.stats.total >= 10
-    );
+    console.log('[Sparta Check] Checking for Sparta Challenge requirements...');
+    console.log('[Sparta Check] Total requirements:', requirements.length);
     
-    if (hasSpartaChallenge && !window.spartaFlameTriggered) {
-      console.log('[🔥 Sparta Challenge] Triggering flame effect!');
-      setTimeout(() => triggerFlameEffect(), 500);
-      window.spartaFlameTriggered = true;
-      
-      // 탭 전환 시 다시 트리거 가능하도록
+    requirements.forEach((req, idx) => {
+      console.log(`[Sparta Check] Req ${idx + 1}:`, {
+        title: req.title,
+        stats: req.stats,
+        question_stats: req.question_stats,
+        total: req.stats?.total || req.question_stats?.total || 0
+      });
+    });
+    
+    const hasSpartaChallenge = requirements.some(req => {
+      const total = req.stats?.total || req.question_stats?.total || 0;
+      return total >= 10;
+    });
+    
+    console.log('[Sparta Check] Has Sparta Challenge:', hasSpartaChallenge);
+    
+    if (hasSpartaChallenge) {
+      console.log('[🔥 Sparta Challenge] FOUND! Triggering flame effect!');
       setTimeout(() => {
-        window.spartaFlameTriggered = false;
-      }, 15000);
+        console.log('[🔥 Sparta Challenge] Executing triggerFlameEffect()...');
+        triggerFlameEffect();
+      }, 500);
+    } else {
+      console.log('[Sparta Check] No Sparta Challenge found (need 10+ questions per requirement)');
     }
     
   } catch (error) {
@@ -6197,68 +6168,77 @@ function closeChatModal() {
 
 // 🎉 폭죽 효과 (완성도 50% 이상 달성 시)
 function triggerFireworks() {
-  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe'];
-  const fireworkCount = 50;
+  const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7', '#a29bfe', '#ff85a1', '#ffd93d'];
+  const fireworkCount = 100; // 50개 → 100개로 증가
+  
+  console.log('[🎉 Fireworks] Starting celebration!');
   
   for (let i = 0; i < fireworkCount; i++) {
     setTimeout(() => {
       createFirework(colors[Math.floor(Math.random() * colors.length)]);
-    }, i * 100);
+    }, i * 50); // 100ms → 50ms로 더 빠르게
   }
   
-  // 3초 후 자동 정리
+  // 5초 후 자동 정리 (3초 → 5초)
   setTimeout(() => {
     document.querySelectorAll('.firework').forEach(fw => fw.remove());
-  }, 3000);
+    console.log('[🎉 Fireworks] Celebration complete!');
+  }, 5000);
 }
 
 function createFirework(color) {
   const firework = document.createElement('div');
   firework.className = 'firework';
   firework.style.backgroundColor = color;
+  firework.style.boxShadow = `0 0 20px ${color}`; // 빛나는 효과 추가
   
-  // 랜덤 시작 위치 (화면 하단 중앙)
-  const startX = window.innerWidth * (0.3 + Math.random() * 0.4);
+  // 랜덤 시작 위치 (화면 전체 하단)
+  const startX = window.innerWidth * (0.1 + Math.random() * 0.8); // 범위 확대
   const startY = window.innerHeight;
   firework.style.left = startX + 'px';
   firework.style.top = startY + 'px';
   
-  // 랜덤 폭발 방향
+  // 랜덤 폭발 방향 (더 멀리, 더 높이)
   const angle = Math.random() * Math.PI * 2;
-  const distance = 100 + Math.random() * 200;
+  const distance = 200 + Math.random() * 400; // 거리 증가
   const tx = Math.cos(angle) * distance;
-  const ty = -Math.abs(Math.sin(angle) * distance) - 100; // 위쪽으로
+  const ty = -Math.abs(Math.sin(angle) * distance) - 200; // 더 높이
   
   firework.style.setProperty('--tx', tx + 'px');
   firework.style.setProperty('--ty', ty + 'px');
   
   document.body.appendChild(firework);
   
-  // 애니메이션 종료 후 제거
+  // 애니메이션 종료 후 제거 (1.2초로 증가)
   setTimeout(() => {
     firework.remove();
-  }, 800);
+  }, 1200);
 }
 
 // 🔥 불꽃 효과 (스파르타 챌린지 탭 진입 시)
 function triggerFlameEffect() {
+  console.log('[🔥 Flame Effect] Starting flame animation!');
+  
   // 기존 불꽃 제거
   document.querySelectorAll('.flame-container').forEach(fc => fc.remove());
   
-  // 좌측 불꽃
+  // 좌측 불꽃 (더 많이)
   createFlameCorner('left');
   
-  // 우측 불꽃
+  // 우측 불꽃 (더 많이)
   createFlameCorner('right');
   
-  // 10초 후 자동 제거
+  console.log('[🔥 Flame Effect] Flames created!');
+  
+  // 15초 후 자동 제거 (10초 → 15초)
   setTimeout(() => {
+    console.log('[🔥 Flame Effect] Fading out flames...');
     document.querySelectorAll('.flame-container').forEach(fc => {
       fc.style.opacity = '0';
-      fc.style.transition = 'opacity 1s ease';
-      setTimeout(() => fc.remove(), 1000);
+      fc.style.transition = 'opacity 1.5s ease';
+      setTimeout(() => fc.remove(), 1500);
     });
-  }, 10000);
+  }, 15000);
 }
 
 function createFlameCorner(side) {
@@ -6266,27 +6246,32 @@ function createFlameCorner(side) {
   container.className = 'flame-container';
   container.style[side] = '0';
   container.style.bottom = '0';
-  container.style.width = '150px';
-  container.style.height = '200px';
+  container.style.width = '250px';  // 150px → 250px
+  container.style.height = '350px'; // 200px → 350px
   
-  // 여러 개의 불꽃 생성
-  for (let i = 0; i < 8; i++) {
+  // 더 많은 불꽃 생성 (8개 → 15개)
+  for (let i = 0; i < 15; i++) {
     const flame = document.createElement('div');
     flame.className = 'flame';
     
     if (side === 'left') {
-      flame.style.left = (i * 20) + 'px';
+      flame.style.left = (i * 18) + 'px';
     } else {
-      flame.style.right = (i * 20) + 'px';
+      flame.style.right = (i * 18) + 'px';
     }
     
-    flame.style.bottom = (Math.random() * 30) + 'px';
-    flame.style.animationDelay = (Math.random() * 0.5) + 's';
-    flame.style.opacity = (0.5 + Math.random() * 0.5).toString();
+    flame.style.bottom = (Math.random() * 50) + 'px';
+    flame.style.animationDelay = (Math.random() * 0.8) + 's';
+    flame.style.opacity = (0.6 + Math.random() * 0.4).toString();
+    
+    // 크기 랜덤화
+    const scale = 0.8 + Math.random() * 0.6;
+    flame.style.transform = `scale(${scale})`;
     
     container.appendChild(flame);
   }
   
+  console.log(`[🔥 Flame Effect] Created ${side} flame with 15 flames`);
   document.body.appendChild(container);
 }
 
