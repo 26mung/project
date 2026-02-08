@@ -383,10 +383,8 @@ function showMainApp() {
         </div>
         
         <!-- Content -->
-        <div style="flex: 1; overflow-y: auto;">
-          <div id="content" style="padding: 24px;">
-            <!-- Content will be loaded here -->
-          </div>
+        <div id="content" style="flex: 1; overflow-y: auto; padding: 24px;">
+          <!-- Content will be loaded here -->
         </div>
       </div>
       
@@ -398,6 +396,82 @@ function showMainApp() {
       
       <!-- Overlay for mobile sidebar -->
       <div id="sidebar-overlay" onclick="toggleMobileMenu()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 998;"></div>
+      
+      <!-- AI 도우미 챗봇 버튼 -->
+      <button onclick="toggleAIChatbot()" id="ai-chatbot-button" style="
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 60;
+        transition: all 0.3s ease;
+      " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 30px rgba(102, 126, 234, 0.6)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(102, 126, 234, 0.4)';">
+        <i class="fas fa-robot" style="color: white; font-size: 28px;"></i>
+      </button>
+      
+      <!-- AI 챗봇 패널 (초기에는 숨김) -->
+      <div id="ai-chatbot-panel" style="
+        position: fixed;
+        bottom: 90px;
+        right: 24px;
+        width: 400px;
+        height: 600px;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+        z-index: 70;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+      ">
+        <!-- 헤더 -->
+        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: space-between;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <i class="fas fa-robot" style="font-size: 24px;"></i>
+            <div>
+              <div style="font-size: 16px; font-weight: 700;">AI 도우미</div>
+              <div style="font-size: 12px; opacity: 0.9;">요건 작성을 도와드려요</div>
+            </div>
+          </div>
+          <button onclick="toggleAIChatbot()" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white;">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        
+        <!-- 대화 영역 -->
+        <div id="ai-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; background: var(--grey-50);">
+          <div style="text-align: center; color: var(--grey-500); padding: 40px 20px;">
+            <i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+            <p style="font-size: 14px;">안녕하세요! 요건 작성을 도와드리겠습니다.</p>
+            <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">질문을 입력해주세요 💡</p>
+          </div>
+        </div>
+        
+        <!-- 입력 영역 -->
+        <div style="padding: 16px; border-top: 1px solid var(--grey-200); background: white;">
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="ai-chat-input" placeholder="질문을 입력하세요..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendAIMessage()">
+            <button onclick="sendAIMessage()" style="padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+          <!-- 빠른 버튼 -->
+          <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+            <button onclick="sendQuickMessage('질문 아이디어 주세요')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">질문 아이디어</button>
+            <button onclick="sendQuickMessage('진도 확인')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">진도 확인</button>
+            <button onclick="sendQuickMessage('요건 검토')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">요건 검토</button>
+          </div>
+        </div>
+      </div>
     </div>
     
     <style>
@@ -2872,69 +2946,95 @@ function renderRequirementStatsBanner(requirements) {
     progressColor = 'var(--yellow-500)';
   }
   
+  // 스크롤 감지 후 배너 표시/숨김 로직 추가
+  setTimeout(() => {
+    const banner = document.getElementById('requirements-stats-banner');
+    const content = document.getElementById('content');
+    
+    if (banner && content) {
+      let scrollTimer;
+      
+      // 초기 상태: 보이기
+      banner.style.transform = 'translateX(-50%) translateY(0)';
+      
+      content.addEventListener('scroll', () => {
+        // 스크롤 중: 숨기기
+        banner.style.transform = 'translateX(-50%) translateY(120px)';
+        
+        // 스크롤 멈춤 감지
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          // 스크롤 멈춤: 다시 보이기
+          banner.style.transform = 'translateX(-50%) translateY(0)';
+        }, 150);
+      });
+    }
+  }, 100);
+  
   return `
-    <!-- 하단 컴팩트 배너: 작성 현황 요약 -->
+    <!-- 하단 중앙 배너: 작성 현황 요약 (스크롤시 숨김) -->
     <div id="requirements-stats-banner" style="
       position: fixed;
-      bottom: 20px;
-      right: 20px;
-      max-width: 480px;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 720px;
+      width: calc(100% - 48px);
       background: white;
-      border-radius: 20px;
-      padding: 20px 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-      z-index: 50;
+      border-radius: 16px;
+      padding: 16px 24px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
+      z-index: 40;
       border: 1px solid var(--grey-200);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 24px;
     ">
-      <!-- 상단: 타이틀과 진행률 -->
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 32px; height: 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center;">
-            <i class="fas fa-chart-line" style="color: white; font-size: 16px;"></i>
-          </div>
-          <div>
-            <div style="font-size: 14px; font-weight: 700; color: var(--grey-900);">작성 진행률</div>
-            <div style="font-size: 11px; color: var(--grey-500);">${answeredQuestions}/${totalQuestions} 완료</div>
-          </div>
+      <!-- 왼쪽: 아이콘 + 진행률 -->
+      <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <i class="fas fa-chart-line" style="color: white; font-size: 18px;"></i>
         </div>
-        <div style="text-align: right;">
-          <div style="font-size: 24px; font-weight: 800; color: ${progressColor};">${completionRate}%</div>
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--grey-900); line-height: 1.4;">작성 진행률</div>
+          <div style="font-size: 11px; color: var(--grey-500);">${answeredQuestions}/${totalQuestions} 완료</div>
         </div>
       </div>
       
-      <!-- 진행바 -->
-      <div style="width: 100%; height: 6px; background: var(--grey-100); border-radius: 999px; overflow: hidden; margin-bottom: 16px;">
-        <div style="height: 100%; background: ${progressColor}; width: ${completionRate}%; transition: width 0.5s ease, background 0.3s ease; border-radius: 999px;"></div>
+      <!-- 중앙: 진행바 -->
+      <div style="flex: 1; min-width: 120px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <span style="font-size: 11px; color: var(--grey-600); font-weight: 600;">진행도</span>
+          <span style="font-size: 16px; font-weight: 800; color: ${progressColor};">${completionRate}%</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: var(--grey-100); border-radius: 999px; overflow: hidden;">
+          <div style="height: 100%; background: ${progressColor}; width: ${completionRate}%; transition: width 0.5s ease; border-radius: 999px;"></div>
+        </div>
       </div>
       
-      <!-- 통계 그리드 -->
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+      <!-- 오른쪽: 통계 정보 -->
+      <div style="display: flex; align-items: center; gap: 16px; flex-shrink: 0;">
         <!-- 총 요건 -->
-        <div style="background: var(--grey-50); border-radius: 12px; padding: 12px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <i class="fas fa-clipboard-list" style="color: var(--blue-500); font-size: 14px;"></i>
-            <span style="font-size: 11px; color: var(--grey-600); font-weight: 600;">총 요건</span>
-          </div>
-          <div style="font-size: 20px; font-weight: 700; color: var(--grey-900);">${totalRequirements}개</div>
+        <div style="text-align: center;">
+          <div style="font-size: 11px; color: var(--grey-500); margin-bottom: 2px;">요건</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--blue-500);">${totalRequirements}</div>
         </div>
         
+        <!-- 구분선 -->
+        <div style="width: 1px; height: 32px; background: var(--grey-200);"></div>
+        
         <!-- 스파르타 챌린지 -->
-        <div style="background: linear-gradient(135deg, #fff5f5 0%, #ffe5e5 100%); border-radius: 12px; padding: 12px;">
-          <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
-            <i class="fas fa-fire" style="color: #ff6b6b; font-size: 14px;"></i>
-            <span style="font-size: 11px; color: #ff6b6b; font-weight: 600;">챌린지</span>
-          </div>
-          <div style="font-size: 20px; font-weight: 700; color: #ff6b6b;">${spartaChallengeCount}개</div>
+        <div style="text-align: center;">
+          <div style="font-size: 11px; color: var(--grey-500); margin-bottom: 2px;">챌린지</div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--red-500);">${spartaChallengeCount}</div>
         </div>
       </div>
-      
-      <!-- 닫기 버튼 -->
-      <button onclick="document.getElementById('requirements-stats-banner').style.display='none'" style="position: absolute; top: 16px; right: 16px; width: 24px; height: 24px; border-radius: 6px; background: var(--grey-100); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--grey-600); transition: all 0.2s;" onmouseover="this.style.background='var(--grey-200)'" onmouseout="this.style.background='var(--grey-100)'">
-        <i class="fas fa-times" style="font-size: 10px;"></i>
-      </button>
     </div>
-    
-    <!-- AI 도우미 챗봇 아이콘 -->
+  `;
+}
+
+// 요건 타입별 AI 추천
     <button onclick="toggleAIChatbot()" id="ai-chatbot-button" style="
       position: fixed;
       bottom: 20px;
@@ -3030,38 +3130,104 @@ function toggleAIChatbot() {
   }
 }
 
+// 대화 기록 저장 (메모리)
+let chatConversationHistory = [];
+
 // AI 메시지 전송
-function sendAIMessage() {
+async function sendAIMessage() {
   const input = document.getElementById('ai-chat-input');
   if (!input || !input.value.trim()) return;
   
   const message = input.value.trim();
   input.value = '';
+  input.disabled = true;
   
   // 사용자 메시지 표시
   const messagesContainer = document.getElementById('ai-chat-messages');
   if (!messagesContainer) return;
   
+  // 빈 상태 메시지 제거
+  const emptyState = messagesContainer.querySelector('[style*="text-align: center"]')?.parentElement;
+  if (emptyState) {
+    emptyState.remove();
+  }
+  
   messagesContainer.innerHTML += `
     <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 14px;">
+      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 14px; line-height: 1.5;">
         ${escapeHtml(message)}
       </div>
     </div>
   `;
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
   
-  // AI 응답 (임시)
-  setTimeout(() => {
+  // 로딩 표시
+  const loadingId = 'ai-loading-' + Date.now();
+  messagesContainer.innerHTML += `
+    <div id="${loadingId}" style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
+      <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px;">
+        <div style="display: flex; gap: 4px;">
+          <span style="animation: pulse 1.4s ease-in-out infinite;">●</span>
+          <span style="animation: pulse 1.4s ease-in-out 0.2s infinite;">●</span>
+          <span style="animation: pulse 1.4s ease-in-out 0.4s infinite;">●</span>
+        </div>
+      </div>
+    </div>
+  `;
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  
+  try {
+    // AI API 호출
+    const response = await axios.post(`${API_BASE}/chat/message`, {
+      message: message,
+      project_id: currentProject?.id,
+      conversation_history: chatConversationHistory
+    }, { timeout: 30000 });
+    
+    // 로딩 제거
+    document.getElementById(loadingId)?.remove();
+    
+    const aiMessage = response.data.message || '응답을 받지 못했습니다.';
+    
+    // AI 응답 표시
     messagesContainer.innerHTML += `
       <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
-        <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px;">
-          죄송합니다. AI 도우미 기능은 현재 개발 중입니다. 곧 사용하실 수 있습니다! 🚀
+        <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">
+          ${escapeHtml(aiMessage)}
         </div>
       </div>
     `;
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  }, 500);
+    
+    // 대화 기록 저장
+    chatConversationHistory.push(
+      { role: 'user', content: message },
+      { role: 'assistant', content: aiMessage }
+    );
+    
+    // 대화 기록이 너무 길면 오래된 것부터 제거 (최근 10개 메시지만 유지)
+    if (chatConversationHistory.length > 10) {
+      chatConversationHistory = chatConversationHistory.slice(-10);
+    }
+    
+  } catch (error) {
+    console.error('AI chat error:', error);
+    
+    // 로딩 제거
+    document.getElementById(loadingId)?.remove();
+    
+    // 에러 메시지 표시
+    messagesContainer.innerHTML += `
+      <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
+        <div style="background: #fff5f5; border: 1px solid #ffcccc; padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px; color: #cc0000;">
+          <i class="fas fa-exclamation-circle" style="margin-right: 6px;"></i>
+          응답을 받는데 실패했습니다. 다시 시도해주세요.
+        </div>
+      </div>
+    `;
+  }
   
+  input.disabled = false;
+  input.focus();
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
