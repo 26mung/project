@@ -278,7 +278,7 @@ function showSignupModal() {
         </div>
         
         <div>
-          <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">이름 *</label>
+          <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">닉네임 *</label>
           <input type="text" id="signup-name" required style="
             width: 100%;
             padding: 14px 16px;
@@ -286,19 +286,7 @@ function showSignupModal() {
             border-radius: 12px;
             font-size: 16px;
             transition: border-color 0.3s ease;
-          " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="이름을 입력하세요">
-        </div>
-        
-        <div>
-          <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">생년월일 (선택)</label>
-          <input type="date" id="signup-birthdate" max="9999-12-31" style="
-            width: 100%;
-            padding: 14px 16px;
-            border: 2px solid #e5e5ea;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-          " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'">
+          " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="닉네임을 입력하세요">
         </div>
         
         <div>
@@ -400,7 +388,6 @@ async function handleSignup(event) {
   
   const email = document.getElementById('signup-email').value;
   const name = document.getElementById('signup-name').value;
-  const birthDate = document.getElementById('signup-birthdate').value || null;
   const password = document.getElementById('signup-password').value;
   const passwordConfirm = document.getElementById('signup-password-confirm').value;
   
@@ -418,7 +405,7 @@ async function handleSignup(event) {
     const response = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, birth_date: birthDate, password })
+      body: JSON.stringify({ email, name, password })
     });
     
     const data = await response.json();
