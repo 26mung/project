@@ -177,7 +177,46 @@ function showImageModal(imageUrl, imageNumber) {
 // ============ 초기화 ============
 document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthentication();
+  
+  // F5 새로고침 시 현재 상태 복원
+  restorePageState();
 });
+
+// 페이지 상태 저장 (F5 대응)
+function savePageState() {
+  if (currentProject && currentTab) {
+    sessionStorage.setItem('currentProjectId', currentProject.id);
+    sessionStorage.setItem('currentTab', currentTab);
+    sessionStorage.setItem('currentPage', currentPage);
+  }
+}
+
+// 페이지 상태 복원
+async function restorePageState() {
+  const savedProjectId = sessionStorage.getItem('currentProjectId');
+  const savedTab = sessionStorage.getItem('currentTab');
+  const savedPage = sessionStorage.getItem('currentPage');
+  
+  if (savedProjectId && savedTab) {
+    // 프로젝트 로드 후 복원
+    setTimeout(async () => {
+      if (projects && projects.length > 0) {
+        const project = projects.find(p => p.id == savedProjectId);
+        if (project) {
+          await selectProject(savedProjectId);
+          if (savedTab === 'requirements' && savedPage) {
+            currentPage = parseInt(savedPage) || 1;
+          }
+        }
+      }
+    }, 500);
+  }
+}
+
+// 페이지 상태 자동 저장
+setInterval(() => {
+  savePageState();
+}, 2000);
 
 // ============ 인증 관리 ============
 
@@ -3472,13 +3511,19 @@ function filterQuestions(filterType, requirementId) {
 
 // 질문 트리 필터링 (답변 여부)
 function filterTreeByAnswer(nodes, hasAnswer) {
-  return nodes.filter(node => {
+  return nodes.map(node => {
     const nodeHasAnswer = node.answer && node.answer.answer_text;
-    return nodeHasAnswer === hasAnswer;
-  }).map(node => ({
-    ...node,
-    children: node.children ? filterTreeByAnswer(node.children, hasAnswer) : []
-  }));
+    const filteredChildren = node.children ? filterTreeByAnswer(node.children, hasAnswer) : [];
+    
+    // 현재 노드가 조건에 맞거나, 자식 중 조건에 맞는 것이 있으면 포함
+    if (nodeHasAnswer === hasAnswer || filteredChildren.length > 0) {
+      return {
+        ...node,
+        children: filteredChildren
+      };
+    }
+    return null;
+  }).filter(node => node !== null);
 }
 
 // 요건 정리 완료
@@ -3486,48 +3531,51 @@ async function completeRequirement(requirementId) {
   const questions = window.currentRequirementQuestions || [];
   const unansweredQuestions = questions.filter(q => !q.answer || !q.answer.answer_text);
   
-  // 커스텀 알럿 메시지
-  let message = '요건 정리를 완료할까요?';
+  // 커스텀 다이얼로그 메시지
+  let dialogMessage = '요건 정리를 완료할까요?';
   if (unansweredQuestions.length > 0) {
-    message = `답변하지 않은 질문이 ${unansweredQuestions.length}개 있습니다.\n\n답변하지 않은 질문은 일괄 삭제됩니다.\n\n요건 정리를 완료할까요?`;
+    dialogMessage = `답변하지 않은 질문이 <strong>${unansweredQuestions.length}개</strong> 있습니다.<br><br>답변하지 않은 질문은 일괄 삭제됩니다.<br><br>요건 정리를 완료할까요?`;
   }
   
-  const confirmed = confirm(message);
-  if (!confirmed) return; // 취소 시 알럿창만 닫음
-  
-  const loadingToast = showLoadingToast('요건 정리를 완료하는 중...');
-  
-  try {
-    // 1. 답변하지 않은 질문 일괄 삭제
-    if (unansweredQuestions.length > 0) {
-      for (const question of unansweredQuestions) {
-        await axios.delete(`${API_BASE}/questions/${question.id}`);
+  // 커스텀 확인 다이얼로그 표시
+  showConfirmDialog({
+    title: '요건 정리 완료',
+    message: dialogMessage,
+    confirmText: '확인',
+    cancelText: '취소',
+    onConfirm: async () => {
+      const loadingToast = showLoadingToast('요건 정리를 완료하는 중...');
+      
+      try {
+        // 1. 답변하지 않은 질문 일괄 삭제
+        if (unansweredQuestions.length > 0) {
+          for (const question of unansweredQuestions) {
+            await axios.delete(`${API_BASE}/questions/${question.id}`);
+          }
+          console.log(`[요건 정리] ${unansweredQuestions.length}개의 질문이 삭제되었습니다`);
+        }
+        
+        // 2. 요건 상태를 '완료'로 변경
+        await axios.put(`${API_BASE}/requirements/${requirementId}`, {
+          status: 'completed'
+        });
+        console.log(`[요건 정리] 요건 #${requirementId} 상태가 '완료'로 변경되었습니다`);
+        
+        closeLoadingToast(loadingToast);
+        
+        // 3. 모달 닫고 성공 메시지
+        closeAllModals();
+        showToast('요건 정리가 완료되었습니다 ✅', 'success');
+        
+        // 4. 요건 목록 새로고침
+        renderRequirements(currentPage);
+      } catch (error) {
+        closeLoadingToast(loadingToast);
+        console.error('Failed to complete requirement:', error);
+        showToast('요건 정리 중 오류가 발생했습니다', 'error');
       }
-      console.log(`[요건 정리] ${unansweredQuestions.length}개의 질문이 삭제되었습니다`);
     }
-    
-    // 2. 요건 상태를 '완료'로 변경
-    await axios.put(`${API_BASE}/requirements/${requirementId}`, {
-      status: 'completed'
-    });
-    console.log(`[요건 정리] 요건 #${requirementId} 상태가 '완료'로 변경되었습니다`);
-    
-    closeLoadingToast(loadingToast);
-    
-    if (unansweredQuestions.length > 0) {
-      showToast(`${unansweredQuestions.length}개의 질문이 삭제되고, 요건이 완료되었습니다 ✅`, 'success');
-    } else {
-      showToast('요건이 완료되었습니다 ✅', 'success');
-    }
-    
-    // 3. 모달 닫고 요건 목록 새로고침
-    closeAllModals();
-    renderRequirements(currentPage);
-  } catch (error) {
-    closeLoadingToast(loadingToast);
-    console.error('Failed to complete requirement:', error);
-    showToast('요건 정리 중 오류가 발생했습니다', 'error');
-  }
+  });
 }
 
 // 질문 트리 구조 생성
@@ -4497,6 +4545,70 @@ function closeAllModals() {
   if (sidebar) sidebar.classList.remove('modal-blur-target');
   if (tabBar) tabBar.classList.remove('modal-blur-target');
   if (banner) banner.classList.remove('modal-blur-target');
+}
+
+// 커스텀 확인 다이얼로그 (토스 디자인 시스템)
+function showConfirmDialog({ title, message, confirmText = '확인', cancelText = '취소', onConfirm = null, onCancel = null }) {
+  const modalContainer = document.getElementById('modal-container');
+  if (!modalContainer) {
+    console.error('Modal container not found');
+    return;
+  }
+  
+  const modalId = 'confirm-dialog-' + Date.now();
+  
+  const dialogHTML = `
+    <div id="${modalId}" class="fixed inset-0 z-50 flex items-center justify-center animate-fade-in" style="z-index: 10001 !important;">
+      <!-- 배경 -->
+      <div class="modal-backdrop" style="position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(2px);"></div>
+      
+      <!-- 다이얼로그 -->
+      <div class="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 animate-scale-in" style="z-index: 10002;">
+        <!-- 헤더 -->
+        <div style="padding: 24px 24px 16px 24px; border-bottom: 1px solid var(--grey-200);">
+          <h3 style="font-size: 18px; font-weight: 700; color: var(--grey-900);">${title}</h3>
+        </div>
+        
+        <!-- 내용 -->
+        <div style="padding: 24px; color: var(--grey-700); font-size: 14px; line-height: 1.6;">
+          ${message}
+        </div>
+        
+        <!-- 버튼 -->
+        <div style="padding: 16px 24px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--grey-200);">
+          <button onclick="closeConfirmDialog('${modalId}', false)" class="btn-secondary btn-medium">
+            ${cancelText}
+          </button>
+          <button onclick="closeConfirmDialog('${modalId}', true)" class="btn-primary btn-medium">
+            ${confirmText}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  modalContainer.insertAdjacentHTML('beforeend', dialogHTML);
+  
+  // 콜백 함수 저장
+  window[`confirmDialog_${modalId}`] = { onConfirm, onCancel };
+}
+
+// 확인 다이얼로그 닫기
+function closeConfirmDialog(modalId, confirmed) {
+  const dialog = document.getElementById(modalId);
+  if (dialog) {
+    dialog.remove();
+  }
+  
+  const callbacks = window[`confirmDialog_${modalId}`];
+  if (callbacks) {
+    if (confirmed && callbacks.onConfirm) {
+      callbacks.onConfirm();
+    } else if (!confirmed && callbacks.onCancel) {
+      callbacks.onCancel();
+    }
+    delete window[`confirmDialog_${modalId}`];
+  }
 }
 
 
