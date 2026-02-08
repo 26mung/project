@@ -379,17 +379,51 @@ function generateSessionToken(): string {
 // 모든 프로젝트 조회
 api.get('/projects', async (c) => {
   const { DB } = c.env;
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
   
-  // 생성자 정보를 포함한 프로젝트 조회 (LEFT JOIN으로 user_id가 null인 경우도 처리)
-  const { results } = await DB.prepare(`
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 세션 확인 및 사용자 정보 조회
+  const session = await DB.prepare(
+    'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+  ).bind(sessionToken).first();
+  
+  if (!session) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 사용자 역할 확인
+  const userRoles = await DB.prepare(
+    `SELECT r.name, r.level 
+     FROM user_roles ur 
+     JOIN roles r ON ur.role_id = r.id 
+     WHERE ur.user_id = ?`
+  ).bind(session.user_id).all();
+  
+  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  
+  // 생성자 정보를 포함한 프로젝트 조회
+  let query = `
     SELECT 
       p.*,
       u.name as creator_name,
       u.email as creator_email
     FROM projects p
     LEFT JOIN users u ON p.user_id = u.id
-    ORDER BY p.updated_at DESC
-  `).all();
+  `;
+  
+  // 일반 사용자는 본인이 생성한 프로젝트만 조회
+  if (!isSuperAdmin) {
+    query += ` WHERE p.user_id = ?`;
+  }
+  
+  query += ` ORDER BY p.updated_at DESC`;
+  
+  const { results } = isSuperAdmin 
+    ? await DB.prepare(query).all()
+    : await DB.prepare(query).bind(session.user_id).all();
   
   return c.json(results);
 });
@@ -398,10 +432,46 @@ api.get('/projects', async (c) => {
 api.get('/projects/:id', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
-  const project = await DB.prepare('SELECT * FROM projects WHERE id = ?').bind(id).first();
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 세션 확인
+  const session = await DB.prepare(
+    'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+  ).bind(sessionToken).first();
+  
+  if (!session) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 프로젝트 조회 (생성자 정보 포함)
+  const project = await DB.prepare(`
+    SELECT 
+      p.*,
+      u.name as creator_name,
+      u.email as creator_email
+    FROM projects p
+    LEFT JOIN users u ON p.user_id = u.id
+    WHERE p.id = ?
+  `).bind(id).first();
   
   if (!project) {
     return c.json({ error: 'Project not found' }, 404);
+  }
+  
+  // 사용자 역할 확인
+  const userRoles = await DB.prepare(
+    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+  ).bind(session.user_id).all();
+  
+  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  
+  // 권한 체크: 최고관리자 또는 생성자만 접근 가능
+  if (!isSuperAdmin && project.user_id !== session.user_id) {
+    return c.json({ error: 'Forbidden: You do not have permission to access this project' }, 403);
   }
   
   return c.json(project);
@@ -411,12 +481,27 @@ api.get('/projects/:id', async (c) => {
 api.post('/projects', async (c) => {
   const { DB } = c.env;
   const body: CreateProjectRequest = await c.req.json();
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
   
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 세션 확인
+  const session = await DB.prepare(
+    'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+  ).bind(sessionToken).first();
+  
+  if (!session) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // user_id 포함하여 프로젝트 생성
   const result = await DB.prepare(
-    'INSERT INTO projects (title, description, input_content, status, image_urls, requirement_mode, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
-  ).bind(body.title, body.description || null, body.input_content || null, 'draft', body.image_urls || null, null).run();
+    'INSERT INTO projects (title, description, input_content, status, image_urls, requirement_mode, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
+  ).bind(body.title, body.description || null, body.input_content || null, 'draft', body.image_urls || null, null, session.user_id).run();
   
-  return c.json({ id: result.meta.last_row_id, ...body, status: 'draft', requirement_mode: null }, 201);
+  return c.json({ id: result.meta.last_row_id, ...body, status: 'draft', requirement_mode: null, user_id: session.user_id }, 201);
 });
 
 // 프로젝트 업데이트
@@ -424,6 +509,39 @@ api.put('/projects/:id', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
   const body = await c.req.json();
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 세션 확인
+  const session = await DB.prepare(
+    'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+  ).bind(sessionToken).first();
+  
+  if (!session) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 프로젝트 소유자 확인
+  const project = await DB.prepare('SELECT user_id FROM projects WHERE id = ?').bind(id).first();
+  
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+  
+  // 사용자 역할 확인
+  const userRoles = await DB.prepare(
+    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+  ).bind(session.user_id).all();
+  
+  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  
+  // 권한 체크: 최고관리자 또는 생성자만 수정 가능
+  if (!isSuperAdmin && project.user_id !== session.user_id) {
+    return c.json({ error: 'Forbidden: You do not have permission to update this project' }, 403);
+  }
   
   await DB.prepare(
     'UPDATE projects SET title = ?, description = ?, input_content = ?, status = ?, image_urls = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
@@ -436,6 +554,39 @@ api.put('/projects/:id', async (c) => {
 api.delete('/projects/:id', async (c) => {
   const { DB } = c.env;
   const id = c.req.param('id');
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 세션 확인
+  const session = await DB.prepare(
+    'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+  ).bind(sessionToken).first();
+  
+  if (!session) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  // 프로젝트 소유자 확인
+  const project = await DB.prepare('SELECT user_id FROM projects WHERE id = ?').bind(id).first();
+  
+  if (!project) {
+    return c.json({ error: 'Project not found' }, 404);
+  }
+  
+  // 사용자 역할 확인
+  const userRoles = await DB.prepare(
+    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+  ).bind(session.user_id).all();
+  
+  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  
+  // 권한 체크: 최고관리자 또는 생성자만 삭제 가능
+  if (!isSuperAdmin && project.user_id !== session.user_id) {
+    return c.json({ error: 'Forbidden: You do not have permission to delete this project' }, 403);
+  }
   
   await DB.prepare('DELETE FROM projects WHERE id = ?').bind(id).run();
   
@@ -1878,6 +2029,182 @@ api.get('/admin/users', async (c) => {
     return c.json(usersWithRoles);
   } catch (error) {
     console.error('[Admin Users List Error]', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// 사용자 삭제 (관리자 전용)
+api.delete('/admin/users/:id', async (c) => {
+  const { DB } = c.env;
+  const userId = c.req.param('id');
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    // 세션 확인
+    const session = await DB.prepare(
+      'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first();
+    
+    if (!session) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // 최고관리자 권한 확인
+    const userRoles = await DB.prepare(
+      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+    ).bind(session.user_id).all();
+    
+    const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+    
+    if (!isSuperAdmin) {
+      return c.json({ error: 'Forbidden: Super admin access required' }, 403);
+    }
+    
+    // 자기 자신은 삭제할 수 없음
+    if (session.user_id === parseInt(userId)) {
+      return c.json({ error: 'Cannot delete your own account' }, 400);
+    }
+    
+    // 사용자 삭제 (CASCADE로 관련 데이터도 자동 삭제)
+    await DB.prepare('DELETE FROM users WHERE id = ?').bind(userId).run();
+    
+    return c.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('[Admin Delete User Error]', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// 사용자 역할 부여/회수 (관리자 전용)
+api.post('/admin/users/:id/roles', async (c) => {
+  const { DB } = c.env;
+  const userId = c.req.param('id');
+  const body = await c.req.json();
+  const { role_name, action } = body; // action: 'grant' or 'revoke'
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  if (!role_name || !action) {
+    return c.json({ error: 'role_name and action are required' }, 400);
+  }
+  
+  if (!['grant', 'revoke'].includes(action)) {
+    return c.json({ error: 'action must be "grant" or "revoke"' }, 400);
+  }
+  
+  try {
+    // 세션 확인
+    const session = await DB.prepare(
+      'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first();
+    
+    if (!session) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // 최고관리자 권한 확인
+    const userRoles = await DB.prepare(
+      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+    ).bind(session.user_id).all();
+    
+    const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+    
+    if (!isSuperAdmin) {
+      return c.json({ error: 'Forbidden: Super admin access required' }, 403);
+    }
+    
+    // 역할 조회
+    const role = await DB.prepare('SELECT id FROM roles WHERE name = ?').bind(role_name).first();
+    
+    if (!role) {
+      return c.json({ error: 'Role not found' }, 404);
+    }
+    
+    if (action === 'grant') {
+      // 역할 부여
+      // 중복 체크
+      const existing = await DB.prepare(
+        'SELECT id FROM user_roles WHERE user_id = ? AND role_id = ?'
+      ).bind(userId, role.id).first();
+      
+      if (existing) {
+        return c.json({ error: 'User already has this role' }, 400);
+      }
+      
+      await DB.prepare(
+        'INSERT INTO user_roles (user_id, role_id, granted_by, granted_at) VALUES (?, ?, ?, datetime("now", "+9 hours"))'
+      ).bind(userId, role.id, session.user_id).run();
+      
+      return c.json({ success: true, message: 'Role granted successfully' });
+    } else {
+      // 역할 회수
+      const deleted = await DB.prepare(
+        'DELETE FROM user_roles WHERE user_id = ? AND role_id = ?'
+      ).bind(userId, role.id).run();
+      
+      if (deleted.meta.changes === 0) {
+        return c.json({ error: 'User does not have this role' }, 400);
+      }
+      
+      return c.json({ success: true, message: 'Role revoked successfully' });
+    }
+  } catch (error) {
+    console.error('[Admin Manage Role Error]', error);
+    return c.json({ error: 'Internal server error' }, 500);
+  }
+});
+
+// 전체 프로젝트 조회 (관리자 전용)
+api.get('/admin/projects', async (c) => {
+  const { DB } = c.env;
+  const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
+  
+  if (!sessionToken) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+  
+  try {
+    // 세션 확인
+    const session = await DB.prepare(
+      'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first();
+    
+    if (!session) {
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
+    
+    // 최고관리자 권한 확인
+    const userRoles = await DB.prepare(
+      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
+    ).bind(session.user_id).all();
+    
+    const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+    
+    if (!isSuperAdmin) {
+      return c.json({ error: 'Forbidden: Admin access required' }, 403);
+    }
+    
+    // 모든 프로젝트 조회 (생성자 정보 포함)
+    const { results } = await DB.prepare(`
+      SELECT 
+        p.*,
+        u.name as creator_name,
+        u.email as creator_email
+      FROM projects p
+      LEFT JOIN users u ON p.user_id = u.id
+      ORDER BY p.updated_at DESC
+    `).all();
+    
+    return c.json(results);
+  } catch (error) {
+    console.error('[Admin Projects List Error]', error);
     return c.json({ error: 'Internal server error' }, 500);
   }
 });

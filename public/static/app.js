@@ -2105,9 +2105,15 @@ async function renderOverview() {
             <i class="fas fa-edit text-xl"></i>
           </button>
         </div>
-        <div class="flex items-center gap-3 text-sm text-toss-gray-600">
+        <div class="flex items-center gap-3 text-sm text-toss-gray-600 flex-wrap">
           <span><i class="far fa-calendar mr-1"></i>${formatDate(currentProject.created_at)}</span>
           ${getStatusBadge(currentProject.status)}
+          ${currentProject.creator_name ? `
+            <span class="flex items-center gap-1">
+              <i class="fas fa-user-circle"></i>
+              생성자: <strong>${escapeHtml(currentProject.creator_name)}</strong>
+            </span>
+          ` : ''}
         </div>
       </div>
       
