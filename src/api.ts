@@ -379,7 +379,18 @@ function generateSessionToken(): string {
 // 모든 프로젝트 조회
 api.get('/projects', async (c) => {
   const { DB } = c.env;
-  const { results } = await DB.prepare('SELECT * FROM projects ORDER BY updated_at DESC').all();
+  
+  // 생성자 정보를 포함한 프로젝트 조회 (LEFT JOIN으로 user_id가 null인 경우도 처리)
+  const { results } = await DB.prepare(`
+    SELECT 
+      p.*,
+      u.name as creator_name,
+      u.email as creator_email
+    FROM projects p
+    LEFT JOIN users u ON p.user_id = u.id
+    ORDER BY p.updated_at DESC
+  `).all();
+  
   return c.json(results);
 });
 

@@ -4,6 +4,7 @@ let currentTab = 'overview';
 let projects = [];
 let requirements = [];
 let isAuthenticated = false;
+let currentUser = null; // 현재 로그인한 사용자 정보
 let uploadedImages = []; // 업로드된 이미지 (Base64)
 
 // 🚀 성능 최적화: 페이지네이션 상태
@@ -182,10 +183,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function checkAuthentication() {
   try {
-    const response = await axios.get(`${API_BASE}/auth/check`);
+    const response = await axios.get(`${API_BASE}/auth/check`, {
+      credentials: 'include'
+    });
     isAuthenticated = response.data.authenticated;
+    currentUser = response.data.user; // 사용자 정보 저장
     
-    if (isAuthenticated) {
+    if (isAuthenticated && currentUser) {
       showMainApp();
       await loadProjects();
       initTabStyles();
@@ -293,10 +297,13 @@ function showMainApp() {
               </button>
             </div>
           </div>
-          <button onclick="createNewProject()" class="btn-primary btn-large w-full sidebar-content">
+          <button onclick="createNewProject()" class="btn-primary btn-large w-full sidebar-content" style="margin-bottom: 8px;">
             <i class="fas fa-plus" style="margin-right: 6px; font-size: 14px;"></i>
             새 프로젝트
           </button>
+          
+          <!-- 관리자 페이지 버튼 (최고관리자만 표시) -->
+          <div id="admin-button-container"></div>
         </div>
         
         <!-- 프로젝트 검색 필터 (접기/펼치기 가능) -->
@@ -429,6 +436,32 @@ function showMainApp() {
     }
     </style>
   `;
+  
+  // 관리자 버튼 렌더링
+  renderAdminButton();
+}
+
+// 관리자 페이지 버튼 렌더링
+function renderAdminButton() {
+  const container = document.getElementById('admin-button-container');
+  if (!container) return;
+  
+  // 최고관리자인 경우에만 버튼 표시
+  if (currentUser && currentUser.isSuperAdmin) {
+    container.innerHTML = `
+      <button onclick="navigateToAdmin()" class="btn-secondary btn-large w-full sidebar-content" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+        <i class="fas fa-crown" style="margin-right: 6px; font-size: 14px;"></i>
+        어드민 페이지
+      </button>
+    `;
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+// 관리자 페이지로 이동
+function navigateToAdmin() {
+  window.location.href = '/admin';
 }
 
 async function handleLogout() {
@@ -520,11 +553,17 @@ function renderProjectList() {
           <i class="fas fa-trash" style="font-size: 12px;"></i>
         </button>
       </div>
-      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+      <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;">
         ${getStatusBadge(project.status)}
         ${project.requirement_mode ? `<span class="badge badge-small badge-weak-${project.requirement_mode === 'challenge' ? 'purple' : 'blue'}">${project.requirement_mode === 'challenge' ? '챌린지형' : '초기 기획용'}</span>` : '<span class="badge badge-small badge-weak-grey">미확인</span>'}
         <span class="text-caption" style="color: var(--grey-500);">${formatRelativeTime(project.updated_at)}</span>
       </div>
+      ${project.creator_name ? `
+        <div style="display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+          <i class="fas fa-user-circle" style="font-size: 10px; color: var(--grey-400);"></i>
+          <span class="text-caption" style="color: var(--grey-600);">${escapeHtml(project.creator_name)}</span>
+        </div>
+      ` : ''}
     </div>
   `).join('');
 }
