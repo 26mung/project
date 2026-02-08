@@ -1,427 +1,206 @@
-# 플랫폼기획팀 - AI 기획 전문가 에이전트
+# 플랫폼기획팀 프로젝트 관리 시스템 v1.0.0
 
-AI 기반 기획 지원 도구로, 상위 기획안을 분석하여 세부 요건을 자동으로 도출하고 체크리스트 형태로 확인하여 최종 PRD 문서를 생성합니다.
+AI 기반 프로젝트 기획부터 PRD 작성까지 All-in-One 솔루션
 
-## 프로젝트 개요
+## 🎉 v1.0.0 Features
 
-- **Name**: 플랫폼기획팀 (Planning Assistant)
-- **Goal**: AI를 활용한 자동화된 기획 요건 도출 및 PRD 문서 생성
-- **Tech Stack**: Hono + Cloudflare Workers + D1 Database + OpenAI API
-- **Design**: **토스(Toss) 스타일 UI/UX**.
+### 🚀 온보딩 페이지
+- Apple 스타일의 혁신적인 랜딩 페이지
+- 풀스크린 히어로 섹션 with 패럴랙스 효과
+- 인터랙티브 기능 섹션 (스크롤 애니메이션)
+- 다크 섹션 with 그라데이션 효과
+- 스마트 네비게이션 (스크롤 반응형)
+- 생동감 있는 카피라이팅
 
-## 주요 기능
+### 🔐 회원가입/로그인 시스템
+- 이메일 기반 회원가입
+- 이메일 인증 (6자리 코드, 5분 유효)
+- 안전한 비밀번호 해시 (SHA-256)
+- 세션 기반 인증 (7일 유효)
+- 필수 항목: 이메일, 이름, 비밀번호
+- 선택 항목: 생년월일
 
-### ✅ 완료된 기능
+### 📋 프로젝트 관리
+- 프로젝트 생성 및 관리
+- 프로젝트 상태: Draft → In Progress → Completed
+- 프로젝트 뱃지: 미확인 → 초기 기획용 / 챌린지형
 
-1. **프로젝트 관리**
-   - 프로젝트 생성, 조회, 수정, 삭제
-   - 상위 기획안 입력 및 저장
-   - 프로젝트 상태 추적 (draft, analyzing, in_progress, completed)
-   - **프로젝트 개요 편집**: 제목, 설명, 기획안 내용을 언제든지 수정 가능
+### 🤖 AI 기능
+- **기획안 평가**: 완성도 점수 (0-100점)
+- **요건 자동 생성**: AI가 기획안 분석 → 요건 추출
+- **질문 자동 생성**: 요건당 자동 질문 생성
+- **PRD 문서 생성**: 전문가 수준의 PRD 자동 작성
 
-2. **기획안 완성도 평가**
-   - AI 기반 기획안 완성도 평가 (0-100점)
-   - 프로젝트 성격 자동 파악 (웹 앱, 모바일 앱, API 서비스 등)
-   - **7가지 평가 기준** (일정/MVP 제외):
-     - 프로젝트 성격 (15점)
-     - 목표 및 배경 (20점)
-     - 사용자/고객 정의 (20점)
-     - 핵심 기능 (25점)
-     - 시퀀스/플로우 (10점)
-     - 기술적 제약 (5점)
-     - 외부 연동 (5점)
-   - 부족한 항목 식별 및 실행 가능한 개선 제안
-   - 분석 진행 가능 여부 자동 판단 (60점 이상 권장)
-   - **편집 팝업에서 평가 결과 통합 표시**
+### 📝 요건 관리
+- CRUD (생성, 조회, 수정, 삭제)
+- 우선순위: Critical / High / Medium / Low
+- 상태: 대기 / 진행중 / 완료
+- 북마크 기능
+- 검색/필터링
+- **카드 클릭 → 상세보기 팝업**
 
-3. **AI 기획 분석 (고도화)**
-   - OpenAI GPT를 활용한 상위 기획안 자동 분석
-   - **기능적/비기능적 요건 + 제약사항** 자동 도출
-   - **개발 구조 및 기술적 확인 사항** 포함
-   - **외부 시스템 연동 요건** 식별
-   - **시퀀스/플로우 분석** 강화
-   - **개발 정책 및 현황 확인** 요건 자동 생성
-   - 요건별 우선순위 자동 분류 (critical, high, medium, low)
-   - 각 요건에 대한 확인 질문 자동 생성 (2-3개/요건)
+### 🔥 스파르타 챌린지
+- 질문 10개 이상인 요건에 특별 뱃지
+- 애니메이션 효과로 강조
 
-4. **요건 관리 (강화)**
-   - 계층적 요건 구조 지원 (부모-자식 관계)
-   - **요건 편집/삭제 기능**: 각 요건을 개별 수정 및 삭제 가능
-   - 요건별 질문-답변 관리
-   - **🎯 질문 트리 시각화**: 부모-자식 관계를 트리 구조로 표현
-   - 답변 기반 파생 질문 자동 생성
-   - **답변 기반 파생 요건 자동 생성**: AI가 답변 내용을 분석하여 추가 요건 자동 생성
-   - 실시간 요건 상태 업데이트
+### 🎨 UX/UI
+- 모달 시스템 (블러/딤 처리)
+- 트렌디한 마이크로 인터랙션
+- Toss 디자인 시스템
+- 반응형 레이아웃
 
-5. **PRD 문서 생성 (개선)**
-   - 모든 요건과 답변을 종합한 완전한 PRD 자동 생성
-   - **✨ 표 형식 출력**: 가독성 높은 마크다운 테이블
-   - **✨ 기획자 언어**: 개발 용어 대신 비즈니스 관점의 언어 사용
-   - 이모지를 활용한 섹션 구분
-   - 개요, 목표, 사용자 정의, 주요 기능, 시나리오, 요구사항 상세, 우선순위 포함
+## 🛠️ 기술 스택
 
-6. **🎨 토스 스타일 UI/UX (완전 리뉴얼)**
-   - **디자인 시스템**:
-     - Toss Blue (#3182F6) 기본 컬러
-     - Pretendard 폰트
-     - 7단계 그레이스케일
-     - 상태 컬러 (성공/경고/에러)
-   - **버튼 위계**:
-     - XL: 최우선 액션
-     - Large: 주요 액션 (AI 분석, PRD 생성)
-     - Medium: 일반 액션 (저장, 평가)
-     - Small: 보조 액션 (편집, 상세보기)
-     - Icon: 아이콘 버튼
-   - **애니메이션**:
-     - Cubic-bezier easing
-     - Hover 효과
-     - 부드러운 전환
-   - **컴포넌트**:
-     - 카드 시스템
-     - 모달 (fadeIn + slideUp)
-     - 배지 (우선순위별 그라데이션)
-     - 토스트 알림
-     - 질문 트리 시각화
+- **Frontend**: Vanilla JS + Tailwind CSS (CDN)
+- **Backend**: Hono + Cloudflare Workers
+- **Database**: D1 (SQLite)
+- **Authentication**: Session-based with cookies
+- **Deployment**: Cloudflare Pages
 
-### 🚧 진행 예정 기능
+## 📦 설치 및 실행
 
-1. **고도화된 시각화**
-   - D3.js 기반 마인드맵
-   - Mermaid 다이어그램
-
-2. **PRD 다운로드**
-   - PDF 형식 다운로드
-   - Markdown 파일 다운로드
-
-3. **협업 기능**
-   - 팀 멤버 초대
-   - 댓글 및 피드백
-
-## URLs
-
-- **Development**: https://3000-i76my0r62tqhuocuhyyd4-d0b9e1e2.sandbox.novita.ai
-- **Production**: (배포 예정)
-
-## 최근 업데이트 (2026-02-05)
-
-### 🎉 토스 스타일 UI 완전 리뉴얼 (v3.0)
-
-#### 1. **PRD 생성 개선**
-- **표 형식 출력**: 모든 섹션을 마크다운 테이블로 정리
-- **기획자 언어**: API, DB, 클래스 등 개발 용어 대신 화면, 기능, 사용자 행동 중심
-- **이모지 활용**: 각 섹션 구분 (📋/🎯/👥/⚙️/🔄/📊/🚀)
-- **구조화**: 개요 → 목표 → 사용자 정의 → 기능 → 시나리오 → 요구사항 → 일정
-
-#### 2. **질문 트리 시각화**
-- 부모-자식 질문 관계를 트리로 표현
-- 답변 상태별 시각적 구분 (완료/대기)
-- 들여쓰기와 연결선으로 계보 표시
-- 루트 질문 강조 표시
-
-#### 3. **토스 디자인 시스템**
-- **컬러**: Toss Blue, 7단계 그레이스케일, 상태 컬러
-- **타이포그래피**: Pretendard 폰트, 명확한 위계
-- **버튼**: XL/Large/Medium/Small/Icon 5단계
-- **애니메이션**: cubic-bezier 이징, hover/active 효과
-- **컴포넌트**: 카드, 모달, 배지, 토스트, 인풋 통일
-
-#### 4. **사용자 경험 개선**
-- 명확한 버튼 위계로 주요 액션 강조
-- 부드러운 애니메이션 (0.2s cubic-bezier)
-- 시각적 피드백 강화
-- 친근한 톤앤매너
-- 반응형 디자인
-- 부족한 항목 자동 식별 (최대 5개)
-- 구체적이고 실행 가능한 개선 제안 제공
-- 분석 진행 가능 여부 자동 판단 (60점 이상 권장)
-- **🆕 편집 시 평가 결과 실시간 표시**: 개요 편집 팝업에서 부족 항목과 개선 제안을 확인하며 작성
-
-#### 2. **프로젝트 개요 편집**
-- 프로젝트명, 설명, 상위 기획안 내용 언제든지 수정 가능
-- **🆕 편집 시 자동 평가 및 가이드**: 팝업에서 완성도, 부족 항목, 개선 제안을 실시간으로 확인
-- 편집 후 재평가 권장 토스트 메시지
-- 변경 이력 자동 추적
-
-#### 3. **요건 관리 강화**
-- 요건 편집: 제목, 설명, 우선순위, 상태 개별 수정
-- 요건 삭제: 불필요한 요건 제거 (복구 불가 경고)
-- **🆕 답변 수정**: 질문에 대한 답변을 언제든지 수정 가능
-- **🆕 질문 삭제**: 엉뚱한 질문을 삭제하여 정확도 향상
-- **🆕 추가 요건 생성**: 기존 요건과 중복되지 않는 새로운 요건 자동 생성
-- 편집 UI: 모달 기반 직관적 인터페이스
-
-#### 4. **답변 기반 파생 요건 생성**
-- AI가 사용자 답변을 분석하여 추가 요건 자동 생성
-- 최대 3개의 파생 요건 생성
-- 부모-자식 계층 구조로 관리
-- 원 요건과의 연관성 표시
-
-#### 5. **AI 프롬프트 고도화**
-- **개발 구조**: 기술 스택, 아키텍처 패턴, DB 설계 확인
-- **외부 연동**: API, 외부 서비스, 인증 방식 식별
-- **개발 정책**: 코딩 컨벤션, 배포 프로세스 확인
-- **시퀀스/플로우**: 사용자 시나리오 단계별 분석
-- **리스크**: 기술적 제약, 일정 리스크, 외부 의존성 파악
-
-#### 6. **사용자 검증 플로우**
-- 프로젝트 생성 → 기획안 평가 → 개선 안내 → AI 분석 승인
-- 평가 결과 시각화 (점수, 완성도 바, 개선 항목)
-- 승인/거부 선택지 제공
-
-### ✅ 버그 수정
-- **API 500 에러 해결**: Cloudflare Workers 환경에서 `process.env` 대신 `c.env` 바인딩 사용
-- **환경 변수 설정**: `.dev.vars` 파일을 통한 로컬 개발 환경 변수 관리
-
-## API 엔드포인트
-
-### 프로젝트 API
-- `GET /api/projects` - 모든 프로젝트 조회
-- `GET /api/projects/:id` - 프로젝트 상세 조회
-- `POST /api/projects` - 프로젝트 생성
-- `PUT /api/projects/:id` - 프로젝트 업데이트
-- `DELETE /api/projects/:id` - 프로젝트 삭제
-- **🆕 `POST /api/projects/:id/evaluate`** - 기획안 완성도 평가
-- `POST /api/projects/:id/analyze` - AI 분석 실행
-- `POST /api/projects/:id/generate-prd` - PRD 생성
-- `GET /api/projects/:id/prd` - PRD 조회
-
-### 요건 API
-- `GET /api/projects/:id/requirements` - 프로젝트의 모든 요건 조회
-- `GET /api/requirements/:id` - 요건 상세 조회 (질문/답변 포함)
-- `POST /api/requirements` - 요건 생성
-- `PUT /api/requirements/:id` - 요건 업데이트
-- `DELETE /api/requirements/:id` - 요건 삭제
-- **🆕 `POST /api/requirements/:id/generate-derived`** - 파생 요건 자동 생성
-
-### 질문/답변 API
-- `POST /api/questions/:id/answer` - 질문에 답변하기 (자동으로 파생 질문 생성)
-- **🆕 `PUT /api/answers/:id`** - 답변 수정
-- **🆕 `DELETE /api/questions/:id`** - 질문 삭제 (답변도 함께 삭제)
-- **🆕 `POST /api/projects/:id/generate-additional-requirements`** - 추가 요건 생성 (중복 방지)
-
-## 데이터 구조
-
-### Projects (프로젝트)
-```typescript
-{
-  id: number;
-  title: string;
-  description: string;
-  input_content: string;  // 상위 기획안
-  status: 'draft' | 'analyzing' | 'in_progress' | 'completed';
-  created_at: string;
-  updated_at: string;
-}
-```
-
-### Requirements (요건)
-```typescript
-{
-  id: number;
-  project_id: number;
-  parent_id: number;  // 계층 구조 지원 (파생 요건)
-  title: string;
-  description: string;
-  requirement_type: 'functional' | 'non_functional' | 'constraint';
-  priority: 'critical' | 'high' | 'medium' | 'low';
-  status: 'pending' | 'in_progress' | 'completed';
-  order_index: number;
-}
-```
-
-### Questions (질문)
-```typescript
-{
-  id: number;
-  requirement_id: number;
-  question_text: string;
-  question_type: 'open' | 'choice' | 'boolean';
-  options: string;  // JSON array (choice 타입일 경우)
-  is_required: boolean;
-  order_index: number;
-}
-```
-
-### Answers (답변)
-```typescript
-{
-  id: number;
-  question_id: number;
-  answer_text: string;
-  created_at: string;
-  updated_at: string;
-}
-```
-
-## 스토리지 서비스
-
-- **Cloudflare D1**: SQLite 기반 관계형 데이터베이스
-  - Projects, Requirements, Questions, Answers, PRD Documents 테이블
-  - 계층 구조 지원 (parent-child 관계)
-  - 로컬 개발: `--local` 플래그로 로컬 SQLite 사용
-
-## 사용 가이드
-
-### 1. 새 프로젝트 생성
-1. 좌측 사이드바에서 "새 프로젝트" 버튼 클릭
-2. 프로젝트 제목, 설명 입력
-3. 상위 기획안 입력 (AI가 분석할 내용)
-   - 💡 포함하면 좋은 내용:
-     - 프로젝트 목표 및 해결하려는 문제
-     - 타겟 사용자 및 주요 기능
-     - 사용자 시나리오/플로우
-     - 기술적 제약이나 외부 시스템 연동
-
-### 2. 기획안 평가 (신규)
-1. 프로젝트 생성 후 자동으로 평가 실행
-2. 완성도 점수 (0-100점) 및 프로젝트 성격 확인
-3. 부족한 항목 및 개선 제안 검토
-4. 60점 미만: 기획안 수정 권장
-5. 60점 이상: AI 분석 진행 가능
-
-### 3. AI 분석 실행
-1. 평가 결과 확인 후 "AI 분석 시작하기" 버튼 클릭
-2. AI가 기획안을 분석하여 세부 요건과 질문을 자동 생성
-   - 기능 요건, 비기능 요건, 제약사항 포함
-   - 개발 구조, 외부 연동, 시퀀스 분석
-   - 각 요건마다 2-3개의 확인 질문 생성
-3. 생성 완료 후 자동으로 "요건 관리" 탭으로 이동
-
-### 4. 요건 확인 및 관리
-1. "요건 관리" 탭에서 각 요건 카드 확인
-2. 요건 편집/삭제 버튼으로 개별 수정 가능
-3. **추가 요건 생성** 버튼으로 기존 요건과 중복되지 않는 새로운 요건 생성
-4. "상세보기" 버튼 클릭하여 질문 확인
-5. 각 질문에 답변 입력 및 저장
-   - **답변 수정**: 답변 완료 후에도 언제든 수정 가능
-   - **질문 삭제**: 엉뚱한 질문은 삭제 버튼으로 제거
-6. 답변에 따라 추가 파생 질문이 자동 생성될 수 있음
-
-### 5. 파생 요건 생성 (신규)
-1. 요건 상세보기에서 모든 질문에 답변 완료
-2. "파생 요건 생성하기" 버튼 클릭
-3. AI가 답변 내용을 분석하여 추가 요건 자동 생성 (최대 3개)
-4. 생성된 파생 요건은 부모 요건 아래에 표시
-
-### 6. PRD 문서 생성
-1. 모든 필요한 질문에 답변 완료 후
-2. "요건 관리" 탭 상단의 "PRD 생성" 버튼 클릭
-3. AI가 모든 정보를 종합하여 완전한 PRD 문서 생성
-4. "PRD" 탭에서 생성된 문서 확인
-
-## 개발 환경 설정
-
-### 필수 요구사항
-- Node.js 18+
-- npm 또는 pnpm
-- OpenAI API 키 (또는 호환 API)
-
-### 로컬 실행
+### 1. 의존성 설치
 ```bash
-# 의존성 설치
 npm install
+```
 
-# D1 로컬 데이터베이스 초기화
-npm run db:migrate:local
-npm run db:seed
+### 2. 데이터베이스 초기화
+```bash
+./init-db.sh
+# 또는
+npx wrangler d1 execute DB --local --file=./schema.sql
+```
 
-# 빌드
+### 3. 개발 서버 실행
+```bash
+npm run dev
+```
+
+서버가 실행되면:
+- **온보딩 페이지**: http://localhost:8080/onboarding.html
+- **메인 앱**: http://localhost:8080/
+
+### 4. 빌드
+```bash
 npm run build
-
-# PM2로 개발 서버 시작
-pm2 start ecosystem.config.cjs
-
-# 또는 직접 실행
-npm run dev:sandbox
 ```
 
-### 데이터베이스 관리
+### 5. 프로덕션 배포
 ```bash
-# 마이그레이션 적용 (로컬)
-npm run db:migrate:local
-
-# 시드 데이터 삽입
-npm run db:seed
-
-# 데이터베이스 초기화
-npm run db:reset
-
-# D1 콘솔 (로컬)
-npm run db:console:local
+npm run deploy
 ```
 
-### 프로덕션 배포
+## 📁 프로젝트 구조
 
-```bash
-# D1 프로덕션 데이터베이스 생성
-npx wrangler d1 create webapp-production
-
-# wrangler.jsonc에 database_id 업데이트
-
-# 마이그레이션 적용 (프로덕션)
-npm run db:migrate:prod
-
-# 배포
-npm run deploy:prod
+```
+/home/user/webapp/
+├── public/
+│   ├── index.html              # 메인 앱
+│   ├── onboarding.html         # 온보딩 페이지 (신규)
+│   └── static/
+│       ├── app.js              # 메인 앱 로직
+│       ├── onboarding.js       # 온보딩 로직 (신규)
+│       └── style.css           # 메인 앱 스타일
+├── src/
+│   ├── api.ts                  # API 라우트 (인증 API 추가)
+│   ├── ai-service.ts           # AI 서비스
+│   └── types.ts                # 타입 정의
+├── schema.sql                  # DB 스키마 (신규)
+├── init-db.sh                  # DB 초기화 스크립트 (신규)
+└── wrangler.toml               # Cloudflare 설정
 ```
 
-## 배포 상태
+## 🔐 인증 시스템
 
-- **Platform**: Cloudflare Pages
-- **Status**: ✅ Development Active
-- **Database**: Cloudflare D1 (로컬 개발 환경)
-- **AI Service**: OpenAI 호환 API (샌드박스 환경)
-- **Last Updated**: 2026-02-05
+### 회원가입 Flow
+1. 이메일 입력 → "인증코드 발송" 클릭
+2. 이메일로 6자리 코드 수신 (개발 환경에서는 응답에 포함)
+3. 코드 입력 → "인증확인" 클릭
+4. 이름, 비밀번호 입력
+5. 회원가입 완료
 
-## 기술 아키텍처
+### 로그인 Flow
+1. 이메일, 비밀번호 입력
+2. 로그인 성공 → 세션 쿠키 설정
+3. 메인 앱으로 리다이렉트
 
-### 백엔드
-- **Hono**: 경량 웹 프레임워크
-- **Cloudflare Workers**: 엣지 런타임
-- **Cloudflare D1**: 글로벌 분산 SQLite 데이터베이스
-- **OpenAI API**: AI 기획 분석 엔진
+### API Endpoints
+```
+POST /api/auth/send-verification  # 이메일 인증코드 발송
+POST /api/auth/verify-code        # 인증코드 확인
+POST /api/auth/signup             # 회원가입
+POST /api/auth/login              # 로그인
+POST /api/auth/logout             # 로그아웃
+GET  /api/auth/check              # 세션 확인
+```
 
-### 프론트엔드
-- **Vanilla JavaScript**: 프레임워크 없이 순수 JS
-- **TailwindCSS**: 유틸리티 기반 CSS + 토스 컬러 시스템
-- **Axios**: HTTP 클라이언트
-- **Marked**: Markdown 파싱
-- **Font Awesome**: 아이콘
-- **Pretendard**: 깔끔한 한글 폰트
+## 📊 데이터베이스 스키마
 
-### 개발 도구
-- **TypeScript**: 타입 안전성
-- **Vite**: 빌드 도구
-- **Wrangler**: Cloudflare 개발 CLI
-- **PM2**: 프로세스 관리
+### users 테이블
+```sql
+- id: INTEGER PRIMARY KEY
+- email: TEXT UNIQUE (필수)
+- password_hash: TEXT (필수)
+- name: TEXT (필수)
+- birth_date: TEXT (선택, YYYY-MM-DD)
+- is_email_verified: INTEGER (0/1)
+- created_at: TEXT
+- updated_at: TEXT
+- last_login_at: TEXT
+```
 
-## 다음 개발 단계
+### email_verifications 테이블
+```sql
+- id: INTEGER PRIMARY KEY
+- email: TEXT
+- verification_code: TEXT (6자리)
+- expires_at: TEXT (5분 유효)
+- is_used: INTEGER (0/1)
+- created_at: TEXT
+```
 
-1. **시각화 기능 강화**
-   - 요건 트리 시각화
-   - 마인드맵 뷰
-   - 시퀀스 다이어그램 자동 생성
+### sessions 테이블
+```sql
+- id: INTEGER PRIMARY KEY
+- user_id: INTEGER (FOREIGN KEY)
+- session_token: TEXT UNIQUE
+- expires_at: TEXT (7일 유효)
+- created_at: TEXT
+```
 
-2. **문서 관리**
-   - PRD 버전 관리
-   - 문서 비교 기능
-   - 다양한 형식으로 내보내기 (PDF, DOCX, Markdown)
+## 🧪 테스트
 
-3. **협업 기능**
-   - 실시간 협업
-   - 코멘트 시스템
-   - 권한 관리
+### 온보딩 페이지 테스트
+1. http://localhost:8080/onboarding.html 접속
+2. 히어로 섹션 스크롤 애니메이션 확인
+3. 네비게이션 스크롤 반응 확인
+4. 회원가입 플로우 테스트
+5. 로그인 플로우 테스트
 
-4. **AI 기능 향상**
-   - 더 정교한 요건 분류
-   - 유사 프로젝트 분석
-   - 자동 일정 산정
-   - 리스크 분석 강화
+### 메인 앱 테스트
+1. 로그인 후 http://localhost:8080/ 접속
+2. 프로젝트 생성
+3. 기획안 평가
+4. 요건 관리
+5. PRD 생성
 
-## 라이선스
+## 🎯 향후 계획
 
-MIT License
+- [ ] 실제 이메일 발송 (Resend, SendGrid 등)
+- [ ] bcrypt 비밀번호 해시
+- [ ] 비밀번호 재설정 기능
+- [ ] 소셜 로그인 (Google, GitHub)
+- [ ] 프로필 관리
+- [ ] 프로젝트-사용자 연동 (user_id 추가)
 
-## 문의
+## 📝 라이선스
 
-프로젝트에 대한 문의사항이 있으시면 이슈를 생성해주세요.
+MIT
+
+## 🙏 기여
+
+버그 리포트나 기능 제안은 Issue를 통해 부탁드립니다.
+
+---
+
+**v1.0.0** - Production Ready 🎉

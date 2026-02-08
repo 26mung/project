@@ -55,6 +55,189 @@ api.get('/auth/check', async (c) => {
   return c.json({ authenticated: session === 'authenticated' });
 });
 
+// ============ 신규 사용자 인증 API ============
+
+// 이메일 인증코드 발송
+api.post('/auth/send-verification', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email } = body;
+  
+  if (!email || !email.includes('@')) {
+    return c.json({ error: 'Invalid email address' }, 400);
+  }
+  
+  // 6자리 랜덤 코드 생성
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  
+  // 만료 시간 (5분 후)
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  
+  // DB에 저장
+  await DB.prepare(
+    'INSERT INTO email_verifications (email, verification_code, expires_at) VALUES (?, ?, ?)'
+  ).bind(email, code, expiresAt).run();
+  
+  // TODO: 실제 이메일 발송 (현재는 로그만)
+  console.log(`[Email Verification] Code for ${email}: ${code}`);
+  
+  // 개발 환경에서는 코드를 응답에 포함 (실제 운영에서는 제거)
+  return c.json({ 
+    success: true, 
+    message: 'Verification code sent',
+    // 개발 환경용
+    dev_code: code 
+  });
+});
+
+// 이메일 인증코드 확인
+api.post('/auth/verify-code', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email, code } = body;
+  
+  if (!email || !code) {
+    return c.json({ error: 'Email and code are required' }, 400);
+  }
+  
+  // 최신 인증코드 조회
+  const verification = await DB.prepare(
+    'SELECT * FROM email_verifications WHERE email = ? AND verification_code = ? AND is_used = 0 ORDER BY created_at DESC LIMIT 1'
+  ).bind(email, code).first();
+  
+  if (!verification) {
+    return c.json({ error: 'Invalid verification code' }, 400);
+  }
+  
+  // 만료 확인
+  const now = new Date();
+  const expiresAt = new Date(verification.expires_at as string);
+  
+  if (now > expiresAt) {
+    return c.json({ error: 'Verification code expired' }, 400);
+  }
+  
+  // 사용 처리
+  await DB.prepare(
+    'UPDATE email_verifications SET is_used = 1 WHERE id = ?'
+  ).bind(verification.id).run();
+  
+  return c.json({ success: true, message: 'Email verified' });
+});
+
+// 회원가입
+api.post('/auth/signup', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email, password, name, birth_date } = body;
+  
+  if (!email || !password || !name) {
+    return c.json({ error: 'Email, password, and name are required' }, 400);
+  }
+  
+  // 이메일 중복 확인
+  const existingUser = await DB.prepare(
+    'SELECT id FROM users WHERE email = ?'
+  ).bind(email).first();
+  
+  if (existingUser) {
+    return c.json({ error: 'Email already registered' }, 409);
+  }
+  
+  // 비밀번호 해시 (간단한 방식, 실제로는 bcrypt 사용 권장)
+  const passwordHash = await hashPassword(password);
+  
+  // 사용자 생성
+  const result = await DB.prepare(
+    'INSERT INTO users (email, password_hash, name, birth_date, is_email_verified) VALUES (?, ?, ?, ?, ?)'
+  ).bind(email, passwordHash, name, birth_date || null, 1).run();
+  
+  return c.json({ 
+    success: true, 
+    message: 'User created',
+    user_id: result.meta.last_row_id 
+  }, 201);
+});
+
+// 로그인
+api.post('/auth/login', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+  const { email, password } = body;
+  
+  if (!email || !password) {
+    return c.json({ error: 'Email and password are required' }, 400);
+  }
+  
+  // 사용자 조회
+  const user = await DB.prepare(
+    'SELECT * FROM users WHERE email = ?'
+  ).bind(email).first();
+  
+  if (!user) {
+    return c.json({ error: 'Invalid email or password' }, 401);
+  }
+  
+  // 비밀번호 확인
+  const isValid = await verifyPassword(password, user.password_hash as string);
+  
+  if (!isValid) {
+    return c.json({ error: 'Invalid email or password' }, 401);
+  }
+  
+  // 세션 토큰 생성
+  const sessionToken = generateSessionToken();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7일
+  
+  // 세션 저장
+  await DB.prepare(
+    'INSERT INTO sessions (user_id, session_token, expires_at) VALUES (?, ?, ?)'
+  ).bind(user.id, sessionToken, expiresAt).run();
+  
+  // 마지막 로그인 시간 업데이트
+  await DB.prepare(
+    'UPDATE users SET last_login_at = datetime("now", "+9 hours") WHERE id = ?'
+  ).bind(user.id).run();
+  
+  // 쿠키 설정
+  setCookie(c, SESSION_COOKIE_NAME, sessionToken, {
+    maxAge: 7 * 24 * 60 * 60,
+    httpOnly: true,
+    path: '/'
+  });
+  
+  return c.json({ 
+    success: true, 
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name
+    }
+  });
+});
+
+// ============ Helper Functions ============
+
+async function hashPassword(password: string): Promise<string> {
+  // 간단한 해시 (실제로는 bcrypt 사용 권장)
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyPassword(password: string, hash: string): Promise<boolean> {
+  const passwordHash = await hashPassword(password);
+  return passwordHash === hash;
+}
+
+function generateSessionToken(): string {
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ============ 프로젝트 API ============
 
 // 모든 프로젝트 조회
