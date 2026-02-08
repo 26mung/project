@@ -176,61 +176,14 @@ function showSignupModal() {
       <form onsubmit="handleSignup(event)" style="display: flex; flex-direction: column; gap: 20px;">
         <div>
           <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">이메일 *</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="email" id="signup-email" required style="
-              flex: 1;
-              padding: 14px 16px;
-              border: 2px solid #e5e5ea;
-              border-radius: 12px;
-              font-size: 16px;
-              transition: border-color 0.3s ease;
-            " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="이메일을 입력하세요">
-            <button type="button" onclick="sendVerificationCode()" style="
-              padding: 14px 20px;
-              background: #007AFF;
-              color: white;
-              border: none;
-              border-radius: 12px;
-              font-size: 14px;
-              font-weight: 600;
-              cursor: pointer;
-              white-space: nowrap;
-              transition: background 0.3s ease;
-            " onmouseover="this.style.background='#0051D5'" onmouseout="this.style.background='#007AFF'">
-              인증코드 발송
-            </button>
-          </div>
-        </div>
-        
-        <div id="verification-code-section" style="display: none;">
-          <label style="display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;">인증코드 *</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="verification-code" maxlength="6" style="
-              flex: 1;
-              padding: 14px 16px;
-              border: 2px solid #e5e5ea;
-              border-radius: 12px;
-              font-size: 16px;
-              transition: border-color 0.3s ease;
-              letter-spacing: 2px;
-              text-align: center;
-            " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="6자리 코드">
-            <button type="button" onclick="verifyCode()" style="
-              padding: 14px 20px;
-              background: #34C759;
-              color: white;
-              border: none;
-              border-radius: 12px;
-              font-size: 14px;
-              font-weight: 600;
-              cursor: pointer;
-              white-space: nowrap;
-              transition: background 0.3s ease;
-            " onmouseover="this.style.background='#28A745'" onmouseout="this.style.background='#34C759'">
-              인증확인
-            </button>
-          </div>
-          <p id="verification-timer" style="font-size: 12px; color: #ff3b30; margin-top: 8px;"></p>
+          <input type="email" id="signup-email" required style="
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e5e5ea;
+            border-radius: 12px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+          " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="이메일을 입력하세요">
         </div>
         
         <div>
@@ -282,20 +235,20 @@ function showSignupModal() {
           " onfocus="this.style.borderColor='#007AFF'" onblur="this.style.borderColor='#e5e5ea'" placeholder="비밀번호를 다시 입력하세요">
         </div>
         
-        <button type="submit" id="signup-submit-btn" disabled style="
+        <button type="submit" id="signup-submit-btn" style="
           width: 100%;
           padding: 16px;
-          background: #c7c7cc;
+          background: #007AFF;
           color: white;
           border: none;
           border-radius: 12px;
           font-size: 16px;
           font-weight: 600;
-          cursor: not-allowed;
+          cursor: pointer;
           transition: all 0.3s ease;
           margin-top: 8px;
-        ">
-          이메일 인증이 필요합니다
+        " onmouseover="this.style.background='#0051D5'" onmouseout="this.style.background='#007AFF'">
+          가입하기
         </button>
       </form>
       
@@ -432,11 +385,6 @@ async function handleLogin(event) {
 
 async function handleSignup(event) {
   event.preventDefault();
-  
-  if (!isEmailVerified) {
-    alert('이메일 인증을 완료해주세요.');
-    return;
-  }
   
   const email = document.getElementById('signup-email').value;
   const name = document.getElementById('signup-name').value;
