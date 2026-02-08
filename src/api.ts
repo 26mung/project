@@ -59,31 +59,19 @@ api.get('/auth/check', async (c) => {
   }
   
   try {
-    // 세션 및 사용자 정보 조회
+    // 세션 및 사용자 정보 조회 (role 컬럼 포함)
     const session = await DB.prepare(
-      'SELECT s.*, u.id as user_id, u.email, u.name FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+      'SELECT s.*, u.id as user_id, u.email, u.name, u.role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
     ).bind(sessionToken).first();
     
     if (!session) {
       return c.json({ authenticated: false });
     }
     
-    // 사용자 역할 조회
-    const roles = await DB.prepare(
-      `SELECT r.name, r.display_name, r.level 
-       FROM user_roles ur 
-       JOIN roles r ON ur.role_id = r.id 
-       WHERE ur.user_id = ?
-       ORDER BY r.level DESC`
-    ).bind(session.user_id).all();
-    
-    // 최고 권한 레벨 확인
-    const maxLevel = roles.results && roles.results.length > 0 
-      ? Math.max(...roles.results.map((r: any) => r.level))
-      : 0;
-    
-    const isSuperAdmin = roles.results?.some((r: any) => r.name === 'super_admin') || false;
-    const isAdmin = roles.results?.some((r: any) => r.name === 'admin' || r.name === 'super_admin') || false;
+    // 사용자 역할 확인 (간소화)
+    const role = (session as any).role || 'user';
+    const isSuperAdmin = role === 'super_admin';
+    const isAdmin = role === 'admin' || role === 'super_admin';
     
     return c.json({ 
       authenticated: true,
@@ -91,10 +79,9 @@ api.get('/auth/check', async (c) => {
         id: session.user_id,
         email: session.email,
         name: session.name,
-        roles: roles.results || [],
+        role,
         isSuperAdmin,
-        isAdmin,
-        maxLevel
+        isAdmin
       }
     });
   } catch (error) {
@@ -394,15 +381,12 @@ api.get('/projects', async (c) => {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   
-  // 사용자 역할 확인
-  const userRoles = await DB.prepare(
-    `SELECT r.name, r.level 
-     FROM user_roles ur 
-     JOIN roles r ON ur.role_id = r.id 
-     WHERE ur.user_id = ?`
-  ).bind(session.user_id).all();
+  // 사용자 역할 확인 (간소화)
+  const user = await DB.prepare(
+    'SELECT role FROM users WHERE id = ?'
+  ).bind(session.user_id).first();
   
-  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  const isSuperAdmin = (user as any)?.role === 'super_admin';
   
   // 생성자 정보를 포함한 프로젝트 조회
   let query = `
@@ -462,12 +446,12 @@ api.get('/projects/:id', async (c) => {
     return c.json({ error: 'Project not found' }, 404);
   }
   
-  // 사용자 역할 확인
-  const userRoles = await DB.prepare(
-    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
-  ).bind(session.user_id).all();
+  // 사용자 역할 확인 (간소화)
+  const user = await DB.prepare(
+    'SELECT role FROM users WHERE id = ?'
+  ).bind(session.user_id).first();
   
-  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  const isSuperAdmin = (user as any)?.role === 'super_admin';
   
   // 권한 체크: 최고관리자 또는 생성자만 접근 가능
   if (!isSuperAdmin && project.user_id !== session.user_id) {
@@ -531,12 +515,12 @@ api.put('/projects/:id', async (c) => {
     return c.json({ error: 'Project not found' }, 404);
   }
   
-  // 사용자 역할 확인
-  const userRoles = await DB.prepare(
-    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
-  ).bind(session.user_id).all();
+  // 사용자 역할 확인 (간소화)
+  const user = await DB.prepare(
+    'SELECT role FROM users WHERE id = ?'
+  ).bind(session.user_id).first();
   
-  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  const isSuperAdmin = (user as any)?.role === 'super_admin';
   
   // 권한 체크: 최고관리자 또는 생성자만 수정 가능
   if (!isSuperAdmin && project.user_id !== session.user_id) {
@@ -576,12 +560,12 @@ api.delete('/projects/:id', async (c) => {
     return c.json({ error: 'Project not found' }, 404);
   }
   
-  // 사용자 역할 확인
-  const userRoles = await DB.prepare(
-    `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
-  ).bind(session.user_id).all();
+  // 사용자 역할 확인 (간소화)
+  const user = await DB.prepare(
+    'SELECT role FROM users WHERE id = ?'
+  ).bind(session.user_id).first();
   
-  const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
+  const isSuperAdmin = (user as any)?.role === 'super_admin';
   
   // 권한 체크: 최고관리자 또는 생성자만 삭제 가능
   if (!isSuperAdmin && project.user_id !== session.user_id) {
