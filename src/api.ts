@@ -59,7 +59,7 @@ api.get('/auth/check', async (c) => {
   }
   
   try {
-    // 세션 조회
+    // 세션 및 사용자 정보 조회
     const session = await DB.prepare(
       'SELECT s.*, u.id as user_id, u.email, u.name FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
     ).bind(sessionToken).first();
@@ -68,12 +68,33 @@ api.get('/auth/check', async (c) => {
       return c.json({ authenticated: false });
     }
     
+    // 사용자 역할 조회
+    const roles = await DB.prepare(
+      `SELECT r.name, r.display_name, r.level 
+       FROM user_roles ur 
+       JOIN roles r ON ur.role_id = r.id 
+       WHERE ur.user_id = ?
+       ORDER BY r.level DESC`
+    ).bind(session.user_id).all();
+    
+    // 최고 권한 레벨 확인
+    const maxLevel = roles.results && roles.results.length > 0 
+      ? Math.max(...roles.results.map((r: any) => r.level))
+      : 0;
+    
+    const isSuperAdmin = roles.results?.some((r: any) => r.name === 'super_admin') || false;
+    const isAdmin = roles.results?.some((r: any) => r.name === 'admin' || r.name === 'super_admin') || false;
+    
     return c.json({ 
       authenticated: true,
       user: {
         id: session.user_id,
         email: session.email,
-        name: session.name
+        name: session.name,
+        roles: roles.results || [],
+        isSuperAdmin,
+        isAdmin,
+        maxLevel
       }
     });
   } catch (error) {
@@ -257,10 +278,20 @@ api.post('/auth/signup', async (c) => {
     'INSERT INTO users (email, password_hash, name, birth_date, is_email_verified) VALUES (?, ?, ?, ?, ?)'
   ).bind(email, passwordHash, name, birth_date || null, 1).run();
   
+  const userId = result.meta.last_row_id;
+  
+  // 기본 'user' 역할 부여
+  const userRole = await DB.prepare('SELECT id FROM roles WHERE name = ?').bind('user').first();
+  if (userRole) {
+    await DB.prepare(
+      'INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)'
+    ).bind(userId, userRole.id).run();
+  }
+  
   return c.json({ 
     success: true, 
     message: 'User created',
-    user_id: result.meta.last_row_id 
+    user_id: userId 
   }, 201);
 });
 
