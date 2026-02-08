@@ -3484,9 +3484,13 @@ function filterQuestions(filterType, requirementId) {
     }
   });
   
-  // 질문 필터링
-  const questions = window.currentRequirementQuestions || [];
-  const questionTree = window.currentRequirementTree || [];
+  // 질문 필터링 - JSON 파싱 필요
+  const questions = window.currentRequirementQuestions ? 
+    (typeof window.currentRequirementQuestions === 'string' ? 
+      JSON.parse(window.currentRequirementQuestions) : window.currentRequirementQuestions) : [];
+  const questionTree = window.currentRequirementTree ? 
+    (typeof window.currentRequirementTree === 'string' ? 
+      JSON.parse(window.currentRequirementTree) : window.currentRequirementTree) : [];
   
   console.log(`[필터링] 전체 질문: ${questions.length}개, 트리: ${questionTree.length}개`);
   
@@ -3541,7 +3545,9 @@ function filterTreeByAnswer(nodes, hasAnswer) {
 
 // 요건 정리 완료
 async function completeRequirement(requirementId) {
-  const questions = window.currentRequirementQuestions || [];
+  const questions = window.currentRequirementQuestions ? 
+    (typeof window.currentRequirementQuestions === 'string' ? 
+      JSON.parse(window.currentRequirementQuestions) : window.currentRequirementQuestions) : [];
   const unansweredQuestions = questions.filter(q => !q.answer || !q.answer.answer_text);
   
   // 커스텀 다이얼로그 메시지
