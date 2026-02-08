@@ -3461,6 +3461,8 @@ async function openRequirementDetails(requirementId) {
 
 // 질문 필터링 (탭)
 function filterQuestions(filterType, requirementId) {
+  console.log(`[필터링] 타입: ${filterType}, 요건 ID: ${requirementId}`);
+  
   // 탭 활성화 상태 변경 (토스 디자인 시스템)
   const tabs = ['tab-all-questions', 'tab-answered-questions', 'tab-unanswered-questions'];
   tabs.forEach(tabId => {
@@ -3486,11 +3488,15 @@ function filterQuestions(filterType, requirementId) {
   const questions = window.currentRequirementQuestions || [];
   const questionTree = window.currentRequirementTree || [];
   
+  console.log(`[필터링] 전체 질문: ${questions.length}개, 트리: ${questionTree.length}개`);
+  
   let filteredTree = questionTree;
   if (filterType === 'answered') {
     filteredTree = filterTreeByAnswer(questionTree, true);
+    console.log(`[필터링] 답변한 질문 필터링 결과: ${filteredTree.length}개`);
   } else if (filterType === 'unanswered') {
     filteredTree = filterTreeByAnswer(questionTree, false);
+    console.log(`[필터링] 미답변 질문 필터링 결과: ${filteredTree.length}개`);
   }
   
   // 질문 목록 다시 렌더링
@@ -3506,13 +3512,20 @@ function filterQuestions(filterType, requirementId) {
     } else {
       container.innerHTML = renderQuestionTree(filteredTree, 0, requirementId);
     }
+  } else {
+    console.error(`[필터링] 컨테이너를 찾을 수 없음: questions-container-${requirementId}`);
   }
 }
 
 // 질문 트리 필터링 (답변 여부)
 function filterTreeByAnswer(nodes, hasAnswer) {
+  if (!nodes || nodes.length === 0) return [];
+  
   return nodes.map(node => {
-    const nodeHasAnswer = node.answer && node.answer.answer_text;
+    // 답변 여부 확인 (boolean으로 변환)
+    const nodeHasAnswer = !!(node.answer && node.answer.answer_text);
+    
+    // 자식 노드 필터링
     const filteredChildren = node.children ? filterTreeByAnswer(node.children, hasAnswer) : [];
     
     // 현재 노드가 조건에 맞거나, 자식 중 조건에 맞는 것이 있으면 포함
@@ -4668,6 +4681,14 @@ function showLoadingToast(message) {
   container.appendChild(toast);
   
   return toastId;
+}
+
+// 로딩 토스트 닫기
+function closeLoadingToast(toastId) {
+  const toast = document.getElementById(toastId);
+  if (toast) {
+    toast.remove();
+  }
 }
 
 // 🚀 PRD 생성 진행 상태 바 (하단 고정)
