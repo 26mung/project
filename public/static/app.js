@@ -3391,6 +3391,13 @@ async function openRequirementDetails(requirementId) {
     
     const unansweredCount = questions.filter(q => !q.answer).length;
     
+    // 모달을 열기 전에 window 객체에 데이터 저장
+    window.currentRequirementQuestions = questions;
+    window.currentRequirementTree = questionTree;
+    window.currentRequirementId = requirementId;
+    
+    console.log('[모달 열기] 요건 ID:', requirementId, '질문:', questions.length, '개');
+    
     showModal({
       title: requirement.title,
       content: `
@@ -3445,11 +3452,6 @@ async function openRequirementDetails(requirementId) {
             </div>
           ` : '<p class="text-sm text-toss-gray-500 text-center py-8">질문이 없습니다</p>'}
         </div>
-        
-        <script>
-          window.currentRequirementQuestions = ${JSON.stringify(questions)};
-          window.currentRequirementTree = ${JSON.stringify(questionTree)};
-        </script>
       `,
       size: 'large'
     });
@@ -4445,10 +4447,12 @@ function downloadPRD() {
 // ============ UI 유틸리티 ============
 
 function showModal({ title, content, confirmText = '확인', cancelText = '취소', onConfirm = null, confirmClass = 'btn-primary', size = 'default' }) {
-  const modalContainer = document.getElementById('modal-container');
+  let modalContainer = document.getElementById('modal-container');
   if (!modalContainer) {
-    console.error('Modal container not found');
-    return;
+    console.warn('[모달] modal-container가 없어서 생성합니다');
+    modalContainer = document.createElement('div');
+    modalContainer.id = 'modal-container';
+    document.body.appendChild(modalContainer);
   }
   
   const modalId = 'modal-' + Date.now();
@@ -4578,10 +4582,12 @@ function closeAllModals() {
 
 // 커스텀 확인 다이얼로그 (토스 디자인 시스템)
 function showConfirmDialog({ title, message, confirmText = '확인', cancelText = '취소', onConfirm = null, onCancel = null }) {
-  const modalContainer = document.getElementById('modal-container');
+  let modalContainer = document.getElementById('modal-container');
   if (!modalContainer) {
-    console.error('Modal container not found');
-    return;
+    console.warn('[다이얼로그] modal-container가 없어서 생성합니다');
+    modalContainer = document.createElement('div');
+    modalContainer.id = 'modal-container';
+    document.body.appendChild(modalContainer);
   }
   
   const modalId = 'confirm-dialog-' + Date.now();
