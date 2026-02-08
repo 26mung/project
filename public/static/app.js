@@ -3486,38 +3486,47 @@ async function completeRequirement(requirementId) {
   const questions = window.currentRequirementQuestions || [];
   const unansweredQuestions = questions.filter(q => !q.answer || !q.answer.answer_text);
   
+  // 커스텀 알럿 메시지
+  let message = '요건 정리를 완료할까요?';
   if (unansweredQuestions.length > 0) {
-    const confirmed = confirm(
-      `답변하지 않은 질문이 ${unansweredQuestions.length}개 있습니다.\n\n` +
-      `"확인"을 누르면 답변하지 않은 질문은 일괄 삭제되고, 요건 정리가 완료됩니다.\n\n` +
-      `정말 진행하시겠습니까?`
-    );
-    
-    if (!confirmed) return;
-    
-    // 답변하지 않은 질문 일괄 삭제
-    const loadingToast = showLoadingToast('답변하지 않은 질문을 삭제하는 중...');
-    
-    try {
+    message = `답변하지 않은 질문이 ${unansweredQuestions.length}개 있습니다.\n\n답변하지 않은 질문은 일괄 삭제됩니다.\n\n요건 정리를 완료할까요?`;
+  }
+  
+  const confirmed = confirm(message);
+  if (!confirmed) return; // 취소 시 알럿창만 닫음
+  
+  const loadingToast = showLoadingToast('요건 정리를 완료하는 중...');
+  
+  try {
+    // 1. 답변하지 않은 질문 일괄 삭제
+    if (unansweredQuestions.length > 0) {
       for (const question of unansweredQuestions) {
         await axios.delete(`${API_BASE}/questions/${question.id}`);
       }
-      
-      closeLoadingToast(loadingToast);
-      showToast(`${unansweredQuestions.length}개의 질문이 삭제되었습니다`, 'success');
-      closeAllModals();
-      
-      // 요건 탭으로 전환하고 새로고침
-      switchTab('requirements');
-    } catch (error) {
-      closeLoadingToast(loadingToast);
-      console.error('Failed to delete unanswered questions:', error);
-      showToast('질문 삭제 중 오류가 발생했습니다', 'error');
+      console.log(`[요건 정리] ${unansweredQuestions.length}개의 질문이 삭제되었습니다`);
     }
-  } else {
-    showToast('모든 질문에 답변이 완료되었습니다!', 'success');
+    
+    // 2. 요건 상태를 '완료'로 변경
+    await axios.put(`${API_BASE}/requirements/${requirementId}`, {
+      status: 'completed'
+    });
+    console.log(`[요건 정리] 요건 #${requirementId} 상태가 '완료'로 변경되었습니다`);
+    
+    closeLoadingToast(loadingToast);
+    
+    if (unansweredQuestions.length > 0) {
+      showToast(`${unansweredQuestions.length}개의 질문이 삭제되고, 요건이 완료되었습니다 ✅`, 'success');
+    } else {
+      showToast('요건이 완료되었습니다 ✅', 'success');
+    }
+    
+    // 3. 모달 닫고 요건 목록 새로고침
     closeAllModals();
-    switchTab('requirements');
+    renderRequirements(currentPage);
+  } catch (error) {
+    closeLoadingToast(loadingToast);
+    console.error('Failed to complete requirement:', error);
+    showToast('요건 정리 중 오류가 발생했습니다', 'error');
   }
 }
 

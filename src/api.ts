@@ -900,9 +900,21 @@ api.put('/requirements/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json();
   
+  // 기존 요건 조회
+  const existing = await DB.prepare('SELECT * FROM requirements WHERE id = ?').bind(id).first();
+  if (!existing) {
+    return c.json({ error: 'Requirement not found' }, 404);
+  }
+  
+  // 부분 업데이트 지원
+  const title = body.title !== undefined ? body.title : existing.title;
+  const description = body.description !== undefined ? body.description : existing.description;
+  const status = body.status !== undefined ? body.status : existing.status;
+  const priority = body.priority !== undefined ? body.priority : existing.priority;
+  
   await DB.prepare(
     'UPDATE requirements SET title = ?, description = ?, status = ?, priority = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-  ).bind(body.title, body.description, body.status, body.priority, id).run();
+  ).bind(title, description, status, priority, id).run();
   
   return c.json({ success: true });
 });
