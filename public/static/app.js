@@ -3525,22 +3525,32 @@ function filterQuestions(filterType, requirementId) {
 function filterTreeByAnswer(nodes, hasAnswer) {
   if (!nodes || nodes.length === 0) return [];
   
-  return nodes.map(node => {
+  const result = [];
+  
+  for (const node of nodes) {
     // 답변 여부 확인 (boolean으로 변환)
     const nodeHasAnswer = !!(node.answer && node.answer.answer_text);
     
     // 자식 노드 필터링
     const filteredChildren = node.children ? filterTreeByAnswer(node.children, hasAnswer) : [];
     
-    // 현재 노드가 조건에 맞거나, 자식 중 조건에 맞는 것이 있으면 포함
-    if (nodeHasAnswer === hasAnswer || filteredChildren.length > 0) {
-      return {
+    // 현재 노드가 조건에 맞으면 포함 (자식과 무관하게 자신의 답변 여부만 체크)
+    if (nodeHasAnswer === hasAnswer) {
+      result.push({
         ...node,
         children: filteredChildren
-      };
+      });
+    } else if (filteredChildren.length > 0) {
+      // 현재 노드는 조건에 안 맞지만 자식이 조건에 맞는 경우, 부모는 표시하되 스타일 구분
+      result.push({
+        ...node,
+        children: filteredChildren,
+        _isParentOnly: true  // 부모만 표시하는 마커
+      });
     }
-    return null;
-  }).filter(node => node !== null);
+  }
+  
+  return result;
 }
 
 // 요건 정리 완료
