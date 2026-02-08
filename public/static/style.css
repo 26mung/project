@@ -1180,6 +1180,14 @@ textarea {
   z-index: 10000; /* 모든 요소 위에 표시 (탭, 배너, 챗봇 포함) */
 }
 
+/* 모달 열렸을 때 탭/사이드바 블러 처리 */
+.modal-blur-target {
+  filter: blur(3px);
+  opacity: 0.6;
+  transition: filter 0.2s ease, opacity 0.2s ease;
+  pointer-events: none;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.2s ease;
 }
@@ -1217,6 +1225,79 @@ textarea {
   50% {
     opacity: 1;
   }
+}
+
+/* 🎉 폭죽 애니메이션 */
+@keyframes firework {
+  0% {
+    transform: translate(0, 0) scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(1);
+    opacity: 0;
+  }
+}
+
+.firework {
+  position: fixed;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  animation: firework 0.8s ease-out forwards;
+  pointer-events: none;
+  z-index: 99999;
+}
+
+/* 🔥 불꽃 효과 (스파르타 챌린지) */
+@keyframes flame {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateY(-20px) scale(1.2);
+    opacity: 1;
+  }
+}
+
+.flame-container {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.flame {
+  position: absolute;
+  width: 30px;
+  height: 60px;
+  background: linear-gradient(to top, 
+    #ff4500 0%, 
+    #ff6b00 30%, 
+    #ff8c00 50%, 
+    #ffa500 70%, 
+    transparent 100%
+  );
+  border-radius: 50% 50% 20% 20%;
+  animation: flame 0.8s ease-in-out infinite;
+  filter: blur(3px);
+}
+
+/* 완성도 진행 애니메이션 */
+@keyframes progress-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width);
+  }
+}
+
+.progress-animate {
+  animation: progress-fill 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* 하단 배너 반응형 */
