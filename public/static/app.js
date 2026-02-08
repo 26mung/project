@@ -6329,15 +6329,3 @@ function addRippleEffect(event, element) {
   setTimeout(() => ripple.remove(), 600);
 }
 
-// CSS에 ripple 애니메이션 추가
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes ripple {
-    to {
-      transform: scale(4);
-      opacity: 0;
-    }
-  }
-`;
-document.head.appendChild(style);
-

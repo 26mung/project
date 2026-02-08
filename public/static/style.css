@@ -1319,3 +1319,11 @@ textarea {
     justify-content: space-around;
   }
 }
+
+/* 클릭 파동 효과 */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
