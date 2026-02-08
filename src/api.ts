@@ -474,7 +474,7 @@ api.post('/questions', async (c) => {
     }
     
     const result = await DB.prepare(
-      'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at, updated_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"), datetime("now", "+9 hours"))'
+      'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"))'
     ).bind(
       body.requirement_id,
       body.question_text,
