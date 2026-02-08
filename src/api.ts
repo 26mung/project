@@ -954,6 +954,40 @@ api.post('/questions', async (c) => {
       return c.json({ error: 'requirement_id and question_text are required' }, 400);
     }
     
+    // 🔍 중복/유사 질문 검증
+    const existingQuestions = await DB.prepare(
+      'SELECT question_text FROM questions WHERE requirement_id = ?'
+    ).bind(body.requirement_id).all();
+    
+    if (existingQuestions.results && existingQuestions.results.length > 0) {
+      const newQuestionNormalized = normalizeQuestion(body.question_text);
+      
+      for (const existing of existingQuestions.results) {
+        const existingNormalized = normalizeQuestion((existing as any).question_text);
+        
+        // 텍스트 유사도 확인 (간단한 중복 검증)
+        if (existingNormalized === newQuestionNormalized) {
+          console.log('[POST /questions] Duplicate question detected:', body.question_text);
+          return c.json({ 
+            success: false,
+            error: 'Duplicate question',
+            message: '이미 동일한 질문이 존재합니다.' 
+          }, 409);
+        }
+        
+        // 키워드 기반 유사도 확인 (70% 이상 유사하면 거부)
+        const similarity = calculateSimilarity(newQuestionNormalized, existingNormalized);
+        if (similarity > 0.7) {
+          console.log(`[POST /questions] Similar question detected (${(similarity * 100).toFixed(0)}% similar):`, body.question_text);
+          return c.json({ 
+            success: false,
+            error: 'Similar question exists',
+            message: `유사한 질문이 이미 존재합니다 (${(similarity * 100).toFixed(0)}% 유사): "${(existing as any).question_text}"` 
+          }, 409);
+        }
+      }
+    }
+    
     const result = await DB.prepare(
       'INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at) VALUES (?, ?, ?, ?, datetime("now", "+9 hours"))'
     ).bind(
@@ -976,6 +1010,26 @@ api.post('/questions', async (c) => {
     return c.json({ error: 'Failed to create question', message: String(error) }, 500);
   }
 });
+
+// 질문 정규화 함수 (중복 검증용)
+function normalizeQuestion(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[\s\.,?!;:'"]/g, '') // 공백, 구두점 제거
+    .replace(/[^\w가-힣]/g, ''); // 특수문자 제거
+}
+
+// 간단한 텍스트 유사도 계산 (Jaccard similarity)
+function calculateSimilarity(text1: string, text2: string): number {
+  const tokens1 = new Set(text1.match(/.{1,2}/g) || []); // 2글자 단위로 분리
+  const tokens2 = new Set(text2.match(/.{1,2}/g) || []);
+  
+  const intersection = new Set([...tokens1].filter(x => tokens2.has(x)));
+  const union = new Set([...tokens1, ...tokens2]);
+  
+  return union.size === 0 ? 0 : intersection.size / union.size;
+}
+
 
 // 질문에 답변하기
 api.post('/questions/:id/answer', async (c) => {

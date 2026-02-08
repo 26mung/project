@@ -1175,9 +1175,14 @@ textarea {
 
 /* ============ Modal Backdrop for New Modal System ============ */
 .modal-backdrop {
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  z-index: 10000; /* 모든 요소 위에 표시 (탭, 배너, 챗봇 포함) */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(2px) !important;
+  z-index: 10000 !important; /* 모든 요소 위에 표시 (탭, 배너, 챗봇 포함) */
 }
 
 /* 모달 열렸을 때 탭/사이드바 블러 처리 */

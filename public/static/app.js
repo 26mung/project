@@ -548,8 +548,8 @@ function renderProjectList() {
     <div class="project-item ${currentProject?.id === project.id ? 'active' : ''}"
          onclick="selectProject(${project.id})">
       <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px;">
-        <h3 class="text-body2" style="font-weight: 600; color: var(--grey-900); flex: 1; padding-right: 8px;">${escapeHtml(project.title)}</h3>
-        <button onclick="deleteProject(${project.id}, event)" class="btn-icon" style="width: 24px; height: 24px;">
+        <h3 class="text-body2" style="font-weight: 600; color: var(--grey-900); flex: 1; padding-right: 8px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4;">${escapeHtml(project.title)}</h3>
+        <button onclick="deleteProject(${project.id}, event)" class="btn-icon" style="width: 24px; height: 24px; flex-shrink: 0;">
           <i class="fas fa-trash" style="font-size: 12px;"></i>
         </button>
       </div>
@@ -3350,6 +3350,8 @@ async function openRequirementDetails(requirementId) {
     const answeredCount = questions.filter(q => q.answer).length;
     const hasAnswers = answeredCount > 0;
     
+    const unansweredCount = questions.filter(q => !q.answer).length;
+    
     showModal({
       title: requirement.title,
       content: `
@@ -3362,13 +3364,27 @@ async function openRequirementDetails(requirementId) {
           
           ${questions.length > 0 ? `
             <div>
-              <h3 class="font-bold text-toss-gray-900 mb-4 flex items-center gap-2">
-                <i class="fas fa-question-circle text-toss-blue"></i>
-                확인 질문 (${questions.length}개)
-                ${hasAnswers ? `<span class="text-xs font-semibold text-green-600 ml-2">${answeredCount}/${questions.length} 답변 완료</span>` : ''}
-              </h3>
+              <!-- 탭 및 요건 정리 완료 버튼 -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; flex: 1;">
+                  <button id="tab-all-questions" onclick="filterQuestions('all', ${requirementId})" class="btn-secondary" style="padding: 8px 16px; background: var(--blue-50); color: var(--blue-600); font-weight: 600; border-color: var(--blue-500);">
+                    전체 (${questions.length})
+                  </button>
+                  <button id="tab-answered-questions" onclick="filterQuestions('answered', ${requirementId})" class="btn-secondary" style="padding: 8px 16px;">
+                    작성완료 (${answeredCount})
+                  </button>
+                  <button id="tab-unanswered-questions" onclick="filterQuestions('unanswered', ${requirementId})" class="btn-secondary" style="padding: 8px 16px;">
+                    미작성 (${unansweredCount})
+                  </button>
+                </div>
+                <button onclick="completeRequirement(${requirementId})" class="btn-primary" style="padding: 8px 20px; white-space: nowrap;">
+                  <i class="fas fa-check-circle" style="margin-right: 6px;"></i>
+                  요건 정리 완료
+                </button>
+              </div>
               
-              <div class="space-y-3">
+              <!-- 질문 목록 -->
+              <div id="questions-container-${requirementId}" class="space-y-3">
                 ${renderQuestionTree(questionTree, 0, requirementId)}
               </div>
               
@@ -3390,12 +3406,107 @@ async function openRequirementDetails(requirementId) {
             </div>
           ` : '<p class="text-sm text-toss-gray-500 text-center py-8">질문이 없습니다</p>'}
         </div>
+        
+        <script>
+          window.currentRequirementQuestions = ${JSON.stringify(questions)};
+          window.currentRequirementTree = ${JSON.stringify(questionTree)};
+        </script>
       `,
       size: 'large'
     });
   } catch (error) {
     console.error('Failed to load requirement details:', error);
     showToast('요건 상세 정보를 불러오는데 실패했습니다', 'error');
+  }
+}
+
+// 질문 필터링 (탭)
+function filterQuestions(filterType, requirementId) {
+  // 탭 활성화 상태 변경
+  const tabs = ['tab-all-questions', 'tab-answered-questions', 'tab-unanswered-questions'];
+  tabs.forEach(tabId => {
+    const tab = document.getElementById(tabId);
+    if (tab) {
+      if (tabId === `tab-${filterType}-questions` || (filterType === 'all' && tabId === 'tab-all-questions')) {
+        tab.style.background = 'var(--blue-50)';
+        tab.style.color = 'var(--blue-600)';
+        tab.style.fontWeight = '600';
+        tab.style.borderColor = 'var(--blue-500)';
+      } else {
+        tab.style.background = 'white';
+        tab.style.color = 'var(--grey-700)';
+        tab.style.fontWeight = '500';
+        tab.style.borderColor = 'var(--grey-200)';
+      }
+    }
+  });
+  
+  // 질문 필터링
+  const questions = window.currentRequirementQuestions || [];
+  const questionTree = window.currentRequirementTree || [];
+  
+  let filteredTree = questionTree;
+  if (filterType === 'answered') {
+    filteredTree = filterTreeByAnswer(questionTree, true);
+  } else if (filterType === 'unanswered') {
+    filteredTree = filterTreeByAnswer(questionTree, false);
+  }
+  
+  // 질문 목록 다시 렌더링
+  const container = document.getElementById(`questions-container-${requirementId}`);
+  if (container) {
+    container.innerHTML = renderQuestionTree(filteredTree, 0, requirementId);
+  }
+}
+
+// 질문 트리 필터링 (답변 여부)
+function filterTreeByAnswer(nodes, hasAnswer) {
+  return nodes.filter(node => {
+    const nodeHasAnswer = node.answer && node.answer.answer_text;
+    return nodeHasAnswer === hasAnswer;
+  }).map(node => ({
+    ...node,
+    children: node.children ? filterTreeByAnswer(node.children, hasAnswer) : []
+  }));
+}
+
+// 요건 정리 완료
+async function completeRequirement(requirementId) {
+  const questions = window.currentRequirementQuestions || [];
+  const unansweredQuestions = questions.filter(q => !q.answer || !q.answer.answer_text);
+  
+  if (unansweredQuestions.length > 0) {
+    const confirmed = confirm(
+      `답변하지 않은 질문이 ${unansweredQuestions.length}개 있습니다.\n\n` +
+      `"확인"을 누르면 답변하지 않은 질문은 일괄 삭제되고, 요건 정리가 완료됩니다.\n\n` +
+      `정말 진행하시겠습니까?`
+    );
+    
+    if (!confirmed) return;
+    
+    // 답변하지 않은 질문 일괄 삭제
+    const loadingToast = showLoadingToast('답변하지 않은 질문을 삭제하는 중...');
+    
+    try {
+      for (const question of unansweredQuestions) {
+        await axios.delete(`${API_BASE}/questions/${question.id}`);
+      }
+      
+      closeLoadingToast(loadingToast);
+      showToast(`${unansweredQuestions.length}개의 질문이 삭제되었습니다`, 'success');
+      closeAllModals();
+      
+      // 요건 탭으로 전환하고 새로고침
+      switchTab('requirements');
+    } catch (error) {
+      closeLoadingToast(loadingToast);
+      console.error('Failed to delete unanswered questions:', error);
+      showToast('질문 삭제 중 오류가 발생했습니다', 'error');
+    }
+  } else {
+    showToast('모든 질문에 답변이 완료되었습니다!', 'success');
+    closeAllModals();
+    switchTab('requirements');
   }
 }
 
@@ -4347,6 +4458,13 @@ function closeModalById(modalId) {
     modal.remove();
   }
 }
+
+// 모든 모달을 닫는 함수
+function closeAllModals() {
+  const modals = document.querySelectorAll('[id^="modal-"]');
+  modals.forEach(modal => modal.remove());
+}
+
 
 // 토스트 알림
 function showToast(message, type = 'info') {
@@ -5898,8 +6016,8 @@ async function addChatRecommendation() {
     return;
   }
   
-  closeChatRecommendationModal();
-  closeModalById('modal-chat-requirement');
+  // 모든 팝업 강제 닫기
+  closeAllModals();
   
   const loadingToast = showLoadingToast('요건을 추가하고 있습니다...');
   
