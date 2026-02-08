@@ -323,15 +323,18 @@ function showMainApp() {
             </div>
           </div>
           
-          <!-- 필터 버튼 그룹 -->
-          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-            <button onclick="handleModeFilter('all')" id="filter-mode-all" class="filter-btn active" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: var(--blue-500); color: white; cursor: pointer; transition: all 0.2s;">
+          <!-- 필터 버튼 그룹 (4개) -->
+          <div style="display: flex; gap: 4px; margin-bottom: 6px;">
+            <button onclick="handleModeFilter('all')" id="filter-mode-all" class="filter-btn active" style="flex: 1; padding: 6px 4px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 11px; font-weight: 600; background: var(--blue-500); color: white; cursor: pointer; transition: all 0.2s;">
               전체
             </button>
-            <button onclick="handleModeFilter('initial')" id="filter-mode-initial" class="filter-btn" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+            <button onclick="handleModeFilter('unconfirmed')" id="filter-mode-unconfirmed" class="filter-btn" style="flex: 1; padding: 6px 4px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 11px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+              미확인
+            </button>
+            <button onclick="handleModeFilter('initial')" id="filter-mode-initial" class="filter-btn" style="flex: 1; padding: 6px 4px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 11px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
               초기 기획용
             </button>
-            <button onclick="handleModeFilter('challenge')" id="filter-mode-challenge" class="filter-btn" style="flex: 1; padding: 6px 8px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 12px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
+            <button onclick="handleModeFilter('challenge')" id="filter-mode-challenge" class="filter-btn" style="flex: 1; padding: 6px 4px; border: 1.5px solid var(--grey-200); border-radius: 6px; font-size: 11px; font-weight: 600; background: white; color: var(--grey-700); cursor: pointer; transition: all 0.2s;">
               챌린지형
             </button>
           </div>
@@ -478,7 +481,13 @@ function renderProjectList() {
   // 분석 모드 필터
   const modeFilter = window.projectModeFilter || 'all';
   if (modeFilter !== 'all') {
-    filteredProjects = filteredProjects.filter(p => p.requirement_mode === modeFilter);
+    filteredProjects = filteredProjects.filter(p => {
+      // "unconfirmed"는 requirement_mode가 null이거나 빈 문자열인 경우
+      if (modeFilter === 'unconfirmed') {
+        return !p.requirement_mode || p.requirement_mode === '';
+      }
+      return p.requirement_mode === modeFilter;
+    });
   }
   
   // 업데이트 일시 정렬
@@ -511,7 +520,7 @@ function renderProjectList() {
       </div>
       <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
         ${getStatusBadge(project.status)}
-        ${project.requirement_mode ? `<span class="badge badge-small badge-weak-${project.requirement_mode === 'challenge' ? 'purple' : 'blue'}">${project.requirement_mode === 'challenge' ? '챌린지형' : '초기 기획용'}</span>` : ''}
+        ${project.requirement_mode ? `<span class="badge badge-small badge-weak-${project.requirement_mode === 'challenge' ? 'purple' : 'blue'}">${project.requirement_mode === 'challenge' ? '챌린지형' : '초기 기획용'}</span>` : '<span class="badge badge-small badge-weak-grey">미확인</span>'}
         <span class="text-caption" style="color: var(--grey-500);">${formatRelativeTime(project.updated_at)}</span>
       </div>
     </div>
@@ -528,8 +537,8 @@ function handleProjectSearch(query) {
 function handleModeFilter(mode) {
   window.projectModeFilter = mode;
   
-  // 버튼 스타일 업데이트
-  ['all', 'initial', 'challenge'].forEach(m => {
+  // 버튼 스타일 업데이트 (4개 버튼)
+  ['all', 'unconfirmed', 'initial', 'challenge'].forEach(m => {
     const btn = document.getElementById(`filter-mode-${m}`);
     if (btn) {
       if (m === mode) {
@@ -889,6 +898,11 @@ async function evaluateProject() {
     hideToast(loadingToast);
     
     // 평가 결과 표시
+    // 🎆 50점 이상이면 폭죽 효과!
+    if (evaluation.completeness_score >= 50) {
+      setTimeout(() => triggerFireworks(), 500);
+    }
+    
     showModal({
       title: `기획안 평가 결과`,
       size: 'large',
@@ -1943,18 +1957,6 @@ async function renderOverview() {
       }
       
       console.log('[renderOverview] Completion:', completionRate + '%', `(${answeredQuestions}/${totalQuestions})`);
-      
-      // 🎉 완성도 50% 이상 달성 시 폭죽 효과!
-      if (completionRate >= 50 && !window.fireworksTriggered) {
-        console.log('[🎉 Celebration] Triggering fireworks for', completionRate + '% completion!');
-        setTimeout(() => triggerFireworks(), 500);
-        window.fireworksTriggered = true;
-        
-        // 10초 후 다시 트리거 가능하도록
-        setTimeout(() => {
-          window.fireworksTriggered = false;
-        }, 10000);
-      }
       
     } catch (error) {
       console.error('[renderOverview] Failed to load requirements:', error);
@@ -6222,56 +6224,51 @@ function triggerFlameEffect() {
   // 기존 불꽃 제거
   document.querySelectorAll('.flame-container').forEach(fc => fc.remove());
   
-  // 좌측 불꽃 (더 많이)
-  createFlameCorner('left');
+  // 하단 전체 영역에 불꽃 생성
+  createBottomFlame();
   
-  // 우측 불꽃 (더 많이)
-  createFlameCorner('right');
+  console.log('[🔥 Flame Effect] Bottom flames created!');
   
-  console.log('[🔥 Flame Effect] Flames created!');
-  
-  // 15초 후 자동 제거 (10초 → 15초)
+  // 3초 후 자동 제거
   setTimeout(() => {
     console.log('[🔥 Flame Effect] Fading out flames...');
     document.querySelectorAll('.flame-container').forEach(fc => {
       fc.style.opacity = '0';
-      fc.style.transition = 'opacity 1.5s ease';
-      setTimeout(() => fc.remove(), 1500);
+      fc.style.transition = 'opacity 1s ease';
+      setTimeout(() => fc.remove(), 1000);
     });
-  }, 15000);
+  }, 3000);
 }
 
-function createFlameCorner(side) {
+function createBottomFlame() {
   const container = document.createElement('div');
   container.className = 'flame-container';
-  container.style[side] = '0';
-  container.style.bottom = '0';
-  container.style.width = '250px';  // 150px → 250px
-  container.style.height = '350px'; // 200px → 350px
+  container.style.left = '0';
+  container.style.right = '0';
+  container.style.bottom = '-30px'; // 끝부분만 보이도록
+  container.style.width = '100%';
+  container.style.height = '80px';
+  container.style.display = 'flex';
+  container.style.justifyContent = 'space-around';
+  container.style.alignItems = 'flex-end';
   
-  // 더 많은 불꽃 생성 (8개 → 15개)
-  for (let i = 0; i < 15; i++) {
+  // 화면 너비에 따라 불꽃 개수 조정 (약 80px 간격)
+  const flameCount = Math.floor(window.innerWidth / 80);
+  
+  for (let i = 0; i < flameCount; i++) {
     const flame = document.createElement('div');
     flame.className = 'flame';
-    
-    if (side === 'left') {
-      flame.style.left = (i * 18) + 'px';
-    } else {
-      flame.style.right = (i * 18) + 'px';
-    }
-    
-    flame.style.bottom = (Math.random() * 50) + 'px';
     flame.style.animationDelay = (Math.random() * 0.8) + 's';
-    flame.style.opacity = (0.6 + Math.random() * 0.4).toString();
+    flame.style.opacity = (0.4 + Math.random() * 0.3).toString(); // 잔잔하게
     
-    // 크기 랜덤화
-    const scale = 0.8 + Math.random() * 0.6;
+    // 크기 랜덤화 (작게)
+    const scale = 0.3 + Math.random() * 0.2;
     flame.style.transform = `scale(${scale})`;
     
     container.appendChild(flame);
   }
   
-  console.log(`[🔥 Flame Effect] Created ${side} flame with 15 flames`);
+  console.log(`[🔥 Flame Effect] Created bottom flame with ${flameCount} flames`);
   document.body.appendChild(container);
 }
 
