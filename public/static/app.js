@@ -4407,7 +4407,7 @@ function showModal({ title, content, confirmText = '확인', cancelText = '취�
         ` : ''}
       </div>
     </div>
-  `;
+  `);
   
   if (onConfirm) {
     window[`modalConfirm_${modalId}`] = onConfirm;
