@@ -1350,5 +1350,65 @@ api.post('/requirements/:id/complete', async (c) => {
   }
 });
 
+// ============ 질문 API ============
+
+// 질문 생성
+api.post('/questions', async (c) => {
+  const { DB } = c.env;
+  const body = await c.req.json();
+
+  try {
+    console.log('[POST /questions] Creating question:', body);
+
+    // 필수 필드 검증
+    if (!body.requirement_id || !body.question_text) {
+      return c.json({ error: 'requirement_id and question_text are required' }, 400);
+    }
+
+    // DB에 질문 추가 (order_index 사용)
+    const result = await DB.prepare(
+      `INSERT INTO questions (requirement_id, question_text, question_type, order_index, created_at)
+       VALUES (?, ?, ?, ?, datetime('now', '+9 hours'))`
+    ).bind(
+      body.requirement_id,
+      body.question_text,
+      body.question_type || 'open',
+      body.question_order || body.order_index || 1  // question_order 또는 order_index 사용
+    ).run();
+
+    console.log('[POST /questions] Question created successfully:', result.meta.last_row_id);
+
+    return c.json({
+      success: true,
+      id: result.meta.last_row_id,
+      message: 'Question created successfully'
+    }, 201);
+
+  } catch (error) {
+    console.error('[POST /questions] Error:', error);
+    return c.json({
+      error: 'Failed to create question',
+      message: String(error)
+    }, 500);
+  }
+});
+
+// 질문 목록 조회
+api.get('/requirements/:id/questions', async (c) => {
+  const { DB } = c.env;
+  const requirementId = c.req.param('id');
+
+  try {
+    const questions = await DB.prepare(
+      'SELECT * FROM questions WHERE requirement_id = ? ORDER BY order_index ASC'
+    ).bind(requirementId).all();
+
+    return c.json(questions.results || []);
+  } catch (error) {
+    console.error('Failed to fetch questions:', error);
+    return c.json({ error: 'Failed to fetch questions' }, 500);
+  }
+});
+
 
 export default api;

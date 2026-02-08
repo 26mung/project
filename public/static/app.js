@@ -1564,7 +1564,7 @@ async function addSelectedRecommendation() {
             requirement_id: requirementId,
             question_text: question.question_text,
             question_type: question.question_type || 'open',
-            question_order: question.order || 1
+            order_index: question.order || 1
           });
         }
         console.log(`${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
@@ -5586,7 +5586,7 @@ async function addChatRecommendation() {
             requirement_id: requirementId,
             question_text: question.question_text,
             question_type: question.question_type || 'open',
-            question_order: question.order || 1
+            order_index: question.order || 1
           });
         }
         console.log(`✅ ${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
