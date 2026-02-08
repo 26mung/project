@@ -267,7 +267,7 @@ async function handleLogin(event) {
 function showMainApp() {
   // 토스 디자인 시스템을 적용한 메인 앱 레이아웃
   document.body.innerHTML = `
-    <div style="min-height: 100vh; display: flex; background: var(--grey-50);">
+    <div style="height: 100vh; display: flex; background: var(--grey-50); overflow: hidden;">
       <!-- Mobile Menu Toggle -->
       <button id="mobile-menu-toggle" onclick="toggleMobileMenu()" style="display: none; position: fixed; top: 16px; left: 16px; z-index: 999; width: 40px; height: 40px; background: white; border: 1px solid var(--grey-200); border-radius: 8px; align-items: center; justify-content: center; box-shadow: var(--shadow-2);">
         <i class="fas fa-bars" style="font-size: 16px; color: var(--grey-700);"></i>
@@ -396,82 +396,6 @@ function showMainApp() {
       
       <!-- Overlay for mobile sidebar -->
       <div id="sidebar-overlay" onclick="toggleMobileMenu()" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 998;"></div>
-      
-      <!-- AI 도우미 챗봇 버튼 -->
-      <button onclick="toggleAIChatbot()" id="ai-chatbot-button" style="
-        position: fixed;
-        bottom: 24px;
-        right: 24px;
-        width: 56px;
-        height: 56px;
-        border-radius: 50%;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        border: none;
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 60;
-        transition: all 0.3s ease;
-      " onmouseover="this.style.transform='scale(1.1)'; this.style.boxShadow='0 6px 30px rgba(102, 126, 234, 0.6)';" onmouseout="this.style.transform='scale(1)'; this.style.boxShadow='0 4px 20px rgba(102, 126, 234, 0.4)';">
-        <i class="fas fa-robot" style="color: white; font-size: 28px;"></i>
-      </button>
-      
-      <!-- AI 챗봇 패널 (초기에는 숨김) -->
-      <div id="ai-chatbot-panel" style="
-        position: fixed;
-        bottom: 90px;
-        right: 24px;
-        width: 400px;
-        height: 600px;
-        background: white;
-        border-radius: 20px;
-        box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
-        z-index: 70;
-        display: none;
-        flex-direction: column;
-        overflow: hidden;
-      ">
-        <!-- 헤더 -->
-        <div style="padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; display: flex; align-items: center; justify-content: space-between;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <i class="fas fa-robot" style="font-size: 24px;"></i>
-            <div>
-              <div style="font-size: 16px; font-weight: 700;">AI 도우미</div>
-              <div style="font-size: 12px; opacity: 0.9;">요건 작성을 도와드려요</div>
-            </div>
-          </div>
-          <button onclick="toggleAIChatbot()" style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: white;">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-        
-        <!-- 대화 영역 -->
-        <div id="ai-chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; background: var(--grey-50);">
-          <div style="text-align: center; color: var(--grey-500); padding: 40px 20px;">
-            <i class="fas fa-comments" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
-            <p style="font-size: 14px;">안녕하세요! 요건 작성을 도와드리겠습니다.</p>
-            <p style="font-size: 12px; margin-top: 8px; opacity: 0.7;">질문을 입력해주세요 💡</p>
-          </div>
-        </div>
-        
-        <!-- 입력 영역 -->
-        <div style="padding: 16px; border-top: 1px solid var(--grey-200); background: white;">
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="ai-chat-input" placeholder="질문을 입력하세요..." style="flex: 1; padding: 12px 16px; border: 2px solid var(--grey-200); border-radius: 12px; font-size: 14px;" onkeypress="if(event.key==='Enter') sendAIMessage()">
-            <button onclick="sendAIMessage()" style="padding: 12px 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: 600;">
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
-          <!-- 빠른 버튼 -->
-          <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
-            <button onclick="sendQuickMessage('질문 아이디어 주세요')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">질문 아이디어</button>
-            <button onclick="sendQuickMessage('진도 확인')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">진도 확인</button>
-            <button onclick="sendQuickMessage('요건 검토')" class="btn-weak-primary" style="font-size: 12px; padding: 6px 12px;">요건 검토</button>
-          </div>
-        </div>
-      </div>
     </div>
     
     <style>
@@ -2993,7 +2917,7 @@ function renderRequirementStatsBanner(requirements) {
     ">
       <!-- 왼쪽: 아이콘 + 진행률 -->
       <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
-        <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+        <div style="width: 40px; height: 40px; background: var(--blue-500); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
           <i class="fas fa-chart-line" style="color: white; font-size: 18px;"></i>
         </div>
         <div>
@@ -3035,132 +2959,7 @@ function renderRequirementStatsBanner(requirements) {
 }
 
 // AI 챗봇 토글
-function toggleAIChatbot() {
-  const panel = document.getElementById('ai-chatbot-panel');
-  const button = document.getElementById('ai-chatbot-button');
-  
-  if (!panel || !button) return;
-  
-  if (panel.style.display === 'none' || panel.style.display === '') {
-    // 챗봇 열기
-    panel.style.display = 'flex';
-    button.style.display = 'none'; // 버튼 숨기기
-  } else {
-    // 챗봇 닫기
-    panel.style.display = 'none';
-    button.style.display = 'flex'; // 버튼 다시 표시
-  }
-}
-
-// 대화 기록 저장 (메모리)
-let chatConversationHistory = [];
-
-// AI 메시지 전송
-async function sendAIMessage() {
-  const input = document.getElementById('ai-chat-input');
-  if (!input || !input.value.trim()) return;
-  
-  const message = input.value.trim();
-  input.value = '';
-  input.disabled = true;
-  
-  // 사용자 메시지 표시
-  const messagesContainer = document.getElementById('ai-chat-messages');
-  if (!messagesContainer) return;
-  
-  // 빈 상태 메시지 제거
-  const emptyState = messagesContainer.querySelector('[style*="text-align: center"]')?.parentElement;
-  if (emptyState) {
-    emptyState.remove();
-  }
-  
-  messagesContainer.innerHTML += `
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
-      <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 16px; border-radius: 16px 16px 4px 16px; max-width: 70%; font-size: 14px; line-height: 1.5;">
-        ${escapeHtml(message)}
-      </div>
-    </div>
-  `;
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  
-  // 로딩 표시
-  const loadingId = 'ai-loading-' + Date.now();
-  messagesContainer.innerHTML += `
-    <div id="${loadingId}" style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
-      <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px;">
-        <div style="display: flex; gap: 4px;">
-          <span style="animation: pulse 1.4s ease-in-out infinite;">●</span>
-          <span style="animation: pulse 1.4s ease-in-out 0.2s infinite;">●</span>
-          <span style="animation: pulse 1.4s ease-in-out 0.4s infinite;">●</span>
-        </div>
-      </div>
-    </div>
-  `;
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-  
-  try {
-    // AI API 호출
-    const response = await axios.post(`${API_BASE}/chat/message`, {
-      message: message,
-      project_id: currentProject?.id,
-      conversation_history: chatConversationHistory
-    }, { timeout: 30000 });
-    
-    // 로딩 제거
-    document.getElementById(loadingId)?.remove();
-    
-    const aiMessage = response.data.message || '응답을 받지 못했습니다.';
-    
-    // AI 응답 표시
-    messagesContainer.innerHTML += `
-      <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
-        <div style="background: white; border: 1px solid var(--grey-200); padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px; line-height: 1.5; white-space: pre-wrap;">
-          ${escapeHtml(aiMessage)}
-        </div>
-      </div>
-    `;
-    
-    // 대화 기록 저장
-    chatConversationHistory.push(
-      { role: 'user', content: message },
-      { role: 'assistant', content: aiMessage }
-    );
-    
-    // 대화 기록이 너무 길면 오래된 것부터 제거 (최근 10개 메시지만 유지)
-    if (chatConversationHistory.length > 10) {
-      chatConversationHistory = chatConversationHistory.slice(-10);
-    }
-    
-  } catch (error) {
-    console.error('AI chat error:', error);
-    
-    // 로딩 제거
-    document.getElementById(loadingId)?.remove();
-    
-    // 에러 메시지 표시
-    messagesContainer.innerHTML += `
-      <div style="display: flex; justify-content: flex-start; margin-bottom: 12px;">
-        <div style="background: #fff5f5; border: 1px solid #ffcccc; padding: 12px 16px; border-radius: 16px 16px 16px 4px; max-width: 70%; font-size: 14px; color: #cc0000;">
-          <i class="fas fa-exclamation-circle" style="margin-right: 6px;"></i>
-          응답을 받는데 실패했습니다. 다시 시도해주세요.
-        </div>
-      </div>
-    `;
-  }
-  
-  input.disabled = false;
-  input.focus();
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-// 빠른 메시지
-function sendQuickMessage(message) {
-  const input = document.getElementById('ai-chat-input');
-  if (input) {
-    input.value = message;
-    sendAIMessage();
-  }
-}
+// AI 챗봇 기능 비활성화됨
 
 // 🚀 페이지네이션 UI 렌더링
 function renderPagination(current, total) {
@@ -6148,18 +5947,89 @@ async function confirmChatRecommendations() {
   closeRequirementPreviewModal();
   closeChatModal();
   
-  showToast('요건을 추가하고 있습니다...', 'info');
+  const loadingToast = showToast(`${recommendations.length}개의 요건과 질문을 생성하고 있습니다...`, 'info', null, true);
   
   try {
-    // 각 요건을 API로 전송
+    let successCount = 0;
+    let totalQuestions = 0;
+    
+    // 각 요건을 API로 전송하고 질문도 생성
     for (const req of recommendations) {
-      await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
+      console.log('[일괄 추가] 요건 생성 중:', req.title);
+      
+      // 1단계: 요건 생성
+      const response = await axios.post(`${API_BASE}/projects/${currentProject.id}/requirements`, {
         title: req.title,
         description: req.description,
         requirement_type: req.requirement_type || 'functional',
         priority: req.priority || 'medium'
       });
+      
+      const requirementId = response.data.id;
+      console.log('[일괄 추가] 요건 생성 완료:', requirementId);
+      
+      // 2단계: 질문지 생성 (캐시 확인)
+      console.log('[일괄 추가] 질문지 생성 시작 - 요건 ID:', requirementId);
+      const cacheKey = `${currentProject.id}_${req.title}`;
+      const cached = questionCache.get(cacheKey);
+      
+      let analysis;
+      
+      if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+        analysis = cached.analysis;
+        console.log('[✅ 캐시 사용] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
+      } else {
+        // 캐시 없으면 API 호출
+        console.log('[🔄 API 호출] preview-direction 요청 중...');
+        try {
+          const directionResponse = await axios.post(`${API_BASE}/requirements/preview-direction`, {
+            project_id: currentProject.id,
+            title: req.title,
+            description: req.description,
+            requirement_type: req.requirement_type || 'functional',
+            priority: req.priority || 'medium'
+          }, { timeout: 180000 });
+          
+          analysis = directionResponse.data.analysis || directionResponse.data;
+          console.log('[✅ 질문 생성 완료] 요건:', requirementId, '- 질문 수:', analysis?.questions?.length || 0);
+          
+          // 캐시 저장
+          questionCache.set(cacheKey, {
+            analysis,
+            timestamp: Date.now()
+          });
+        } catch (error) {
+          console.error('[❌ API 오류] preview-direction 실패:', error);
+          showToast(`"${req.title}" 질문 생성 실패. 요건만 추가됩니다.`, 'warning');
+        }
+      }
+      
+      // 3단계: 질문지를 요건에 매핑
+      if (analysis && analysis.questions && Array.isArray(analysis.questions) && analysis.questions.length > 0) {
+        console.log(`[🔄 매핑 중] ${analysis.questions.length}개의 질문을 요건 ${requirementId}에 매핑합니다`);
+        try {
+          for (const question of analysis.questions) {
+            await axios.post(`${API_BASE}/questions`, {
+              requirement_id: requirementId,
+              question_text: question.question_text,
+              question_type: question.question_type || 'open',
+              order_index: question.order || 1
+            });
+          }
+          totalQuestions += analysis.questions.length;
+          console.log(`[✅ 매핑 완료] ${analysis.questions.length}개의 질문이 요건 ${requirementId}에 매핑되었습니다`);
+        } catch (error) {
+          console.error('[❌ 매핑 실패]', error);
+          showToast(`"${req.title}" 질문 저장 실패`, 'warning');
+        }
+      } else {
+        console.warn('[⚠️ 질문 없음] 요건:', requirementId);
+      }
+      
+      successCount++;
     }
+    
+    hideToast(loadingToast);
     
     // 요건 목록 새로고침
     await renderRequirements();
@@ -6167,7 +6037,10 @@ async function confirmChatRecommendations() {
     // 캐시 초기화
     clearChatCache();
     
-    showToast(`${recommendations.length}개의 요건이 추가되었습니다! 🎉`, 'success');
+    // 요건관리 탭으로 자동 이동
+    navigateToTab('requirements');
+    
+    showToast(`${successCount}개의 요건과 ${totalQuestions}개의 질문이 추가되었습니다! 🎉`, 'success');
     
   } catch (error) {
     console.error('Failed to add requirements:', error);
