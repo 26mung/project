@@ -5449,6 +5449,12 @@ function startChatRequirement(resumeFromCache = true) {
 function saveChatCache() {
   if (!currentProject) return;
   
+  // 메시지가 없으면 캐시 저장하지 않음 (빈 대화는 저장 불필요)
+  if (!window.chatMessages || window.chatMessages.length === 0) {
+    console.log('[Chat Cache] Skip saving (no messages)');
+    return;
+  }
+  
   const cache = {
     projectId: currentProject.id,
     messages: window.chatMessages || [],
