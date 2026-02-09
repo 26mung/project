@@ -289,11 +289,15 @@
       }
       
       container.innerHTML = users.map(user => {
-        const roleBadges = user.roles?.map(role => {
-          const badgeClass = role.name === 'super_admin' ? 'badge-super-admin' : 
-                             role.name === 'admin' ? 'badge-admin' : 'badge-user';
-          return `<span class="badge ${badgeClass}">${role.display_name}</span>`;
-        }).join(' ') || '<span class="badge badge-user">일반 회원</span>';
+        const role = user.role || 'user';
+        const roleLabels = {
+          'super_admin': '최고관리자',
+          'admin': '관리자',
+          'user': '일반 회원'
+        };
+        const badgeClass = role === 'super_admin' ? 'badge-super-admin' : 
+                           role === 'admin' ? 'badge-admin' : 'badge-user';
+        const roleBadge = `<span class="badge ${badgeClass}">${roleLabels[role]}</span>`;
         
         return `
           <div class="user-row">
@@ -301,7 +305,7 @@
               <div style="flex: 1;">
                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
                   <h3 style="font-weight: 600; font-size: 16px; color: #1f2937;">${escapeHtml(user.name)}</h3>
-                  ${roleBadges}
+                  ${roleBadge}
                 </div>
                 <div style="display: flex; align-items: center; gap: 16px; font-size: 14px; color: #6b7280;">
                   <span><i class="fas fa-envelope" style="margin-right: 4px;"></i>${escapeHtml(user.email)}</span>
@@ -329,8 +333,50 @@
     }
     
     // 사용자 관리 (추후 구현)
-    function manageUser(userId) {
-      alert(`사용자 관리 기능은 곧 추가될 예정입니다.\n사용자 ID: ${userId}`);
+    // 사용자 관리
+    async function manageUser(userId) {
+      const user = allUsers.find(u => u.id === userId);
+      if (!user) {
+        alert('사용자를 찾을 수 없습니다.');
+        return;
+      }
+      
+      const currentRole = user.role || 'user';
+      const roleOptions = {
+        'user': '일반 회원',
+        'admin': '관리자',
+        'super_admin': '최고관리자'
+      };
+      
+      const options = Object.entries(roleOptions)
+        .map(([value, label]) => `${value === currentRole ? '✓ ' : ''}${label} (${value})`)
+        .join('\n');
+      
+      const newRole = prompt(
+        `${user.name}님의 권한을 변경하시겠습니까?\n\n현재 권한: ${roleOptions[currentRole]}\n\n선택:\n${options}\n\n변경할 권한을 입력하세요 (user, admin, super_admin):`,
+        currentRole
+      );
+      
+      if (!newRole || newRole === currentRole) {
+        return;
+      }
+      
+      if (!['user', 'admin', 'super_admin'].includes(newRole)) {
+        alert('올바른 권한을 입력해주세요: user, admin, super_admin');
+        return;
+      }
+      
+      try {
+        await axios.post(`${API_BASE}/admin/users/${userId}/roles`, {
+          role: newRole
+        });
+        
+        alert(`${user.name}님의 권한이 ${roleOptions[newRole]}(으)로 변경되었습니다.`);
+        await loadUsers();
+      } catch (error) {
+        console.error('Failed to update user role:', error);
+        alert(`권한 변경에 실패했습니다: ${error.response?.data?.error || error.message}`);
+      }
     }
     
     // 메인 페이지로 돌아가기

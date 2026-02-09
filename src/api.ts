@@ -2134,80 +2134,45 @@ api.post('/admin/users/:id/roles', async (c) => {
   const { DB } = c.env;
   const userId = c.req.param('id');
   const body = await c.req.json();
-  const { role_name, action } = body; // action: 'grant' or 'revoke'
+  const { role } = body; // role: 'user', 'admin', or 'super_admin'
   const sessionToken = getCookie(c, SESSION_COOKIE_NAME);
   
   if (!sessionToken) {
     return c.json({ error: 'Unauthorized' }, 401);
   }
   
-  if (!role_name || !action) {
-    return c.json({ error: 'role_name and action are required' }, 400);
+  if (!role) {
+    return c.json({ error: 'role is required' }, 400);
   }
   
-  if (!['grant', 'revoke'].includes(action)) {
-    return c.json({ error: 'action must be "grant" or "revoke"' }, 400);
+  if (!['user', 'admin', 'super_admin'].includes(role)) {
+    return c.json({ error: 'role must be "user", "admin", or "super_admin"' }, 400);
   }
   
   try {
     // 세션 확인
     const session = await DB.prepare(
-      'SELECT s.*, u.id as user_id FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
-    ).bind(sessionToken).first();
+      'SELECT s.*, u.id as user_id, u.role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.session_token = ? AND s.expires_at > datetime("now", "+9 hours")'
+    ).bind(sessionToken).first<any>();
     
     if (!session) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
     
     // 최고관리자 권한 확인
-    const userRoles = await DB.prepare(
-      `SELECT r.name FROM user_roles ur JOIN roles r ON ur.role_id = r.id WHERE ur.user_id = ?`
-    ).bind(session.user_id).all();
-    
-    const isSuperAdmin = userRoles.results?.some((r: any) => r.name === 'super_admin') || false;
-    
-    if (!isSuperAdmin) {
+    if (session.role !== 'super_admin') {
       return c.json({ error: 'Forbidden: Super admin access required' }, 403);
     }
     
-    // 역할 조회
-    const role = await DB.prepare('SELECT id FROM roles WHERE name = ?').bind(role_name).first();
+    // 역할 업데이트
+    await DB.prepare(
+      'UPDATE users SET role = ?, updated_at = datetime("now", "+9 hours") WHERE id = ?'
+    ).bind(role, userId).run();
     
-    if (!role) {
-      return c.json({ error: 'Role not found' }, 404);
-    }
-    
-    if (action === 'grant') {
-      // 역할 부여
-      // 중복 체크
-      const existing = await DB.prepare(
-        'SELECT id FROM user_roles WHERE user_id = ? AND role_id = ?'
-      ).bind(userId, role.id).first();
-      
-      if (existing) {
-        return c.json({ error: 'User already has this role' }, 400);
-      }
-      
-      await DB.prepare(
-        'INSERT INTO user_roles (user_id, role_id, granted_by, granted_at) VALUES (?, ?, ?, datetime("now", "+9 hours"))'
-      ).bind(userId, role.id, session.user_id).run();
-      
-      return c.json({ success: true, message: 'Role granted successfully' });
-    } else {
-      // 역할 회수
-      const deleted = await DB.prepare(
-        'DELETE FROM user_roles WHERE user_id = ? AND role_id = ?'
-      ).bind(userId, role.id).run();
-      
-      if (deleted.meta.changes === 0) {
-        return c.json({ error: 'User does not have this role' }, 400);
-      }
-      
-      return c.json({ success: true, message: 'Role revoked successfully' });
-    }
-  } catch (error) {
-    console.error('[Admin Manage Role Error]', error);
-    return c.json({ error: 'Internal server error' }, 500);
+    return c.json({ success: true, message: 'Role updated successfully' });
+  } catch (error: any) {
+    console.error('Error updating user role:', error);
+    return c.json({ error: 'Internal server error', details: error.message }, 500);
   }
 });
 
