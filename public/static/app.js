@@ -4525,15 +4525,21 @@ async function handleModalConfirm(modalId) {
 }
 
 function closeModal(modalId) {
+  console.log('[Modal] closeModal called for:', modalId);
   const modal = document.getElementById(modalId);
   if (modal) {
+    console.log('[Modal] Removing modal element');
     modal.remove();
+  } else {
+    console.warn('[Modal] Modal element not found:', modalId);
   }
   delete window[`modalConfirm_${modalId}`];
   
   // 모든 모달이 닫혔으면 블러 효과 제거
   const modalContainer = document.getElementById('modal-container');
+  console.log('[Modal] Checking modal container, children count:', modalContainer?.children.length || 0);
   if (!modalContainer || modalContainer.children.length === 0) {
+    console.log('[Modal] Removing blur effects');
     const sidebar = document.getElementById('sidebar');
     const tabBar = document.querySelector('[style*="position: sticky"]');
     const banner = document.getElementById('requirements-stats-banner');
@@ -5683,9 +5689,11 @@ function showChatRequirementModal(isResumed = false) {
     </div>
   `;
   
-  // 캐시된 메시지 복원
+  // DOM 렌더링 대기 후 캐시된 메시지 복원
   if (isResumed && window.chatMessages && window.chatMessages.length > 0) {
-    restoreChatMessages();
+    setTimeout(() => {
+      restoreChatMessages();
+    }, 100);
   }
 }
 
