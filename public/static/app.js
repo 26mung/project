@@ -5786,6 +5786,10 @@ async function sendChatMessage() {
 // 채팅 메시지 추가
 function addChatMessage(role, content, isThinking = false) {
   const messagesContainer = document.getElementById('chat-messages');
+  if (!messagesContainer) {
+    console.error('[Chat] addChatMessage: chat-messages container not found');
+    return null;
+  }
   const messageId = `chat-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   let avatar, bgColor, alignStyle, bubbleStyle;
