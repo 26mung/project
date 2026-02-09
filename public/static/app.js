@@ -4995,12 +4995,20 @@ async function deleteRequirement(requirementId) {
     confirmClass: 'bg-red-500 hover:bg-red-600',
     onConfirm: async () => {
       try {
-        await axios.delete(`${API_BASE}/requirements/${requirementId}`);
+        console.log('[삭제] 요건 삭제 시작:', requirementId);
+        const response = await axios.delete(`${API_BASE}/requirements/${requirementId}`);
+        console.log('[삭제] API 응답:', response.data);
+        
+        console.log('[삭제] 요건 목록 새로고침 중...');
         await renderRequirements();
+        console.log('[삭제] 새로고침 완료');
+        
         showToast('요건이 삭제되었습니다', 'success');
+        console.log('[삭제] 모달 닫기 준비 (return true)');
         return true;
       } catch (error) {
-        console.error('Failed to delete requirement:', error);
+        console.error('[삭제] 요건 삭제 실패:', error);
+        console.error('[삭제] 에러 상세:', error.response?.data);
         showToast('요건 삭제에 실패했습니다', 'error');
         return false;
       }
