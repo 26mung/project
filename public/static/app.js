@@ -5747,9 +5747,31 @@ async function sendChatMessage() {
     input.focus();
     
   } catch (error) {
-    console.error('Chat failed:', error);
+    console.error('[Chat] 전송 실패:', error);
+    console.error('[Chat] 에러 상세:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    
     removeChatMessage(thinkingId);
-    addChatMessage('system', `❌ 오류가 발생했습니다. 다시 시도해주세요.\n${error.response?.data?.message || error.message}`);
+    
+    let errorMessage = '❌ 오류가 발생했습니다. 다시 시도해주세요.';
+    
+    if (error.response) {
+      // 서버 응답 있음
+      if (error.response.data?.message) {
+        errorMessage += `\n\n상세: ${error.response.data.message}`;
+      } else if (error.response.status === 502) {
+        errorMessage += '\n\n서버가 일시적으로 응답하지 않습니다. 잠시 후 다시 시도해주세요.';
+      } else {
+        errorMessage += `\n\nHTTP ${error.response.status}`;
+      }
+    } else if (error.message) {
+      errorMessage += `\n\n상세: ${error.message}`;
+    }
+    
+    addChatMessage('system', errorMessage);
     input.disabled = false;
     input.focus();
   }
